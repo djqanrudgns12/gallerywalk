@@ -1,0 +1,8 @@
+# 갤러리 전용 cloudflared 터널 설정 틀. tunnel-create.sh가 __TUNNEL_ID__·__GW_USER__를 채워
+# /Users/gwsvc/gallery-server/cloudflared/config.yml(600)로 쓴다. 원본 주소 하나만 4520으로 보내고 나머지는 404.
+tunnel: __TUNNEL_ID__
+credentials-file: /Users/__GW_USER__/gallery-server/cloudflared/__TUNNEL_ID__.json
+ingress:
+  - hostname: origin-gallery.ssamuniverse.com
+    service: http://127.0.0.1:4520
+  - service: http_status:404

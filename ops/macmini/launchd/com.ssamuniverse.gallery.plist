@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 갤러리 운영 서버 데몬(ADR-040·060, PLAN §19). 127.0.0.1:4520에만 열고, 바깥 노출은 전용 터널만 맡는다.
+     비밀값은 이 파일(644)에 넣지 않고 gwsvc 전용 secrets/app.env(600)를 Node의 env-file 옵션으로 읽는다.
+     app은 현재 릴리스를 가리키는 링크다. 배포 스크립트가 링크를 바꾸고 이 프로세스에 SIGTERM을 보내면 KeepAlive가 새 릴리스로 다시 띄운다. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.ssamuniverse.gallery</string>
+  <key>UserName</key><string>__GW_USER__</string>
+  <key>WorkingDirectory</key><string>/Users/__GW_USER__/gallery-server/app/apps/server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/opt/node@24/bin/node</string>
+    <string>--env-file=/Users/__GW_USER__/gallery-server/secrets/app.env</string>
+    <string>/Users/__GW_USER__/gallery-server/app/apps/server/dist/index.js</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key><string>/Users/__GW_USER__</string>
+    <key>PATH</key><string>/opt/homebrew/opt/node@24/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    <key>NODE_ENV</key><string>production</string>
+    <key>PORT</key><string>4520</string>
+    <key>DATA_DIR</key><string>/Users/__GW_USER__/gallery-server/data</string>
+    <key>MEDIA_DIR</key><string>/Users/__GW_USER__/gallery-server/media</string>
+    <key>TMP_DIR</key><string>/Users/__GW_USER__/gallery-server/tmp</string>
+    <key>WEB_DIR</key><string>/Users/__GW_USER__/gallery-server/app/apps/web/dist</string>
+  </dict>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>5</integer>
+  <key>ExitTimeOut</key><integer>30</integer>
+  <key>StandardOutPath</key><string>/Users/__GW_USER__/gallery-server/logs/server.log</string>
+  <key>StandardErrorPath</key><string>/Users/__GW_USER__/gallery-server/logs/server.log</string>
+</dict>
+</plist>

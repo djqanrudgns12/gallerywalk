@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 갤러리 전용 cloudflared 터널(PLAN §19). origin-gallery.ssamuniverse.com → 127.0.0.1:4520. 메트릭 127.0.0.1:20243.
+     자격 증명·설정은 gwsvc의 cloudflared/(700)에 있다. 다른 앱의 터널(20241·20242)과 따로 돈다. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.ssamuniverse.gallery.tunnel</string>
+  <key>UserName</key><string>__GW_USER__</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/cloudflared</string>
+    <string>tunnel</string>
+    <string>--config</string>
+    <string>/Users/__GW_USER__/gallery-server/cloudflared/config.yml</string>
+    <string>--no-autoupdate</string>
+    <string>--metrics</string>
+    <string>127.0.0.1:20243</string>
+    <string>run</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>HOME</key><string>/Users/__GW_USER__</string></dict>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>/Users/__GW_USER__/gallery-server/logs/tunnel.log</string>
+  <key>StandardErrorPath</key><string>/Users/__GW_USER__/gallery-server/logs/tunnel.log</string>
+</dict>
+</plist>

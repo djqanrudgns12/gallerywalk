@@ -1,0 +1,34 @@
+# CI(ADR-060): main 푸시와 PR마다 GitHub 호스트 macOS에서 `npm run verify`(형식·타입·검사·시험·빌드).
+# 맥미니 자동 배포는 이 `verify` 확인이 성공한 main 커밋만 올린다. 맥미니에 self-hosted 러너를 두지 않는다
+# (공개 저장소라 외부인의 PR 코드가 운영 기기에서 돌 수 있기 때문).
+# macOS를 쓰는 이유: 운영과 같은 sips·afconvert로 HEIC·소리 시험까지 돌린다.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run verify
