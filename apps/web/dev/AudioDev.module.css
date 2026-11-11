@@ -1,0 +1,32 @@
+/* `/dev/audio` 전용 스타일 */
+.page {
+  padding: 16px;
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  background: #15110d;
+  color: #f2eadc;
+  min-height: 100dvh;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.row button {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 3px;
+  border: 1px solid #a8854e;
+  background: #2a1d14;
+  color: inherit;
+  font-size: 15px;
+}
+
+.snap {
+  margin-top: 16px;
+  font:
+    13px/1.45 ui-monospace,
+    Menlo,
+    monospace;
+}

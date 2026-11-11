@@ -1,0 +1,109 @@
+.navCluster {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--s-2);
+  font-family: var(--font-ui);
+}
+
+.quickTools {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.toolBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  padding: 0 var(--s-3);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stopGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.prevBtn {
+  width: 48px;
+  height: 50px;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-plate);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.prevBtn:disabled,
+.nextBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.nextBtn {
+  min-height: 50px;
+  padding: 0 var(--s-5);
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  cursor: pointer;
+}
+
+.count {
+  padding: 2px var(--s-2);
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  border-radius: var(--r-plate);
+  font-size: var(--fs-1);
+  font-weight: 700;
+}
+
+@media (max-width: 540px) {
+  .toolLabel {
+    display: none;
+  }
+
+  .toolBtn {
+    padding: 0;
+    width: var(--touch-min);
+  }
+
+  .prevBtn {
+    width: var(--touch-min);
+    height: 46px;
+  }
+
+  .nextBtn {
+    min-height: 46px;
+    padding: 0 var(--s-3);
+    font-size: var(--fs-2);
+    gap: var(--s-2);
+  }
+}

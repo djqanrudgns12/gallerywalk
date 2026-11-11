@@ -1,0 +1,83 @@
+{
+  "name": "@gallery/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "브라우저와 서버가 함께 쓰는 설정·오류·문구·타입·도메인(배치 엔진·쪽 나눔)",
+  "exports": {
+    ".": {
+      "@gallery/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./config": {
+      "@gallery/source": "./src/config.ts",
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config.js"
+    },
+    "./errors": {
+      "@gallery/source": "./src/errors.ts",
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
+    "./copy": {
+      "@gallery/source": "./src/copy/ko.ts",
+      "types": "./dist/copy/ko.d.ts",
+      "default": "./dist/copy/ko.js"
+    },
+    "./types": {
+      "@gallery/source": "./src/types/index.ts",
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/types/index.js"
+    },
+    "./pages": {
+      "@gallery/source": "./src/domain/pages/index.ts",
+      "types": "./dist/domain/pages/index.d.ts",
+      "default": "./dist/domain/pages/index.js"
+    },
+    "./layout": {
+      "@gallery/source": "./src/domain/layout/index.ts",
+      "types": "./dist/domain/layout/index.d.ts",
+      "default": "./dist/domain/layout/index.js"
+    },
+    "./motion": {
+      "@gallery/source": "./src/domain/motion/ease.ts",
+      "types": "./dist/domain/motion/ease.d.ts",
+      "default": "./dist/domain/motion/ease.js"
+    },
+    "./templates": {
+      "@gallery/source": "./src/domain/templates/index.ts",
+      "types": "./dist/domain/templates/index.d.ts",
+      "default": "./dist/domain/templates/index.js"
+    },
+    "./classify": {
+      "@gallery/source": "./src/domain/classify/index.ts",
+      "types": "./dist/domain/classify/index.d.ts",
+      "default": "./dist/domain/classify/index.js"
+    },
+    "./retention": {
+      "@gallery/source": "./src/domain/retention/index.ts",
+      "types": "./dist/domain/retention/index.d.ts",
+      "default": "./dist/domain/retention/index.js"
+    },
+    "./tour": {
+      "@gallery/source": "./src/domain/tour/index.ts",
+      "types": "./dist/domain/tour/index.d.ts",
+      "default": "./dist/domain/tour/index.js"
+    },
+    "./reactions": {
+      "@gallery/source": "./src/domain/reactions/index.ts",
+      "types": "./dist/domain/reactions/index.d.ts",
+      "default": "./dist/domain/reactions/index.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "fast-check": "4.10.2"
+  }
+}

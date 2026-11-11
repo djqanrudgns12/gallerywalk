@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gallery-web-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "@gallery/web"],
+      "port": 4522
+    },
+    {
+      "name": "gallery-server-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "@gallery/server"],
+      "port": 4521
+    }
+  ]
+}

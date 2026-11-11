@@ -1,0 +1,22 @@
+.hint {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--s-2) var(--s-3);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink-sub);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-1);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  margin: 0;
+}
+
+@media (max-width: 540px) {
+  .hint {
+    padding: 6px var(--s-2);
+    font-size: var(--fs-1);
+  }
+}

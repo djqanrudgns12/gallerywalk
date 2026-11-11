@@ -1,0 +1,323 @@
+.backdrop {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-4);
+  background-color: var(--scrim);
+  font-family: var(--font-ui);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 540px;
+  background-color: var(--plate-bg-elevated);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-top: 3px solid var(--accent-plum);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--s-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.titleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-1);
+  font-weight: 700;
+  color: var(--accent-plum);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--fs-5);
+  font-weight: 700;
+  color: var(--plate-ink);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: var(--fs-2);
+  color: var(--plate-ink-sub);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.closeBtn {
+  width: var(--touch-min);
+  height: var(--touch-min);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.charGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s-4);
+}
+
+.charCard {
+  position: relative;
+  padding: var(--s-4);
+  background-color: var(--plate-bg);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  text-align: center;
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+.charCardSelected {
+  background-color: var(--accent-plum-soft);
+  border: 2px solid var(--accent-plum);
+  padding: calc(var(--s-4) - 1px);
+}
+
+.checkCircle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  background-color: var(--accent-plum);
+  color: var(--badge-teacher-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.uncheckCircle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  background-color: var(--plate-bg-elevated);
+  border: 1.5px solid var(--plate-edge);
+}
+
+.silhouetteBox {
+  width: 100%;
+  height: 168px;
+  background-color: var(--surface-marble);
+  border: 1px dashed var(--plate-edge);
+  border-radius: var(--r-plate);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: var(--s-4) var(--s-2) var(--s-2);
+}
+
+.charCardSelected .silhouetteBox {
+  background-color: var(--plate-bg-elevated);
+  border: 1px solid var(--accent-plum);
+}
+
+.headBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 3px var(--s-2);
+  background-color: var(--badge-teacher-bg);
+  color: var(--badge-teacher-ink);
+  border: 1px solid var(--brass-border);
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headBadgeRole {
+  padding: 1px 5px;
+  background-color: var(--brass-soft);
+  color: var(--brass);
+  border-radius: var(--r-pill);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.charImg {
+  max-width: 100%;
+  max-height: 108px;
+  object-fit: contain;
+  display: block;
+}
+
+.charName {
+  font-size: var(--fs-3);
+  font-weight: 700;
+  color: var(--plate-ink);
+}
+
+.charCardSelected .charName {
+  color: var(--accent-plum);
+}
+
+.labelBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background-color: var(--surface-wall);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+}
+
+.labelLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.labelTitle {
+  font-size: var(--fs-2);
+  font-weight: 700;
+  color: var(--plate-ink);
+}
+
+.labelHint {
+  font-size: var(--fs-1);
+  color: var(--plate-ink-sub);
+}
+
+.labelInput {
+  width: 180px;
+  min-height: var(--touch-min);
+  padding: 0 var(--s-3);
+  background-color: var(--plate-bg-elevated);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  color: var(--plate-ink);
+  text-align: right;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-2);
+}
+
+.cancelBtn {
+  min-height: var(--touch-min);
+  padding: 0 var(--s-4);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.saveBtn {
+  min-height: var(--touch-min);
+  padding: 0 var(--s-5);
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 540px) {
+  .backdrop {
+    padding: var(--s-3);
+  }
+
+  .dialog {
+    padding: var(--s-4);
+    gap: var(--s-4);
+  }
+
+  .title {
+    font-size: var(--fs-4);
+  }
+
+  .charGrid {
+    gap: var(--s-2);
+  }
+
+  .charCard {
+    padding: var(--s-3) var(--s-2);
+  }
+
+  .charCardSelected {
+    padding: calc(var(--s-3) - 1px) calc(var(--s-2) - 1px);
+  }
+
+  .silhouetteBox {
+    height: 144px;
+  }
+
+  .charName {
+    font-size: var(--fs-2);
+  }
+
+  .labelBox {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .labelInput {
+    width: 100%;
+    text-align: left;
+  }
+
+  .footer {
+    width: 100%;
+  }
+
+  .cancelBtn,
+  .saveBtn {
+    flex: 1;
+  }
+}

@@ -1,0 +1,248 @@
+/* 별명·동의 시트 — 휴대폰은 아래 둥근 시트(0.3초), 넓은 화면은 가운데 카드. 색·간격·모서리·글꼴은 토큰·테마 변수만. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--s-4) + env(safe-area-inset-top)) calc(var(--s-4) + env(safe-area-inset-right))
+    calc(var(--s-4) + env(safe-area-inset-bottom)) calc(var(--s-4) + env(safe-area-inset-left));
+  background-color: var(--scrim);
+  animation: fadeIn var(--t-sheet) var(--ease-out);
+}
+
+.sheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s-6);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-ui);
+  animation: rise var(--t-sheet) var(--ease-out);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-5);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  color: var(--plate-ink);
+}
+
+.title:focus {
+  outline: none;
+}
+
+.points {
+  margin: var(--s-4) 0 0;
+  padding: var(--s-4) var(--s-4) var(--s-4) var(--s-8);
+  background-color: var(--surface-wall);
+  border: 1px solid var(--plate-edge);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-plate);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  font-size: var(--fs-2);
+  line-height: var(--lh-body);
+  color: var(--plate-ink);
+}
+
+.points strong {
+  font-weight: 700;
+}
+
+.field {
+  margin-top: var(--s-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.label {
+  font-size: var(--fs-3);
+  font-weight: 700;
+}
+
+.inputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 64px 0 var(--s-4);
+  background-color: var(--plate-bg-elevated);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+  font-weight: 600;
+  color: var(--plate-ink);
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.count {
+  position: absolute;
+  right: var(--s-3);
+  font-size: var(--fs-1);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.error,
+.notice {
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-plate);
+  font-size: var(--fs-2);
+  line-height: var(--lh-body);
+}
+
+.error {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+}
+
+.notice {
+  background-color: var(--status-warn-bg);
+  color: var(--status-warn);
+}
+
+.agree {
+  margin-top: var(--s-4);
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-size: var(--fs-3);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.check {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.actions {
+  margin-top: var(--s-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.primary,
+.secondary,
+.back {
+  min-height: var(--touch-min);
+  padding: 0 var(--s-5);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary {
+  min-height: 52px;
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  box-shadow: var(--shadow-plate);
+  font-size: var(--fs-4);
+}
+
+.secondary {
+  background-color: var(--plate-bg-elevated);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  font-size: var(--fs-3);
+}
+
+.back {
+  background: none;
+  color: var(--plate-ink-sub);
+  border: 0;
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.primary:disabled,
+.back:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.primary:focus-visible,
+.secondary:focus-visible,
+.back:focus-visible,
+.check:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(var(--s-6));
+    opacity: 0;
+  }
+}
+
+/* 휴대폰: 아래에서 올라오는 둥근 시트 */
+@media (max-width: 640px) {
+  .scrim {
+    align-items: flex-end;
+    padding: calc(var(--s-4) + env(safe-area-inset-top)) 0 0;
+  }
+
+  .sheet {
+    max-width: none;
+    border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+    border-bottom: 0;
+    box-shadow: var(--shadow-sheet);
+    padding: var(--s-5) calc(var(--s-4) + env(safe-area-inset-right))
+      calc(var(--s-5) + env(safe-area-inset-bottom)) calc(var(--s-4) + env(safe-area-inset-left));
+    animation-name: slideUp;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+/* 동작 줄이기(P4-11): 시트가 올라오지 않고 바로 보인다(반응 시트와 같음) */
+@media (prefers-reduced-motion: reduce) {
+  .scrim,
+  .sheet {
+    animation: none;
+  }
+}

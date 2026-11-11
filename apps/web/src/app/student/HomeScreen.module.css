@@ -1,0 +1,197 @@
+/* 첫 화면 — 박물관 벽 안내판(명판 테 + 황동 안쪽 선). 색·간격·모서리·글꼴은 토큰·테마 변수만. */
+.page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--loader-bg);
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+  padding: calc(var(--s-6) + env(safe-area-inset-top)) calc(var(--s-4) + env(safe-area-inset-right))
+    calc(var(--s-6) + env(safe-area-inset-bottom)) calc(var(--s-4) + env(safe-area-inset-left));
+}
+
+.center {
+  margin: auto;
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.plate {
+  position: relative;
+  width: 100%;
+  padding: var(--s-10) var(--s-8) var(--s-8);
+  background-color: var(--plate-bg);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+/* 명판 안쪽 황동 선 */
+.plate::before {
+  content: '';
+  position: absolute;
+  inset: var(--s-2);
+  border: 1px solid var(--brass-border);
+  border-radius: var(--r-plate);
+  pointer-events: none;
+}
+
+.pediment {
+  display: block;
+  width: 72px;
+  height: 26px;
+  margin: 0 auto var(--s-3);
+  fill: none;
+  stroke: var(--brass);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.pediment circle {
+  fill: var(--brass-soft);
+}
+
+.kicker {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--brass);
+}
+
+.title {
+  margin: var(--s-2) 0 var(--s-6);
+  font-family: var(--font-display);
+  font-size: var(--fs-6);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  color: var(--plate-ink);
+}
+
+.cells {
+  position: relative;
+  display: grid;
+  /* 칸 수(grid-template-columns)는 ENTRY_CODE_DIGITS로 화면 파일이 정한다 */
+  gap: var(--s-2);
+  max-width: 360px;
+  margin: 0 auto;
+  cursor: text;
+}
+
+.cell {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--plate-bg-elevated);
+  border: 1.5px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  font-family: var(--font-display);
+  font-size: var(--fs-6);
+  font-weight: 700;
+  color: var(--accent);
+  transition: border-color var(--t-hover) var(--ease-out);
+}
+
+.cell[data-filled='1'] {
+  border-color: var(--brass-border);
+}
+
+.cellActive {
+  position: relative;
+  border: 2px solid var(--accent);
+}
+
+/* 비어 있는 다음 칸의 깜빡이는 막대 */
+.cellActive[data-filled='0']::after {
+  content: '';
+  width: 2px;
+  height: 45%;
+  background-color: var(--accent);
+  animation: caret 1.1s steps(1) infinite;
+}
+
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 진짜 입력 칸: 숫자 칸 위에 겹쳐 두고 글자·커서는 숨긴다(16px — iOS가 확대하지 않게) */
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: var(--fs-3);
+  letter-spacing: 0;
+  opacity: 0;
+  cursor: text;
+}
+
+.cells:has(.input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: var(--s-1);
+  border-radius: var(--r-plate);
+}
+
+.hint {
+  margin: var(--s-5) 0 0;
+  font-size: var(--fs-2);
+  line-height: var(--lh-body);
+  color: var(--plate-ink-sub);
+}
+
+.teacher {
+  min-height: var(--touch-min);
+  padding: 0 var(--s-4);
+  background: none;
+  border: 0;
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  color: var(--plate-ink-sub);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.teacher:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 540px) {
+  .plate {
+    padding: var(--s-8) var(--s-4) var(--s-6);
+  }
+
+  .title {
+    font-size: var(--fs-5);
+    margin-bottom: var(--s-5);
+  }
+
+  .cell {
+    min-height: 54px;
+    font-size: var(--fs-5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cellActive[data-filled='0']::after {
+    animation: none;
+  }
+}

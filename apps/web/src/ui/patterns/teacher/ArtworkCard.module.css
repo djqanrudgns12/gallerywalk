@@ -1,0 +1,386 @@
+.card {
+  position: relative;
+  background-color: var(--plate-bg-elevated);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-plate);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+.cardSelected {
+  border: 2px solid var(--accent);
+  background-color: var(--accent-soft);
+  box-shadow: var(--shadow-card);
+}
+
+.cardDragging {
+  border: 2px dashed var(--accent);
+  background-color: var(--plate-bg-elevated);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-3px);
+  z-index: 5;
+}
+
+.wallStage {
+  position: relative;
+  flex: 1;
+  min-height: 140px;
+  background-color: var(--surface-wall);
+  border-bottom: 1px solid var(--plate-edge);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 16px 22px;
+  overflow: hidden;
+}
+
+.wallStage::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 10px;
+  background-color: var(--surface-oak);
+  border-top: 1px solid var(--brass-border);
+}
+
+.stageTopLeft {
+  position: absolute;
+  top: var(--s-2);
+  left: var(--s-2);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.stageTopRight {
+  position: absolute;
+  top: var(--s-2);
+  right: var(--s-2);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.checkBadge {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-plate);
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.featuredTag {
+  padding: 2px 7px;
+  background-color: var(--brass-soft);
+  border: 1px solid var(--brass-border);
+  border-radius: var(--r-plate);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  color: var(--brass);
+}
+
+.dragTag {
+  padding: 2px var(--s-2);
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border-radius: var(--r-plate);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.miniFrame {
+  position: relative;
+  z-index: 2;
+  background-color: var(--frame-outer);
+  border: 1.5px solid var(--frame-inner);
+  box-shadow: var(--shadow-frame);
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.miniMat {
+  width: 100%;
+  height: 100%;
+  background-color: var(--mat-light);
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.miniMatDark {
+  background-color: var(--mat-dark);
+}
+
+.miniMatTight {
+  padding: 3px;
+}
+
+.miniArt {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: hidden;
+}
+
+.thumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 형태 7종(+MULTIPAGE) 비율 */
+.frame_LANDSCAPE {
+  width: 168px;
+  height: 108px;
+}
+
+.frame_PORTRAIT {
+  width: 96px;
+  height: 124px;
+}
+
+.frame_SQUARE {
+  width: 114px;
+  height: 114px;
+}
+
+.frame_PANORAMA {
+  width: 212px;
+  height: 88px;
+}
+
+.frame_TALL {
+  width: 78px;
+  height: 130px;
+  padding: 4px;
+}
+
+.frame_TEXTCARD {
+  width: 102px;
+  height: 126px;
+}
+
+.frame_MULTIPAGE {
+  width: 100px;
+  height: 126px;
+}
+
+.frame_SOUND {
+  width: 176px;
+  height: 98px;
+  background-color: var(--mat-dark);
+  border: 1.5px solid var(--brass-border);
+  border-radius: var(--r-plate);
+  padding: var(--s-2) 10px;
+}
+
+.tallContinueStrip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+  padding: 2px 0;
+}
+
+.info {
+  padding: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: var(--plate-bg-elevated);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+
+.title {
+  font-size: var(--fs-3);
+  font-weight: 700;
+  color: var(--plate-ink);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.author {
+  font-size: var(--fs-1);
+  font-weight: 600;
+  color: var(--plate-ink-sub);
+  flex-shrink: 0;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.formSpec {
+  font-size: var(--fs-1);
+  font-weight: 600;
+  color: var(--plate-ink-sub);
+}
+
+.badgeGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  flex-wrap: wrap;
+}
+
+.stateChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 2px 7px;
+  border-radius: var(--r-plate);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.state_PUBLISHED {
+  background-color: var(--status-ok-bg);
+  color: var(--status-ok);
+}
+
+.state_PROCESSING {
+  background-color: var(--status-warn-bg);
+  color: var(--status-warn);
+}
+
+.state_HIDDEN {
+  background-color: var(--status-muted-bg);
+  color: var(--status-muted);
+}
+
+.state_FAILED {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+}
+
+.warnChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  background-color: var(--status-warn-bg);
+  border: 1px solid var(--brass-border);
+  border-radius: var(--r-plate);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--status-warn);
+}
+
+.warnChipDanger {
+  background-color: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+@media (max-width: 1220px) {
+  .wallStage {
+    min-height: 124px;
+    padding: 14px 12px 18px;
+  }
+
+  .frame_PANORAMA {
+    width: 186px;
+    height: 78px;
+  }
+
+  .frame_LANDSCAPE {
+    width: 152px;
+    height: 98px;
+  }
+
+  .frame_SOUND {
+    width: 162px;
+    height: 90px;
+  }
+}
+
+@media (max-width: 540px) {
+  .wallStage {
+    min-height: 94px;
+    padding: 10px 8px 14px;
+  }
+
+  .frame_LANDSCAPE {
+    width: 122px;
+    height: 76px;
+  }
+
+  .frame_PORTRAIT {
+    width: 68px;
+    height: 86px;
+  }
+
+  .frame_SQUARE {
+    width: 80px;
+    height: 80px;
+  }
+
+  .frame_PANORAMA {
+    width: 138px;
+    height: 58px;
+  }
+
+  .frame_TALL {
+    width: 58px;
+    height: 90px;
+  }
+
+  .frame_TEXTCARD,
+  .frame_MULTIPAGE {
+    width: 72px;
+    height: 88px;
+  }
+
+  .frame_SOUND {
+    width: 132px;
+    height: 72px;
+    padding: 5px 6px;
+  }
+
+  .info {
+    padding: 6px var(--s-2);
+    gap: 3px;
+  }
+
+  .title {
+    font-size: var(--fs-1);
+  }
+}

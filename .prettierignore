@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.local/
+package-lock.json
+*.sqlite*
+*.md
+apps/web/src/ui/icons.generated.tsx
+# 에셋 파이프라인이 만드는 파일
+apps/web/src/tpl/**/manifest.json

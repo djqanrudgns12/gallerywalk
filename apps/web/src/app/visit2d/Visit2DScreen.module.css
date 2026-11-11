@@ -1,0 +1,508 @@
+/* 2D 대체 화면(P4-10): 미술관 벽(회반죽 + 참나무 징두리) 위에 액자 하나. 색·간격·모서리·그림자·글꼴은 토큰·테마 변수만. */
+.stage {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--surface-wall);
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 벽 아래 징두리 판벽(그림은 그 위 벽에 걸린다) */
+.wainscot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22%;
+  background-color: var(--surface-oak);
+  border-top: 3px solid var(--brass-border);
+  pointer-events: none;
+}
+
+.plate,
+.banner,
+.notice,
+.sound,
+.side,
+.exit,
+.audio,
+.showCaption,
+.textCard,
+.frame {
+  box-sizing: border-box;
+}
+
+.plate {
+  background-color: var(--plate-bg);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-plate);
+}
+
+/* 위 줄: 전시 이름 · 지금 전시실 · 소리 */
+.top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: calc(var(--s-3) + env(safe-area-inset-top)) calc(var(--s-3) + env(safe-area-inset-right)) 0
+    calc(var(--s-3) + env(safe-area-inset-left));
+}
+
+.titlePlate {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: var(--touch-min);
+  min-width: 0;
+  margin-right: auto;
+  padding: 0 var(--s-4);
+  color: var(--plate-ink);
+}
+
+.accentBar {
+  width: 3px;
+  height: 18px;
+  background-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--fs-3);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sep {
+  width: 1px;
+  height: 14px;
+  background-color: var(--plate-edge);
+  flex-shrink: 0;
+}
+
+.place {
+  font-size: var(--fs-2);
+  font-weight: 600;
+  color: var(--plate-ink-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sound {
+  flex-shrink: 0;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  padding: 0 var(--s-3);
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sound[aria-pressed='false'] {
+  color: var(--plate-ink-sub);
+}
+
+/* 위 줄 아래 가운데: 바뀜 띠 · 2D 안내 한 줄 */
+.overlays {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: calc(var(--s-3) + var(--touch-min) + var(--s-2) + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--s-3));
+  pointer-events: none;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+  max-width: 100%;
+  color: var(--plate-ink);
+  pointer-events: auto;
+}
+
+.notice {
+  margin: 0;
+  padding: var(--s-2) var(--s-4);
+  max-width: 100%;
+  font-size: var(--fs-2);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  color: var(--plate-ink-sub);
+  text-align: center;
+}
+
+/* 가운데 벽: 액자 자리 + 양옆 넘기기 단추. 가로 밀기는 화면이 받고 세로 끌기는 그대로 */
+.wall {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  padding: var(--s-12) calc(var(--touch-min) + var(--s-6)) var(--s-4);
+  touch-action: pan-y;
+}
+
+.slot {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.slide {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: slideIn var(--t-page) var(--ease-out);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+  }
+}
+
+.side {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--touch-min);
+  height: calc(var(--touch-min) + var(--s-6));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-plate);
+  cursor: pointer;
+}
+
+.side:disabled {
+  color: var(--plate-edge);
+  box-shadow: none;
+  cursor: default;
+}
+
+.prev {
+  left: calc(var(--s-3) + env(safe-area-inset-left));
+}
+
+.next {
+  right: calc(var(--s-3) + env(safe-area-inset-right));
+}
+
+/* 액자: 바깥 테(참나무) + 안쪽 황동 선 + 매트. 크기는 화면이 3D 벽 비율로 맞춰 넣는다 */
+.frame {
+  margin: 0;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--s-3) solid var(--frame-outer);
+  padding: var(--s-4);
+  background-color: var(--mat-light);
+  box-shadow:
+    var(--shadow-frame),
+    inset 0 0 0 1px var(--frame-inner);
+}
+
+.frame[data-mat='dark'] {
+  background-color: var(--mat-dark);
+}
+
+.art {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.thumb,
+.picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-user-drag: none;
+}
+
+.thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.picture {
+  position: relative;
+}
+
+/* 글 작품: 종이 카드(PRD 6.8). 글자 크기는 화면이 `font-size`로 넣는다(em 기준) */
+.textCard {
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1.2em 1.5em 0.8em;
+  background-color: var(--map-paper);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-frame);
+  font-family: var(--font-display);
+  overflow: hidden;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.textTitle {
+  margin: 0 0 0.7em;
+  padding-bottom: 0.4em;
+  border-bottom: 2px solid var(--brass);
+  font-size: 1.15em;
+  font-weight: 700;
+  line-height: var(--lh-tight);
+}
+
+.textBody {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.textPage {
+  animation: slideIn var(--t-page) var(--ease-out);
+}
+
+.textPara {
+  margin: 0 0 0.8em;
+  line-height: 1.7;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.textPoem {
+  white-space: pre-line;
+}
+
+/* 같은 폭·글꼴로 덩어리 높이를 재는 숨은 상자 */
+.textProbe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.textFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  min-height: var(--touch-min);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  color: var(--plate-ink-sub);
+}
+
+.textAuthor {
+  color: var(--plate-ink-sub);
+}
+
+.textPager {
+  font-weight: 700;
+  color: var(--plate-ink);
+}
+
+/* 소리 작품 명판 */
+.audio {
+  width: min(100%, 420px);
+  padding: var(--s-6) var(--s-5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  text-align: center;
+  border-top: 2px solid var(--brass-border);
+  font-family: var(--font-display);
+}
+
+.audioMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--s-16);
+  height: var(--s-16);
+  border-radius: var(--r-pill);
+  background-color: var(--brass-soft);
+  color: var(--brass);
+}
+
+.audioTitle {
+  margin: 0;
+  font-size: var(--fs-5);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+}
+
+.audioAuthor {
+  margin: 0;
+  font-family: var(--font-ui);
+  color: var(--plate-ink-sub);
+}
+
+/* 출구: 고마움 인사 · 작품 수 · 처음부터 다시 보기 · 처음으로 */
+.exit {
+  width: min(100%, 420px);
+  padding: var(--s-6) var(--s-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  text-align: center;
+  border-top: 2px solid var(--brass-border);
+}
+
+.exitTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-5);
+  font-weight: 700;
+  color: var(--plate-ink);
+}
+
+.exitSub {
+  margin: 0;
+  color: var(--plate-ink-sub);
+}
+
+.exitActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+
+.primary,
+.secondary {
+  min-height: var(--touch-min);
+  padding: 0 var(--s-5);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  cursor: pointer;
+}
+
+.primary {
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+}
+
+.secondary {
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+}
+
+/* 아래: 크게 보기와 같은 캡션 · 공개 반응 */
+.caption {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 0 calc(var(--s-3) + env(safe-area-inset-right)) calc(var(--s-3) + env(safe-area-inset-bottom))
+    calc(var(--s-3) + env(safe-area-inset-left));
+}
+
+.caption > * {
+  width: 100%;
+  max-width: var(--caption-max-w);
+}
+
+.caption > .showCaption {
+  width: auto;
+}
+
+.showCaption {
+  min-height: var(--touch-min);
+  padding: 0 var(--s-5);
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 휴대폰: 아이콘만, 넘기기 단추는 벽 아래 양 끝(액자가 폭을 다 쓰게) */
+@media (max-width: 600px) {
+  .soundLabel {
+    display: none;
+  }
+
+  .wall {
+    padding: var(--s-12) calc(var(--s-3) + env(safe-area-inset-right))
+      calc(var(--touch-min) + var(--s-3) + var(--s-2)) calc(var(--s-3) + env(safe-area-inset-left));
+  }
+
+  .side {
+    top: auto;
+    bottom: var(--s-2);
+    transform: none;
+    width: calc(var(--touch-min) + var(--s-4));
+    height: var(--touch-min);
+  }
+}
+
+/* 동작 줄이기: 바로 바뀐다 */
+@media (prefers-reduced-motion: reduce) {
+  .slide,
+  .textPage {
+    animation: none;
+  }
+}

@@ -1,0 +1,191 @@
+.stage {
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-6) var(--s-8);
+  background-color: var(--loader-bg);
+  color: var(--loader-ink);
+  font-family: var(--font-ui);
+}
+
+.center {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-6);
+  text-align: center;
+}
+
+.silhouetteFrame {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  height: 280px;
+  background-color: var(--plate-bg);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--s-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.silhouetteSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@keyframes drawFacade {
+  0% {
+    stroke-dashoffset: 185;
+  }
+  50% {
+    stroke-dashoffset: 40;
+  }
+  100% {
+    stroke-dashoffset: 260;
+  }
+}
+
+@keyframes drawBrass {
+  0% {
+    stroke-dashoffset: 75;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 120;
+  }
+}
+
+@keyframes pulseNode {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.22);
+    opacity: 0.65;
+  }
+}
+
+.lineGuide {
+  fill: none;
+  stroke: var(--plate-edge);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 4;
+}
+
+.lineDrawPrimary {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 820;
+  stroke-dashoffset: 185;
+  animation: drawFacade 3.2s var(--ease-out) infinite alternate;
+}
+
+.lineDrawBrass {
+  fill: none;
+  stroke: var(--brass);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 480;
+  stroke-dashoffset: 75;
+  animation: drawBrass 3.2s var(--ease-out) infinite alternate;
+}
+
+.penPoint {
+  transform-origin: center;
+  animation: pulseNode 1.6s ease-in-out infinite;
+}
+
+.info {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--fs-6);
+  font-weight: 700;
+  color: var(--loader-ink);
+  margin: 0;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  color: var(--loader-sub);
+}
+
+.pct {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 4px;
+  background-color: var(--loader-track);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background-color: var(--loader-fill);
+}
+
+.subhint {
+  font-size: var(--fs-2);
+  color: var(--loader-sub);
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lineDrawPrimary,
+  .lineDrawBrass {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .penPoint {
+    animation: none;
+  }
+}
+
+@media (max-width: 540px) {
+  .stage {
+    padding: var(--s-4);
+  }
+
+  .silhouetteFrame {
+    height: 210px;
+    padding: var(--s-3);
+  }
+
+  .title {
+    font-size: var(--fs-5);
+  }
+}

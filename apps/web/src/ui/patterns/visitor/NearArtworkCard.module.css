@@ -1,0 +1,117 @@
+.card {
+  /* 안쪽 여백을 폭에 넣는다 — 없으면 100%에 여백이 더해져 좁은 화면 밖으로 넘친다 */
+  box-sizing: border-box;
+  width: min(520px, 100%);
+  background-color: var(--plate-bg-elevated);
+  color: var(--plate-ink);
+  border: 1px solid var(--brass-border);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--s-3) var(--s-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  font-family: var(--font-ui);
+}
+
+.info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-1);
+  font-weight: 700;
+  color: var(--brass);
+}
+
+.featuredBadge {
+  padding: 1px 6px;
+  background-color: var(--brass-soft);
+  border: 1px solid var(--brass-border);
+  border-radius: var(--r-plate);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  color: var(--brass);
+}
+
+.stopLabel {
+  color: var(--plate-ink-sub);
+  font-weight: 600;
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--fs-4);
+  font-weight: 700;
+  color: var(--plate-ink);
+  margin: 0;
+}
+
+.author {
+  font-size: var(--fs-2);
+  font-weight: 600;
+  color: var(--plate-ink-sub);
+}
+
+.caption {
+  font-size: var(--fs-2);
+  color: var(--plate-ink-sub);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.zoomBtn {
+  flex-shrink: 0;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  padding: 0 var(--s-4);
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+@media (max-width: 540px) {
+  .card {
+    padding: var(--s-3);
+    gap: var(--s-2);
+  }
+
+  .title {
+    font-size: var(--fs-3);
+  }
+
+  .caption {
+    font-size: var(--fs-1);
+  }
+
+  .zoomBtn {
+    padding: 0 var(--s-3);
+    font-size: var(--fs-1);
+  }
+}

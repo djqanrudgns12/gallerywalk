@@ -1,0 +1,28 @@
+/*
+ * 앱 전역 바탕(P4-1). 부품 CSS가 너비 100% + 안쪽 여백을 쓰므로 `border-box`를 전역으로 둔다.
+ * 높이는 동적 뷰포트(100dvh), 바깥 스크롤 튕김·두 번 탭 확대는 막는다(PRD 9.5). 색은 화면마다 테마 변수로.
+ */
+:global(*),
+:global(*::before),
+:global(*::after) {
+  box-sizing: border-box;
+}
+
+:global(html),
+:global(body) {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  overscroll-behavior: none;
+}
+
+:global(body) {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+:global(#root) {
+  min-height: 100dvh;
+}

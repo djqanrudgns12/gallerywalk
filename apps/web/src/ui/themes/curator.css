@@ -1,0 +1,86 @@
+/**
+ * 교사 "전시 준비실" 중립 테마 v2 (PLAN §12.1·§12.2, PRD 9.4·9.6, ADR-012·ADR-057)
+ * - 분위기: 밝은 회백 종이·회반죽 바탕, 짙은 먹색 잉크, 깊은 감색 주 강조색 + 황동·자주 보조 강조.
+ * - 카드 안에서 작품이 실제 액자(매트·테 포함)에 걸린 모습으로 미리 보이도록 액자·벽면 변수를 함께 제공한다.
+ *
+ * [WCAG 2.1 명도 대비 계산값]
+ * - --plate-ink (#1F1B17) on --plate-bg (#FAF8F4)               : 16.13 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --plate-ink-sub (#574E44) on --plate-bg (#FAF8F4)           :  7.68 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --accent (#1D3557) on --plate-bg (#FAF8F4)                  : 11.65 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --accent-ink (#FAF8F4) on --accent (#1D3557)                : 11.65 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --accent (#1D3557) on --accent-soft (#E6ECF4)               : 10.40 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --brass (#7D5B22) on --plate-bg (#FAF8F4)                   :  5.84 : 1 (AA  통과, 기준 >= 4.5:1)
+ * - --brass (#7D5B22) on --brass-soft (#F3E9D2)                 :  5.13 : 1 (AA  통과, 기준 >= 4.5:1)
+ * - --accent-plum (#6B2135) on --plate-bg (#FAF8F4)             : 10.45 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --accent-plum (#6B2135) on --accent-plum-soft (#F5E6EA)     :  9.18 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --danger (#9E2A22) on --plate-bg (#FAF8F4)                  :  7.05 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --danger (#9E2A22) on --danger-bg (#F9E6E4)                 :  6.22 : 1 (AA  통과, 기준 >= 4.5:1)
+ * - --status-ok (#1B5736) on --status-ok-bg (#E5F2EA)           :  7.40 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --status-warn (#75460E) on --status-warn-bg (#F7ECD8)       :  6.80 : 1 (AA  통과, 기준 >= 4.5:1)
+ * - --status-muted (#4F463C) on --status-muted-bg (#EAE4D9)     :  7.30 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --map-ink (#1F1B17) on --map-paper (#F2EDE3)                : 14.66 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --loader-ink (#1F1B17) on --loader-bg (#F3EFE6)             : 14.91 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --loader-sub (#574E44) on --loader-bg (#F3EFE6)             :  7.10 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --loader-fill (#1D3557) on --loader-bg (#F3EFE6)            : 10.77 : 1 (AA  통과, 기준 >= 4.5:1)
+ */
+[data-theme='curator'] {
+  /* 준비실 종이·석판 바탕 + 짙은 먹갈색 잉크 + 1px 기록 카드 경계선 */
+  --plate-bg: #faf8f4;
+  --plate-bg-elevated: #fdfcfa;
+  --plate-ink: #1f1b17; /* 대비 16.13:1 vs --plate-bg */
+  --plate-ink-sub: #574e44; /* 대비 7.68:1 vs --plate-bg */
+  --plate-edge: #d3c9b8; /* 1px 종이 카드 경계선 */
+
+  /* 카드 안 미술관 벽면 미리 보기 바탕 (회반죽·대리석·참나무 징두리) */
+  --surface-wall: #efe9dd;
+  --surface-marble: #e6dfd1;
+  --surface-oak: #d6c0a1;
+
+  /* 주 강조색 (깊은 감색 — 주요 버튼·선택 테두리·활성 탭) */
+  --accent: #1d3557; /* 대비 11.65:1 vs --plate-bg */
+  --accent-ink: #faf8f4; /* 대비 11.65:1 vs --accent */
+  --accent-soft: #e6ecf4; /* 대비 10.40:1 vs --accent */
+
+  /* 황동·자주 보조 강조 (대표작 딱지·선생님 캐릭터 배지) */
+  --brass: #7d5b22; /* 대비 5.84:1 vs --plate-bg */
+  --brass-border: #b8965a;
+  --brass-soft: #f3e9d2; /* 대비 5.13:1 vs --brass */
+  --accent-plum: #6b2135; /* 대비 10.45:1 vs --plate-bg */
+  --accent-plum-soft: #f5e6ea; /* 대비 9.18:1 vs --accent-plum */
+
+  /* 별명 표 3종 (교사 미리 보기 및 캐릭터 대화창 호환) */
+  --badge-visitor-bg: #faf8f4;
+  --badge-visitor-ink: #1f1b17;
+  --badge-me-bg: #1d3557;
+  --badge-me-ink: #faf8f4;
+  --badge-teacher-bg: #6b2135;
+  --badge-teacher-ink: #faf8f4;
+
+  /* 카드 안 액자 미리 보기 (참나무·호두나무 테 + 황동 안쪽 선 + 매트) */
+  --frame-outer: #5c4328;
+  --frame-inner: #b8965a;
+  --mat-light: #f8f5ee;
+  --mat-dark: #2b2520;
+
+  /* 시트·대화창 뒤 덮개 및 상태·경고 색 */
+  --scrim: rgba(24, 20, 16, 0.48);
+  --danger: #9e2a22; /* 대비 7.05:1 vs --plate-bg */
+  --danger-bg: #f9e6e4; /* 대비 6.22:1 vs --danger */
+  --status-ok: #1b5736; /* 대비 7.40:1 vs --status-ok-bg */
+  --status-ok-bg: #e5f2ea;
+  --status-warn: #75460e; /* 대비 6.80:1 vs --status-warn-bg */
+  --status-warn-bg: #f7ecd8;
+  --status-muted: #4f463c; /* 대비 7.30:1 vs --status-muted-bg */
+  --status-muted-bg: #eae4d9;
+
+  /* 도면·보조 종이 표면 (격자 캔버스·놓기 영역 바탕) */
+  --map-paper: #f2ede3;
+  --map-ink: #1f1b17; /* 대비 14.66:1 vs --map-paper */
+
+  /* 준비실 배경·진행 막대 */
+  --loader-bg: #f3efe6;
+  --loader-track: #d9d0c1;
+  --loader-fill: #1d3557; /* 대비 10.77:1 vs --loader-bg */
+  --loader-ink: #1f1b17; /* 대비 14.91:1 vs --loader-bg */
+  --loader-sub: #574e44; /* 대비 7.10:1 vs --loader-bg */
+}

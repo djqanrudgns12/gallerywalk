@@ -1,0 +1,111 @@
+/**
+ * 공통 디자인 토큰 (PLAN §12.2, PRD 8.2·9.5·9.6, ADR-012·ADR-057)
+ * - 색 변수는 테마 파일(themes/*.css)의 [data-theme]에서만 정의한다.
+ * - 간격은 4px 단위, 글자 크기는 7단계, 줄 간격은 2개, 모서리·그림자·조작 크기를 정의한다.
+ * - 움직임 시간은 PRD 8.2 장면별 기준 표와 같게 맞춘다.
+ */
+:root {
+  /* 글꼴 (P1-7 추천: 제목 세리프 Hahmlet + 본문 고딕 Pretendard/시스템) */
+  --font-ui:
+    'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  --font-display: 'Hahmlet', 'BookkMyungjo', 'AppleMyungjo', 'NanumMyeongjo', serif;
+
+  /* 간격 (4px 단위) + 최소 터치 영역 (PRD 9.5: 44x44px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --s-1: var(--space-1);
+  --s-2: var(--space-2);
+  --s-3: var(--space-3);
+  --s-4: var(--space-4);
+  --s-5: var(--space-5);
+  --s-6: var(--space-6);
+  --s-7: var(--space-7);
+  --s-8: var(--space-8);
+  --s-10: var(--space-10);
+  --s-12: var(--space-12);
+  --s-16: var(--space-16);
+
+  --touch-min: 44px;
+  --caption-max-w: 720px;
+  --joystick-size: 112px;
+  --joystick-knob: 44px;
+
+  /* 글자 크기 7단계 (PLAN §12.2) */
+  --fs-1: 0.75rem; /* 12px: 배지·메타·삭제 예정일·머리 위 이름표 보조 */
+  --fs-2: 0.875rem; /* 14px: 안내판 버튼·칩·보조 설명·관람객 이름표 */
+  --fs-3: 1rem; /* 16px: 기본 본문·위치 표시·입력 칸 */
+  --fs-4: 1.125rem; /* 18px: 캡션 제목·휴대폰 글 카드 최소 */
+  --fs-5: 1.375rem; /* 22px: 시트 제목·전시실 이름판·데스크톱 글 카드 최소 */
+  --fs-6: 1.75rem; /* 28px: 교사 관리 머리말·포스터 부제 */
+  --fs-7: 2.5rem; /* 40px: 포스터 전시 이름 조판 */
+
+  --text-xs: var(--fs-1);
+  --text-sm: var(--fs-2);
+  --text-base: var(--fs-3);
+  --text-md: var(--fs-4);
+  --text-lg: var(--fs-5);
+  --text-xl: var(--fs-6);
+  --text-2xl: var(--fs-7);
+
+  /* 줄 간격 2개 */
+  --lh-tight: 1.3;
+  --lh-body: 1.65;
+
+  /* 모서리: 박물관 벽 명판(3px), 카드(6px), 아래 둥근 시트(16px), 알약형 이름표(999px) */
+  --r-plate: 3px;
+  --r-card: 6px;
+  --r-sheet: 16px;
+  --r-pill: 999px;
+
+  /* 그림자: 밝은 미술관 명판에 어울리는 얇고 단단한 그림자 (순검정 미사용) */
+  --shadow-plate: 0 2px 8px rgba(28, 23, 18, 0.1), 0 1px 2px rgba(28, 23, 18, 0.07);
+  --shadow-card: 0 6px 20px rgba(28, 23, 18, 0.09), 0 1px 3px rgba(28, 23, 18, 0.06);
+  --shadow-frame: 0 3px 10px rgba(28, 23, 18, 0.16), 0 1px 2px rgba(28, 23, 18, 0.12);
+  --shadow-sheet: 0 -8px 28px rgba(28, 23, 18, 0.14), 0 -2px 6px rgba(28, 23, 18, 0.08);
+
+  /* 움직임 시간 (PRD 8.2 장면별 기준 표) */
+  --t-enter: 1600ms; /* 포스터 -> 입장: 1.6초 */
+  --t-stop-min: 900ms; /* 정지 지점 이동 최소: 0.9초 */
+  --t-stop-max: 1400ms; /* 정지 지점 이동 최대: 1.4초 */
+  --t-room-min: 1600ms; /* 전시실 이동 최소: 1.6초 */
+  --t-room-max: 2200ms; /* 전시실 이동 최대: 2.2초 */
+  --t-bgm-crossfade: 1500ms; /* 배경음악 교차 페이드: 1.5초 */
+  --t-zoom: 800ms; /* 작품 줌인: 0.8초 */
+  --t-zoom-caption-delay: 250ms; /* 캡션 카드 지연 등장: 0.25초 */
+  --t-unzoom: 600ms; /* 줌아웃: 0.6초 */
+  --t-page: 350ms; /* 쪽 넘김: 0.35초 */
+  --t-hover: 200ms; /* 액자·버튼 마우스 올림: 0.2초 */
+  --t-sheet: 300ms; /* 아래 시트 등장: 0.3초 */
+  --t-reduced: 300ms; /* 동작 줄이기 전환: 0.3초 */
+  --t-texture-swap: 200ms; /* 텍스처 바꿔 끼우기: 0.2초 */
+  --t-html-swap: 120ms; /* 줌 HTML 층 겹침: 0.12초 */
+
+  /* 움직임 곡선 2개 (PLAN §4.8, §12.2) */
+  --ease-move: cubic-bezier(0.45, 0, 0.15, 1); /* 출발 가속 짧게·도착 감속 길게 */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1); /* 시트·캡션 등장 감속 */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-enter: 300ms;
+    --t-stop-min: 300ms;
+    --t-stop-max: 300ms;
+    --t-room-min: 300ms;
+    --t-room-max: 300ms;
+    --t-zoom: 300ms;
+    --t-zoom-caption-delay: 0ms;
+    --t-unzoom: 300ms;
+    --t-page: 150ms;
+    --t-sheet: 150ms;
+  }
+}

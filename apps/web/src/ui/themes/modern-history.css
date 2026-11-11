@@ -1,0 +1,88 @@
+/**
+ * 근대 역사관 템플릿 테마 v2 — 밝고 또렷한 미술관 (PLAN §12.1·§12.2, PRD 7.1·9.6, ADR-012·ADR-057)
+ * - 분위기: 따뜻한 흰 회반죽 벽, 밝은 참나무 징두리 판벽, 대리석 바닥, 황동 장식, 깊은 감색 주 강조색.
+ * - 안내판은 미술관 벽 명판처럼 얇고 또렷한 석판·종이 질감(테 1px, 작은 그림자)으로 3D 공간을 가리지 않는다.
+ * - 순검정·네온·파스텔 금지. 모든 글자 색 조합은 WCAG 2.1 AA(4.5:1) 이상을 만족한다.
+ *
+ * [WCAG 2.1 명도 대비 계산값]
+ * - --plate-ink (#1E1B18) on --plate-bg (#FAF7F1)               : 16.03 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --plate-ink-sub (#564D42) on --plate-bg (#FAF7F1)           :  7.74 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --accent (#1D3557) on --plate-bg (#FAF7F1)                  : 11.56 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --accent-ink (#FAF7F1) on --accent (#1D3557)                : 11.56 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --accent (#1D3557) on --accent-soft (#E6ECF4)               : 10.40 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --brass (#7D5B22) on --plate-bg (#FAF7F1)                   :  5.79 : 1 (AA  통과, 기준 >= 4.5:1)
+ * - --brass (#7D5B22) on --brass-soft (#F3E9D2)                 :  5.13 : 1 (AA  통과, 기준 >= 4.5:1)
+ * - --accent-plum (#6B2135) on --plate-bg (#FAF7F1)             : 10.37 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --accent-plum (#6B2135) on --accent-plum-soft (#F5E6EA)     :  9.18 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --badge-teacher-ink (#FAF7F1) on --badge-teacher-bg (#6B2135): 10.37 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --danger (#9E2A22) on --plate-bg (#FAF7F1)                  :  6.99 : 1 (AA  통과, 기준 >= 4.5:1)
+ * - --danger (#9E2A22) on --danger-bg (#F9E6E4)                 :  6.22 : 1 (AA  통과, 기준 >= 4.5:1)
+ * - --status-ok (#1B5736) on --status-ok-bg (#E5F2EA)           :  7.40 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --status-warn (#75460E) on --status-warn-bg (#F7ECD8)       :  6.80 : 1 (AA  통과, 기준 >= 4.5:1)
+ * - --status-muted (#4F463C) on --status-muted-bg (#EAE4D9)     :  7.30 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --map-ink (#1E1B18) on --map-paper (#F2ECE0)                : 14.57 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --loader-ink (#1E1B18) on --loader-bg (#F4EFE5)             : 14.96 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --loader-sub (#564D42) on --loader-bg (#F4EFE5)             :  7.23 : 1 (AAA 통과, 기준 >= 4.5:1)
+ * - --loader-fill (#1D3557) on --loader-bg (#F4EFE5)            : 10.78 : 1 (UI/진행 막대 3:1 및 글자 4.5:1 통과)
+ */
+[data-theme='modern-history'] {
+  /* 박물관 벽 명판 (따뜻한 석판·종이 바탕 + 먹색 잉크 + 1px 석판·황동 테두리) */
+  --plate-bg: #faf7f1;
+  --plate-bg-elevated: #fdfbf7;
+  --plate-ink: #1e1b18; /* 대비 16.03:1 vs --plate-bg */
+  --plate-ink-sub: #564d42; /* 대비 7.74:1 vs --plate-bg */
+  --plate-edge: #cfc4b0; /* 1px 석판·황동 경계선 */
+
+  /* 건축 표면 보조색 (따뜻한 회반죽·대리석·밝은 참나무) */
+  --surface-wall: #f3ede2;
+  --surface-marble: #eae2d3;
+  --surface-oak: #d8c3a5;
+
+  /* 주 강조색 (깊은 감색 — 주요 버튼·선택·현재 위치) */
+  --accent: #1d3557; /* 대비 11.56:1 vs --plate-bg */
+  --accent-ink: #faf7f1; /* 대비 11.56:1 vs --accent */
+  --accent-soft: #e6ecf4; /* 대비 10.40:1 vs --accent */
+
+  /* 황동·자주 보조 강조 (명판 장식·대표작·선생님 표시) */
+  --brass: #7d5b22; /* 대비 5.79:1 vs --plate-bg */
+  --brass-border: #b8965a;
+  --brass-soft: #f3e9d2; /* 대비 5.13:1 vs --brass */
+  --accent-plum: #6b2135; /* 대비 10.37:1 vs --plate-bg */
+  --accent-plum-soft: #f5e6ea; /* 대비 9.18:1 vs --accent-plum */
+
+  /* 함께 관람 머리 위 별명 표 3종 (보통 · 나 · 선생님, ADR-057) */
+  --badge-visitor-bg: #faf7f1;
+  --badge-visitor-ink: #1e1b18; /* 대비 16.03:1 */
+  --badge-me-bg: #1d3557;
+  --badge-me-ink: #faf7f1; /* 대비 11.56:1 */
+  --badge-teacher-bg: #6b2135;
+  --badge-teacher-ink: #faf7f1; /* 대비 10.37:1 */
+
+  /* 액자·매트 (참나무·호두나무 테 + 황동 안쪽 선 + 밝은/어두운 매트) */
+  --frame-outer: #5c4328;
+  --frame-inner: #b8965a;
+  --mat-light: #f7f3eb;
+  --mat-dark: #2b2520;
+
+  /* 줌·대화창 뒤 덮개 및 상태·경고 색 */
+  --scrim: rgba(24, 20, 16, 0.56);
+  --danger: #9e2a22; /* 대비 6.99:1 vs --plate-bg */
+  --danger-bg: #f9e6e4; /* 대비 6.22:1 vs --danger */
+  --status-ok: #1b5736; /* 대비 7.40:1 vs --status-ok-bg */
+  --status-ok-bg: #e5f2ea;
+  --status-warn: #75460e; /* 대비 6.80:1 vs --status-warn-bg */
+  --status-warn-bg: #f7ecd8;
+  --status-muted: #4f463c; /* 대비 7.30:1 vs --status-muted-bg */
+  --status-muted-bg: #eae4d9;
+
+  /* 전시실 지도 (밝은 도면 종이 바탕 + 먹색 선) */
+  --map-paper: #f2ece0;
+  --map-ink: #1e1b18; /* 대비 14.57:1 vs --map-paper */
+
+  /* 로딩·포스터 바탕 (따뜻한 회반죽·대리석 바탕 위 깊은 감색·황동 진행선) */
+  --loader-bg: #f4efe5;
+  --loader-track: #d8cebc;
+  --loader-fill: #1d3557; /* 대비 10.78:1 vs --loader-bg */
+  --loader-ink: #1e1b18; /* 대비 14.96:1 vs --loader-bg */
+  --loader-sub: #564d42; /* 대비 7.23:1 vs --loader-bg */
+}

@@ -1,0 +1,44 @@
+{
+  "name": "gallerywalk",
+  "private": true,
+  "type": "module",
+  "description": "우리들의 아트 갤러리: 작품을 올리면 3D 전시 공간을 자동으로 꾸미는 갤러리 워크 웹앱",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @gallery/web",
+    "dev:server": "npm run dev -w @gallery/server",
+    "build": "tsc -b && npm run build -w @gallery/server && npm run build -w @gallery/web",
+    "typecheck": "tsc -b && tsc -p packages/core/tsconfig.test.json && tsc -p apps/server/tsconfig.test.json && tsc -p apps/web",
+    "format": "prettier --write .",
+    "check": "prettier --check . && npm run typecheck && npm run check:rules && npm run test:checks",
+    "check:rules": "node tools/check/index.mjs",
+    "test:checks": "node --test tools/check/check.test.mjs",
+    "test": "vitest run",
+    "test:server": "vitest run --project server",
+    "e2e": "playwright test",
+    "verify": "npm run check && npm run test -- --maxWorkers=1 && npm run build"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "4.5.1",
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1",
+    "@gltf-transform/functions": "4.5.1",
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "meshoptimizer": "1.3.0",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3",
+    "vite": "8.3.5",
+    "vitest": "5.1.0"
+  },
+  "allowScripts": {
+    "fsevents": false,
+    "better-sqlite3": false
+  }
+}

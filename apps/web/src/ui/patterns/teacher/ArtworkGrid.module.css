@@ -1,0 +1,64 @@
+.grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-4);
+  font-family: var(--font-ui);
+}
+
+.addCard {
+  min-height: 200px;
+  background-color: var(--map-paper);
+  color: var(--plate-ink);
+  border: 1.5px dashed var(--plate-edge);
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  text-align: center;
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+.addIcon {
+  color: var(--accent);
+}
+
+.addTitle {
+  font-size: var(--fs-2);
+  font-weight: 700;
+  color: var(--plate-ink);
+}
+
+.addSub {
+  font-size: var(--fs-1);
+  color: var(--plate-ink-sub);
+}
+
+/* 태블릿 3열 */
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-3);
+  }
+}
+
+/* 휴대폰 2열 */
+@media (max-width: 540px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-2);
+  }
+
+  .addCard {
+    min-height: 150px;
+    padding: var(--s-2);
+  }
+
+  .addSub {
+    display: none;
+  }
+}

@@ -1,0 +1,93 @@
+.joystick {
+  position: relative;
+  width: var(--joystick-size);
+  height: var(--joystick-size);
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  border-radius: var(--r-pill);
+  background-color: var(--plate-bg);
+  border: 1.5px solid var(--plate-edge);
+  box-shadow: var(--shadow-plate);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+}
+
+.ring {
+  position: absolute;
+  inset: 10px;
+  border-radius: var(--r-pill);
+  border: 1px dashed var(--plate-edge);
+  pointer-events: none;
+}
+
+.tickN,
+.tickS,
+.tickW,
+.tickE {
+  position: absolute;
+  background-color: var(--plate-edge);
+  border-radius: var(--r-pill);
+  pointer-events: none;
+}
+
+.tickN {
+  top: 5px;
+  width: 2px;
+  height: 6px;
+}
+
+.tickS {
+  bottom: 5px;
+  width: 2px;
+  height: 6px;
+}
+
+.tickW {
+  left: 5px;
+  width: 6px;
+  height: 2px;
+}
+
+.tickE {
+  right: 5px;
+  width: 6px;
+  height: 2px;
+}
+
+.knob {
+  width: 48px;
+  height: 48px;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  border-radius: var(--r-pill);
+  background-color: var(--plate-bg-elevated);
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-plate);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  pointer-events: none;
+}
+
+.knobDot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background-color: var(--accent);
+}
+
+@media (max-width: 540px) {
+  .joystick {
+    width: 96px;
+    height: 96px;
+  }
+
+  .knob {
+    width: var(--joystick-knob);
+    height: var(--joystick-knob);
+  }
+}

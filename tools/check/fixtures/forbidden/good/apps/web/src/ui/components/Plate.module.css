@@ -1,0 +1,5 @@
+/* 주석 안의 #211813 및 backdrop-filter: blur(4px) 는 무시한다 */
+.plate {
+  background: var(--plate-bg);
+  color: var(--plate-ink);
+}

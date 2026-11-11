@@ -1,0 +1,132 @@
+/* 막 내림·준비 중·다시 해 보기 안내판. 색·간격·모서리·글꼴은 토큰·테마 변수만. */
+.page {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--loader-bg);
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+  padding: calc(var(--s-6) + env(safe-area-inset-top)) calc(var(--s-4) + env(safe-area-inset-right))
+    calc(var(--s-6) + env(safe-area-inset-bottom)) calc(var(--s-4) + env(safe-area-inset-left));
+}
+
+.plate {
+  position: relative;
+  margin: auto;
+  width: 100%;
+  max-width: 480px;
+  padding: var(--s-10) var(--s-8) var(--s-8);
+  background-color: var(--plate-bg);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.plate::before {
+  content: '';
+  position: absolute;
+  inset: var(--s-2);
+  border: 1px solid var(--brass-border);
+  border-radius: var(--r-plate);
+  pointer-events: none;
+}
+
+.facade {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  margin: 0 auto var(--s-5);
+}
+
+.line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.door {
+  fill: var(--frame-outer);
+  stroke: var(--brass-border);
+  stroke-width: 1.5;
+}
+
+.boss {
+  fill: var(--brass-soft);
+  stroke: var(--brass);
+  stroke-width: 1.5;
+}
+
+.facadeDraft .line {
+  stroke: var(--plate-ink-sub);
+  stroke-dasharray: 5 4;
+}
+
+.facadeDraft .door {
+  fill: var(--surface-marble);
+  stroke-dasharray: 4 3;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-5);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  color: var(--plate-ink);
+}
+
+.sub {
+  margin: var(--s-2) 0 0;
+  font-size: var(--fs-2);
+  line-height: var(--lh-body);
+  color: var(--plate-ink-sub);
+}
+
+.actions {
+  margin-top: var(--s-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.primary,
+.secondary {
+  min-height: var(--touch-min);
+  padding: 0 var(--s-5);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary {
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  box-shadow: var(--shadow-plate);
+}
+
+.secondary {
+  background-color: var(--plate-bg-elevated);
+  color: var(--accent);
+  border: 1px solid var(--plate-edge);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 540px) {
+  .plate {
+    padding: var(--s-8) var(--s-5) var(--s-6);
+  }
+}
