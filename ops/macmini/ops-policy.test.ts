@@ -50,9 +50,16 @@ describe('운영 스크립트', () => {
     expect(probe('gw_is_school_hours', { GW_TEST_KST_DOW_HOUR: dowHour }).stdout.trim()).toBe(expected);
   });
 
-  it('1분 부하가 코어 x 0.75를 넘을 때만 바쁘다', () => {
-    expect(probe('gw_is_busy', { GW_TEST_LOAD: '6.1', GW_TEST_NCPU: '8' }).stdout.trim()).toBe('yes');
-    expect(probe('gw_is_busy', { GW_TEST_LOAD: '5.9', GW_TEST_NCPU: '8' }).stdout.trim()).toBe('no');
+  it('1분 부하가 코어 x 0.75를 넘거나 메모리 압박이 정상이 아니면 바쁘다', () => {
+    const calm = { GW_TEST_NCPU: '8', GW_TEST_PRESSURE: '1' };
+    expect(probe('gw_is_busy', { ...calm, GW_TEST_LOAD: '6.1' }).stdout.trim()).toBe('yes');
+    expect(probe('gw_is_busy', { ...calm, GW_TEST_LOAD: '5.9' }).stdout.trim()).toBe('no');
+    expect(probe('gw_is_busy', { ...calm, GW_TEST_LOAD: '0.5', GW_TEST_PRESSURE: '2' }).stdout.trim()).toBe(
+      'yes',
+    );
+    expect(probe('gw_is_busy', { ...calm, GW_TEST_LOAD: '0.5', GW_TEST_PRESSURE: '4' }).stdout.trim()).toBe(
+      'yes',
+    );
   });
 
   it('다른 서비스 계정·포트로 바꾸면 시작을 거부한다', () => {

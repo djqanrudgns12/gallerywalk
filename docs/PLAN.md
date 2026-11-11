@@ -1628,7 +1628,7 @@ G-20 도록(인쇄 CSS, `print-color-adjust: exact`, 모든 그림 `decode()` �
 - **서비스**: 전용 서비스 계정 `gwsvc`, launchd 데몬 `com.ssamuniverse.gallery`(Node 프로세스 하나, 컨테이너 없음 — 쌤유니버스 Colima 정지 기록 때문), `ProcessType Interactive`. 포트 4520(운영)·4521·4522(개발), 터널 메트릭 20243. 설치 전에 `lsof`로 다시 확인.
 - **터널**: 이 앱 전용 cloudflared 터널, 원본 주소 `origin-gallery.ssamuniverse.com`, Cloudflare WAF가 원본 비밀 머리 없으면 403(쌤유니버스·글방과 같은 방식).
 - **앞단**(ADR-002): 기본안이면 글방 배포에 대체 도메인 `gallery.ssamuniverse.com` + us-east-1 ACM 인증서(Cloudflare DNS 검증) + 갤러리 원본(`origin-gallery.ssamuniverse.com`) 추가 + viewer-request 함수에 Host 분기·`x-gw-viewer-ip` 넣기(글방 기본 `*`과 `/assets/*` 동작 모두에 연결) + Cloudflare DNS `gallery` CNAME. 글방이 아직 운영 전이라 지금 "쌤유 앱 공용 입구"로 함수를 설계하는 비용이 가장 작다. 함수 코드는 두 앱 시험(호스트별 경로 표)을 거쳐 게시하고, 되돌리기는 이전 함수 판 다시 게시. 쌤유니버스 배포는 건드리지 않는다.
-- **배포**: 글방 U-13과 같은 방식(기본: 소유자가 만든 `git bundle`을 서비스 계정이 읽음) → 빌드 → 마이그레이션(앞으로만, 릴리스마다 "새 스키마에서 이전 릴리스 시작" 시험) → 건강 확인 → 실패하면 이전 릴리스 폴더로 바꿔 치기.
+- **배포**(ADR-060): 공개 저장소 `djqanrudgns12/gallerywalk`의 `main`을 서비스 계정이 HTTPS로 받는다(git bundle 안 씀). launchd가 1분마다 확인해 CI `verify`를 통과한 커밋을 자동 배포한다(pull 방식, self-hosted 러너 없음) → 빌드 → 사전 검사(운영 DB 사본에서 포트 4523으로 새 릴리스, 스키마가 같으면 이전 릴리스도 시작) → 링크 교체·재시작 → 건강 확인 → 실패하면 이전 릴리스 폴더로 바꿔 치기. 마이그레이션은 서버가 시작할 때 앞으로만 한다. 지금 `migrate()`는 더 새 스키마에서 이전 코드 시작을 거부하므로 스키마가 바뀐 릴리스는 자동으로 되돌리지 않는다(ADR-060). 명령은 `sh ops/gw.sh`, 순서는 `docs/runbook.md`.
 - **백업**: 하지 않는다(30일 삭제 약속). `DATA_DIR`·`MEDIA_DIR`을 Time Machine에서 뺀다.
 - **감시**: 1분마다 `/api/health` + 디스크 + 대기열, 실패 3번이면 알림(쌤유니버스 감시 방식). 수업 시간(평일 08~16시)에는 배포·재부팅·고부하 작업 금지.
 - **되돌리기**: 릴리스 폴더 두 개를 남겨 심볼릭 링크로 바꿈. DB는 앞으로만 바꾸므로 이전 릴리스가 새 스키마에서 돈다는 시험이 관문이다.

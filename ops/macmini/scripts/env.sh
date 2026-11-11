@@ -14,7 +14,7 @@ gw_env_usage() {
   운영 포트   : 127.0.0.1:4520 (배포 사전 검사 4523, 개발 4521·4522는 쓰지 않음)
   터널 메트릭 : 127.0.0.1:20243
   배포 금지창 : Asia/Seoul 월~금 08:00~15:59
-  부하 기준   : 1분 부하가 코어 수 x 0.75를 넘으면 배포를 미룬다
+  부하 기준   : 1분 부하가 코어 수 x 0.75를 넘거나 메모리 압박이 정상이 아니면 미룬다
 EOF
 }
 
@@ -145,7 +145,8 @@ gw_is_school_hours() {
   esac
 }
 
-# 맥미니가 바쁘면(1분 부하 > 코어 수 x 비율) 0. 서비스 계정은 소유자 홈의 resource-guard를 볼 수 없어 같은 기준을 직접 쓴다.
+# 맥미니가 바쁘면 0: 1분 부하 > 코어 수 x 비율, 또는 커널 메모리 압박이 정상(1)이 아님(2 경고·4 위험).
+# 서비스 계정은 소유자 홈(700)의 resource-guard를 볼 수 없어 그 기준 중 계정과 무관하게 읽히는 두 가지를 직접 쓴다.
 gw_is_busy() {
   if [ -n "${GW_TEST_LOAD:-}" ]; then
     load1="$GW_TEST_LOAD"
@@ -153,11 +154,14 @@ gw_is_busy() {
     load1="$(sysctl -n vm.loadavg 2>/dev/null | awk '{print $2}')"
   fi
   ncpu="${GW_TEST_NCPU:-$(sysctl -n hw.ncpu 2>/dev/null || echo 1)}"
+  pressure="${GW_TEST_PRESSURE:-$(sysctl -n kern.memorystatus_vm_pressure_level 2>/dev/null || echo 1)}"
+  [ "$pressure" = "1" ] || return 0
   awk -v l="${load1:-0}" -v n="$ncpu" -v r="$GW_LOAD_MAX_RATIO" 'BEGIN { exit !(l > n * r) }'
 }
 
 gw_load_summary() {
-  printf '1분 부하 %s / 코어 %s' "$(sysctl -n vm.loadavg 2>/dev/null | awk '{print $2}')" "$(sysctl -n hw.ncpu 2>/dev/null)"
+  printf '1분 부하 %s / 코어 %s, 메모리 압박 %s' "$(sysctl -n vm.loadavg 2>/dev/null | awk '{print $2}')" \
+    "$(sysctl -n hw.ncpu 2>/dev/null)" "$(sysctl -n kern.memorystatus_vm_pressure_level 2>/dev/null)"
 }
 
 gw_valid_sha() {

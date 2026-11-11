@@ -598,3 +598,18 @@
   - 학생이 본 전시도 기기의 최근 전시 목록에 들어간다. P5 선생님 첫 화면은 교사 토큰이 있는 것만 보여야 한다.
   - 글 작품·소리 작품은 아직 벽에 매트 색 판으로만 보인다(P4-4).
   - 바뀜 확인(P4-9)은 배치가 바뀌면 같은 자리에서 장면을 다시 붙이는 방식(`start`)으로 한다.
+
+## ADR-060 · 운영 배포와 푸시 자동 배포 (2026-11-12, P7-1 앞당김)
+
+- **배경**: 사용자가 GitHub 저장소 `djqanrudgns12/gallerywalk`(공개)를 쓰고, 커밋을 푸시하면 맥미니에 자동 배포되게 해 달라고 했다(rollingthunder 참고).
+- **결정**
+  1. **pull 방식**: launchd `com.ssamuniverse.gallery.autodeploy`가 1분마다 gwsvc로 `git ls-remote`를 돌려 GitHub `main`을 확인한다. 웹훅·self-hosted 러너는 쓰지 않는다. 맥미니는 들어오는 연결을 열지 않고, 공개 저장소라도 외부인의 PR 코드가 운영 기기에서 돌 길이 없다(rollingthunder `wiki/decisions/푸시-자동-배포.md`와 같은 판단).
+  2. **CI 관문**: GitHub 호스트 macOS 러너(`.github/workflows/ci.yml`, 작업 이름 `verify`)가 `npm run verify`를 돌린다. 자동 배포는 그 커밋의 `verify` 확인이 `success`일 때만 배포한다(익명 check-runs API, 같은 SHA는 180초 간격). 운영과 같은 macOS라 `sips`·`afconvert` 시험까지 돈다.
+  3. **받기**: 공개 저장소라 HTTPS 익명 읽기(배포 키·git bundle 없음). PLAN §19의 "git bundle" 기본안을 바꾼다. `main`의 후손 커밋만 배포하고, 강제 푸시·되감기는 거부한다.
+  4. **배포 순서**(`ops/macmini/scripts/deploy.sh`): 금지창·부하·잠금 → `releases/<sha>`에 풀기 → `npm ci`·`npm run build`(`nice`) → **사전 검사**: 운영 DB 사본(SQLite 온라인 백업)으로 새 릴리스를 포트 **4523**에서 띄워 `/api/health` 200, 스키마가 같으면 이전 릴리스도 같은 사본에서 띄움 → `app` 링크 교체 → SIGTERM(KeepAlive가 다시 띄움) → 새 PID가 `/api/health` 200 → 실패하면 이전 릴리스로 되돌림. 릴리스는 3개를 남긴다.
+  5. **금지창·부하**: 평일 08:00~15:59(KST)는 배포를 우회 없이 거부(75). 자동 배포는 기다렸다가 16시 뒤 첫 회차에 올린다. gwsvc는 소유자 홈(700)의 `resource-guard`를 볼 수 없어, 그 기준 중 두 가지(1분 부하 > 코어 × 0.75, 커널 메모리 압박이 정상이 아님)를 스크립트가 직접 쓴다(75).
+  6. **권한**: sudo는 처음 한 번만(`setup-host`·`install-daemons`). sudoers는 `소유자 → gwsvc`만(root 아님). 비밀값 3개(`PIN_HMAC_SECRET`·`RATE_KEY_SECRET`·`START_CODE_HMAC`)는 `init-secrets.sh`가 gwsvc 안에서 무작위로 만들고, 화면에 내지 않으며, 있으면 바꾸지 않는다.
+  7. **실패 처리**: 같은 커밋이 2번 실패하면 멈춘다(`autodeploy retry`로 다시). 손으로 되돌리면 자동 배포도 멈춘다(같은 커밋을 다시 올리지 않게).
+- **PLAN과 어긋나는 점(보고)**: PLAN §19는 "새 스키마에서 이전 릴리스 시작" 시험을 관문으로 두었지만, 지금 서버의 `migrate()`(`apps/server/src/store/db.ts`)는 DB가 코드보다 새 판이면 시작을 거부한다. 그래서 **마이그레이션이 든 릴리스는 자동으로 되돌릴 수 없다.** 그런 릴리스는 사전 검사(운영 DB 사본에서 새 릴리스 시작)를 통과해야 올라가고, 올라간 뒤 실패하면 자동 배포를 멈추고 고친 커밋으로 앞으로 고친다. 이전 릴리스가 새 스키마를 견디게 하려면 `migrate()`가 "더하기만 한 새 판"을 허용하도록 바꾸는 별도 결정이 필요하다.
+- **버린 대안**: self-hosted 러너(공개 저장소에서 위험), 웹훅(인바운드 포트 필요), git bundle(공개 저장소라 불필요), 소유자 계정으로 실행(앱이 뚫리면 소유자 파일이 열림).
+- **되돌리기**: `sh ops/gw.sh autodeploy pause`로 멈추거나 `install-daemons --remove autodeploy`로 끈다. 수동 배포(`sh ops/gw.sh deploy`)는 그대로 쓸 수 있다.
