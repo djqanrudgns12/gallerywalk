@@ -6,7 +6,7 @@ import s from './WalkNav.module.css';
 export interface WalkNavProps {
   /** 현재 정지 지점/작품 순번 (1부터 시작, `{i}/{n}`의 i) */
   current: number;
-  /** 전체 정지 지점/작품 수 (`{i}/{n}`의 n) */
+  /** 전체 정지 지점/작품 수 (`{i}/{n}`의 n). 0이면 숫자를 숨긴다(작품 앞이 아님 — 광장·소개·출구) */
   total: number;
   onPrev: () => void;
   onNext: () => void;
@@ -93,7 +93,7 @@ export const WalkNav = ({
           data-testid="next"
         >
           <span>{copy.viewer.nextArtwork}</span>
-          <span className={s.count}>{pageText}</span>
+          {total > 0 ? <span className={s.count}>{pageText}</span> : null}
           <Icon name="chevron-right" size={18} />
         </button>
       </div>

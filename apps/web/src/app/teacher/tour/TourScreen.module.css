@@ -1,0 +1,135 @@
+/* 자동 투어(G-16): 3D를 가득 채우고 아래에 얇은 조작 띠. 색·간격은 토큰·테마 변수만 */
+.stage {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--surface-wall);
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+}
+
+.stage > div:first-child {
+  position: absolute;
+  inset: 0;
+}
+
+.notice {
+  min-height: 100dvh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+  padding: var(--s-6);
+  background: var(--surface-wall);
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+  text-align: center;
+}
+
+.cover {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+  padding: var(--s-6) calc(var(--s-4) + env(safe-area-inset-right)) var(--s-6)
+    calc(var(--s-4) + env(safe-area-inset-left));
+  background: color-mix(in srgb, var(--plate-bg) 82%, transparent);
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-7);
+  font-weight: 700;
+  color: var(--plate-ink);
+}
+
+.hint {
+  margin: 0;
+  max-width: 40ch;
+  color: var(--plate-ink-sub);
+  font-size: var(--fs-4);
+}
+
+.primary,
+.secondary,
+.round {
+  min-height: var(--touch-min);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+}
+
+.primary {
+  min-height: 56px;
+  padding: 0 var(--s-6);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  font-size: var(--fs-4);
+}
+
+.secondary {
+  padding: 0 var(--s-4);
+  background: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+}
+
+.round {
+  min-width: var(--touch-min);
+  padding: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+}
+
+.bar {
+  position: absolute;
+  left: calc(var(--s-3) + env(safe-area-inset-left));
+  right: calc(var(--s-3) + env(safe-area-inset-right));
+  bottom: calc(var(--s-3) + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  background: var(--plate-bg);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-plate);
+  opacity: 0.9;
+}
+
+.range {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--touch-min);
+  accent-color: var(--accent);
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+  color: var(--plate-ink-sub);
+  font-size: var(--fs-2);
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .time {
+    display: none;
+  }
+}

@@ -54,7 +54,8 @@ export const createApp = (deps: AppDeps): Hono<AppEnv> => {
   app.use('*', deps.lifecycle.middleware);
   app.use('*', jsonBodyLimit({ maxBytes: deps.limits.jsonBodyMaxBytes }));
   app.route('/', healthRoutes({ db: deps.db, diskPath: deps.mediaDir, queueLength: deps.queueLength }));
-  if (deps.useCases) app.route('/', publicRoutes(deps.useCases));
+  // 학생 경로 속도 칸은 교사 경로와 같은 보안 묶음으로 센다(없으면 세지 않음 — 시험용 앱)
+  if (deps.useCases) app.route('/', publicRoutes(deps.useCases, deps.teacher?.security));
   if (deps.useCases && deps.teacher) app.route('/', teacherRoutes({ ...deps.teacher, deps: deps.useCases }));
   // 작품 미디어(§9.6)는 앱 정적 `/assets/g/*`보다 먼저 — 미디어 자리 `/assets/g/m/`은 정적 경로가 찾지 않는다
   if (deps.useCases) app.route('/', mediaRoutes({ deps: deps.useCases, mediaDir: deps.mediaDir }));

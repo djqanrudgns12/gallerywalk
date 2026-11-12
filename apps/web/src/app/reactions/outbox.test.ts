@@ -216,6 +216,31 @@ describe('반응 보내기 줄(ADR-049)', () => {
     expect(storage.rows.size).toBe(0);
   });
 
+  it('전시가 지워질 때가 지난 줄은 보내지 않고 기기에서 지운다(남은 줄 읽기·다시 보내기 모두)', async () => {
+    let clock = 1000;
+    const storage = memoryOutboxStorage();
+    const stale = item({ queuedAt: 1, expiresAt: 500 });
+    const live = item({ artworkId: ART2, queuedAt: 2, expiresAt: 5000 });
+    storage.rows.set(stale.key, stale);
+    storage.rows.set(live.key, live);
+    const { state, send } = fakeSend();
+    state.online = false;
+    const outbox = createReactionOutbox({ storage, send, now: () => clock });
+    await outbox.ready();
+    expect(storage.rows.has(stale.key)).toBe(false);
+    expect(outbox.get(stale.key)).toBeNull();
+    await outbox.flush();
+    expect(outbox.get(live.key)).not.toBeNull();
+    // 끊긴 채 만료가 지나면 다음 다시 보내기에서 보내지 않고 지운다
+    clock = 6000;
+    state.online = true;
+    send.mockClear();
+    await outbox.flush();
+    expect(send).not.toHaveBeenCalled();
+    expect(storage.rows.size).toBe(0);
+    expect(outbox.hasPending()).toBe(false);
+  });
+
   it('줄은 REACTION_OUTBOX_MAX를 넘으면 가장 오래된 것부터 뺀다', async () => {
     const { state, send } = fakeSend();
     state.online = false;

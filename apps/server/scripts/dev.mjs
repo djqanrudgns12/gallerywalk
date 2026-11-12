@@ -22,6 +22,9 @@ const env = {
   START_CODE_HMAC: devSecret('start'),
   // 개발에서는 처음 쓰는 기기도 시작 코드 없이 전시를 만든다(운영은 `config.ts` 기본값 true)
   START_CODE_REQUIRED: 'false',
+  // 개발에서는 e2e·시드 도구가 하루에도 전시를 수십 개 만든다 — 만들기 하루 상한만 넉넉히(운영은 `config.ts` 30·5)
+  CREATE_PER_IP_DAY: '1000',
+  CREATE_PER_DEVICE_DAY: '1000',
   ...process.env,
 };
 

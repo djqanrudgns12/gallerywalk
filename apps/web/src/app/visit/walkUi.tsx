@@ -17,6 +17,8 @@ import {
 import type { Track } from '../../audio/AudioEngine.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import type { CardText } from '../../viewer/textures/textCard.ts';
+import type { ZoomPage } from '../../viewer/zoom/zoomPages.ts';
+import { PageZoom } from './PageZoom.tsx';
 import { AudioZoom, TextZoom } from './TextZoom.tsx';
 import { mapView } from '../../viewer/map/mapView.ts';
 import { combinedInput, useWalk, type WalkNotice } from '../../viewer/walk/walkStore.ts';
@@ -112,10 +114,15 @@ export const peerLabel = (p: PeerView): { text: string; teacher: boolean } =>
     ? { text: `${copy.viewer.badgeTeacher} · ${p.nickname}`, teacher: true }
     : { text: p.nickname, teacher: false };
 
+/** 쪽 상자 크기·화소 비율 → 쪽들 */
+export type PagesFor = (vp: { readonly w: number; readonly h: number }, dpr: number) => readonly ZoomPage[];
+
 /** 크게 보기 캡션의 반응 자리(학생 경로만 — 개발 화면에는 없음) */
 export interface ReactionHooks {
   readonly onReact?: ((artworkId: string) => void) | undefined;
   readonly below?: ((artworkId: string) => ReactNode) | undefined;
+  /** 반응 시트가 열린 작품 — 그동안 크게 보기 캡션(닫기·반응 단추)을 숨긴다(창 하나, PRD 9.6) */
+  readonly openFor?: string | null | undefined;
 }
 
 export const useMapOpen = create<{ open: boolean }>(() => ({ open: false }));
@@ -137,13 +144,19 @@ export interface WalkOverlayProps {
   readonly onApplyUpdate?: (() => void) | undefined;
   /** `소리` 켬/끔 단추(P4-7). 없으면 숨김 */
   readonly sound?: { readonly on: boolean; readonly toggle: () => void } | undefined;
+  /** 동작 줄이기: 카메라를 바로 바꾸는 순간 화면을 짧게 덮었다 걷는다(PLAN §6.14) */
+  readonly reducedMotion?: boolean | undefined;
   /** 위 줄 `모아 보기`(G-04). 없으면 단추 숨김 */
   readonly onCollection?: (() => void) | undefined;
   /** 반응(P4-6): `반응 남기기`(없으면 단추 숨김)·캡션 아래 공개 집계 */
   readonly reactions?: ReactionHooks | undefined;
+  /** 크게 보기에서 HTML 쪽으로 보일 그림(PDF·긴 세로·파노라마·글 많음): 작품 ID → 쪽 계산(P4-4) */
+  readonly pages?: ReadonlyMap<string, PagesFor> | undefined;
   /** 크게 보기에서 HTML로 보일 글·소리 작품(P4-4) */
   readonly cards?: ReadonlyMap<string, CardText> | undefined;
   readonly tracks?: ReadonlyMap<string, Track> | undefined;
+  /** 소리 단추 옆 닫기(교사 3D 미리 보기, P5-6). 없으면 숨김 */
+  readonly onClose?: { readonly label: string; readonly run: () => void } | undefined;
 }
 
 /** 캔버스 위 DOM 층 전부 */
@@ -162,21 +175,41 @@ export const WalkOverlay = ({
   tracks,
   reactions,
   onCollection,
+  reducedMotion,
+  pages,
+  onClose,
 }: WalkOverlayProps) => (
   <>
+    {reducedMotion && <FadeCut />}
     <Top title={title} liveCount={liveCount} onCollection={onCollection} />
-    {sound && (
-      <button
-        type="button"
-        className={`${s.plate} ${s.soundButton}`}
-        aria-pressed={sound.on}
-        aria-label={copy.viewer.sound}
-        data-testid="sound-toggle"
-        onClick={sound.toggle}
-      >
-        <Icon name={sound.on ? 'sound-on' : 'sound-off'} />
-        <span className={s.soundLabel}>{copy.viewer.sound}</span>
-      </button>
+    {(sound || onClose) && (
+      <div className={s.tools}>
+        {onClose && (
+          <button
+            type="button"
+            className={`${s.plate} ${s.soundButton}`}
+            aria-label={onClose.label}
+            data-testid="overlay-close"
+            onClick={onClose.run}
+          >
+            <Icon name="close" />
+            <span className={s.soundLabel}>{onClose.label}</span>
+          </button>
+        )}
+        {sound && (
+          <button
+            type="button"
+            className={`${s.plate} ${s.soundButton}`}
+            aria-pressed={sound.on}
+            aria-label={copy.viewer.sound}
+            data-testid="sound-toggle"
+            onClick={sound.toggle}
+          >
+            <Icon name={sound.on ? 'sound-on' : 'sound-off'} />
+            <span className={s.soundLabel}>{copy.viewer.sound}</span>
+          </button>
+        )}
+      </div>
     )}
     {pendingUpdate && onApplyUpdate && (
       <div className={`${s.plate} ${s.updateBanner}`} role="status" data-testid="update-banner">
@@ -188,14 +221,12 @@ export const WalkOverlay = ({
     )}
     <Exit layout={layout} artworkCount={artworks.length} onHome={onHome} />
     {touch && <Stick />}
-    <div className={touch ? s.hintWithStick : s.hint}>
-      <WalkHint touch={touch} />
-    </div>
+    <Hint touch={touch} />
     <NearCard artworks={artworks} />
     <Moves />
     <Docent />
-    <Nav />
-    <Zoom artworks={artworks} cards={cards} tracks={tracks} reactions={reactions} />
+    <Nav layout={layout} />
+    <Zoom artworks={artworks} cards={cards} tracks={tracks} reactions={reactions} pages={pages} />
     <WalkMap layout={layout} />
     {hud && <Hud />}
     <PerfMarks />
@@ -220,6 +251,20 @@ const PerfMarks = () => {
       data-stop={stop}
     />
   );
+};
+
+/** 동작 줄이기에서 작품 앞 도착·크게 보기·닫기 때 카메라가 바로 바뀌는 것을 짧은 덮개 페이드로 잇는다 */
+const FadeCut = () => {
+  const mode = useWalk(st => st.mode);
+  const prev = useRef(mode);
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const was = prev.current;
+    prev.current = mode;
+    if (was !== mode && (mode === 'view' || mode === 'zoom' || was === 'view' || was === 'zoom'))
+      setN(x => x + 1);
+  }, [mode]);
+  return n > 0 ? <div key={n} className={s.fadeCut} aria-hidden /> : null;
 };
 
 /** 움직이는 중(안내 걷기·손 입력) */
@@ -310,6 +355,17 @@ const Exit = ({
 };
 
 /** 조이스틱(휴대폰·태블릿) — 값은 걷기 상태로. 크게 보는 중에는 숨김(걷지 않으므로) */
+/** 걷기 안내판: 크게 보는 동안은 캡션과 겹치지 않게 숨긴다(조이스틱과 같이) */
+const Hint = ({ touch }: { touch: boolean }) => {
+  const zoomed = useWalk(st => st.mode === 'zoom');
+  if (zoomed) return null;
+  return (
+    <div className={touch ? s.hintWithStick : s.hint}>
+      <WalkHint touch={touch} />
+    </div>
+  );
+};
+
 const Stick = () => {
   const setStick = useWalk(st => st.setStick);
   const zoomed = useWalk(st => st.mode === 'zoom');
@@ -358,18 +414,27 @@ const Docent = () => {
   );
 };
 
-/** 오른쪽 아래: 지도·이전·"다음 작품으로 i/n"(R-7b `WalkNav`). 크게 보는 중에는 숨김 */
-const Nav = () => {
+/**
+ * 오른쪽 아래: 지도·이전·"다음 작품으로 i/n"(R-7b `WalkNav`). 크게 보는 중에는 숨김.
+ * 숫자는 PRD 9.1대로 그 관 안의 작품 순번(정지 지점의 `index/count`) — 광장·소개·출구에서는 숫자 없이
+ */
+const Nav = ({ layout }: { layout: Layout }) => {
   const api = useWalk(st => st.api);
   const index = useWalk(st => st.stopIndex);
   const count = useWalk(st => st.stopCount);
   const zoomed = useWalk(st => st.mode === 'zoom');
   if (zoomed) return null;
+  const stop = layout.stops[index];
   return (
-    <div className={s.bottomRight} data-testid="walk-nav">
+    <div
+      className={s.bottomRight}
+      data-testid="walk-nav"
+      data-stop-index={stop?.index ?? ''}
+      data-stop-count={stop?.count ?? ''}
+    >
       <WalkNav
-        current={Math.min(count, index + 1)}
-        total={count}
+        current={stop?.index ?? 0}
+        total={stop?.count ?? 0}
         onPrev={() => api?.prev()}
         onNext={() => api?.next()}
         prevDisabled={index <= 0}
@@ -400,11 +465,13 @@ const Zoom = ({
   cards,
   tracks,
   reactions,
+  pages,
 }: {
   artworks: readonly WalkArtworkText[];
   cards?: ReadonlyMap<string, CardText> | undefined;
   tracks?: ReadonlyMap<string, Track> | undefined;
   reactions?: ReactionHooks | undefined;
+  pages?: ReadonlyMap<string, PagesFor> | undefined;
 }) => {
   const zoomId = useWalk(st => st.zoomId);
   const api = useWalk(st => st.api);
@@ -418,11 +485,13 @@ const Zoom = ({
   if (!a) return null;
   const card = cards?.get(a.id);
   const track = tracks?.get(a.id);
+  const pagesOf = pages?.get(a.id);
   return (
     <>
       {card?.kind === 'TEXT' && <TextZoom key={a.id} text={card} onPage={onPage} />}
       {card?.kind === 'AUDIO' && track && <AudioZoom key={a.id} text={card} track={track} />}
-      <div className={s.zoomCaption}>
+      {!card && pagesOf && <PageZoom key={a.id} pagesFor={pagesOf} onPage={onPage} />}
+      <div className={s.zoomCaption} hidden={reactions?.openFor === a.id}>
         <ZoomCaption
           title={a.title}
           author={a.author}

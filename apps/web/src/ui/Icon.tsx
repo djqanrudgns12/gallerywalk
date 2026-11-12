@@ -17,10 +17,12 @@ export type IconName =
   | 'check'
   | 'run'
   | 'jump'
+  | 'pause'
   | 'heart'
   | 'bulb'
   | 'star'
-  | 'question';
+  | 'question'
+  | 'eye';
 
 export interface IconProps {
   name: IconName;
@@ -31,6 +33,13 @@ export interface IconProps {
 
 const renderPaths = (name: IconName): JSX.Element => {
   switch (name) {
+    case 'pause':
+      return (
+        <>
+          <line x1="9" y1="5" x2="9" y2="19" />
+          <line x1="15" y1="5" x2="15" y2="19" />
+        </>
+      );
     // 반응 스티커(G-07): 감동했어요 · 새로 알았어요 · 멋져요 · 궁금해요
     case 'heart':
       return <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />;
@@ -52,6 +61,14 @@ const renderPaths = (name: IconName): JSX.Element => {
           <circle cx="12" cy="12" r="9" />
           <path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4V14" />
           <line x1="12" y1="17" x2="12" y2="17.01" />
+        </>
+      );
+    // 3D 미리 보기(P5-6)
+    case 'eye':
+      return (
+        <>
+          <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+          <circle cx="12" cy="12" r="3" />
         </>
       );
     case 'chevron-left':

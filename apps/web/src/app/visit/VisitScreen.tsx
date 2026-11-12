@@ -41,6 +41,8 @@ import {
   useReactionPending,
 } from '../reactions/index.ts';
 import { ServicesContext } from '../services.ts';
+import { prefersReducedMotion, REDUCED_MOTION_QUERY } from '../student/motion.ts';
+import { zoomPagesFor } from '../../viewer/zoom/zoomPages.ts';
 import { collectionOf } from './collection.ts';
 import { CollectionSheet } from './CollectionSheet.tsx';
 import { useRoomMusic } from './roomMusic.ts';
@@ -49,6 +51,7 @@ import {
   dprCap,
   Gestures,
   peerLabel,
+  type PagesFor,
   type ReactionHooks,
   tapFloor,
   useMapOpen,
@@ -96,6 +99,7 @@ export const VisitScreen = ({
   onApplyUpdate,
   sound,
   onFallback2d,
+  onPickArtwork,
 }: VisitScreenProps) => {
   const fresh = useMemo(() => visitModelOf(view), [view]);
   // 내용만 바뀌면(배치 그대로) 그림 받기 입력·작품별 밝기 손잡이를 그대로 둔다 — 글자 하나 고쳐도 텍스처를 다시 받지 않게
@@ -103,7 +107,9 @@ export const VisitScreen = ({
   const dpr = useMemo(dprCap, []);
   const touch = useMemo(() => navigator.maxTouchPoints > 0, []);
   // 반응(P4-6): 학생 경로(서비스가 있음)에서만. 덮개가 열린 동안은 걷기 키를 끈다(메모를 쓰는 동안 움직이지 않게)
-  const services = useContext(ServicesContext);
+  // 교사 미리 보기(`onPickArtwork`)는 서비스가 있어도 학생 일을 하지 않는다
+  const ctxServices = useContext(ServicesContext);
+  const services = onPickArtwork ? null : ctxServices;
   const [reactingId, setReactingId] = useState<string | null>(null);
   const [reactionsOff, setReactionsOff] = useState(false);
   const canReact = services !== null && !reactionsOff && reactionsEnabled(view);
@@ -117,10 +123,22 @@ export const VisitScreen = ({
         ? {
             onReact: canReact ? setReactingId : undefined,
             below: id => <PublicReactionsFor view={view} artworkId={id} />,
+            openFor: reactingId,
           }
         : undefined,
-    [services, canReact, view],
+    [services, canReact, view, reactingId],
   );
+  // 여러 쪽으로 크게 볼 그림(P4-4): PDF · 긴 세로·파노라마 · 글이 많은 그림
+  const zoomPages = useMemo(() => {
+    const out = new Map<string, PagesFor>();
+    for (const a of view.artworks) {
+      const multi =
+        a.kind === 'PDF' ||
+        (a.kind === 'IMAGE' && (a.form === 'TALL' || a.form === 'PANORAMA' || a.textHeavy));
+      if (multi) out.set(a.id, (vp, dpr) => zoomPagesFor(view.exhibition.id, a, vp, dpr));
+    }
+    return out;
+  }, [view]);
   // 모아 보기(G-04): 덮개는 한 번에 하나(지도·반응을 닫고 연다). 고른 작품 앞에 도착하면 바로 크게 본다
   const [collectionOpen, setCollectionOpen] = useState(false);
   const pendingZoom = useRef<string | null>(null);
@@ -155,6 +173,15 @@ export const VisitScreen = ({
     [model.layout],
   );
   useWalkKeyboard(entered && reactingId === null && !collectionOpen);
+  // 동작 줄이기(PRD 8.4): 기기 설정을 따르고 바뀌면 따라간다
+  const [reducedMotion, setReducedMotion] = useState(() => prefersReducedMotion(window));
+  useEffect(() => {
+    const mq = window.matchMedia?.(REDUCED_MOTION_QUERY);
+    if (!mq) return;
+    const on = (): void => setReducedMotion(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
   // 배경음악(P4-7): 구역 → 전시실 곡, 켬/끔은 기기에 기억(없으면 이 화면 안에서만)
   const [region, setRegion] = useState('exterior');
   const [localSound, setLocalSound] = useState(true);
@@ -284,7 +311,13 @@ export const VisitScreen = ({
                   live={liveToken ? live : null}
                   onReady={onReady}
                   onRegion={setRegion}
-                  onFallback={() => fallBack('fps')}
+                  onFallback={() => {
+                    // 자동 시험(헤드리스 소프트웨어 그리기)은 늘 느려 3D 흐름을 볼 수 없게 된다 — 그때만 fps 전환을 끈다
+                    // (전환 판정은 `TierMonitor` 단위 시험, 2D 화면은 WebGL을 끈 확인으로 따로 본다)
+                    if (!navigator.webdriver) fallBack('fps');
+                  }}
+                  reducedMotion={reducedMotion}
+                  onArtworkTap={onPickArtwork}
                 />
               )}
             </Canvas>
@@ -316,7 +349,10 @@ export const VisitScreen = ({
           cards={model.cards}
           tracks={model.tracks}
           reactions={reactions}
+          pages={zoomPages}
+          onClose={onPickArtwork ? { label: copy.teacher.manage.previewClose, run: onHome } : undefined}
           onCollection={collection.length > 0 ? openCollection : undefined}
+          reducedMotion={reducedMotion}
         />
       )}
       {entered && collectionOpen && (
@@ -364,6 +400,8 @@ const VisitContent = ({
   onReady,
   onRegion,
   onFallback,
+  reducedMotion,
+  onArtworkTap,
 }: {
   model: VisitModel;
   character: CharacterId;
@@ -375,6 +413,8 @@ const VisitContent = ({
   onReady: () => void;
   onRegion: (region: string) => void;
   onFallback: () => void;
+  reducedMotion: boolean;
+  onArtworkTap: ((artworkId: string) => void) | undefined;
 }) => {
   const invalidate = useThree(st => st.invalidate);
   const size = useThree(st => st.size);
@@ -438,6 +478,8 @@ const VisitContent = ({
       onReady={onReady}
       onRegion={onRegion}
       start={start}
+      reducedMotion={reducedMotion}
+      onArtworkTap={onArtworkTap}
     />
   );
 };

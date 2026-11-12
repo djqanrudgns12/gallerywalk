@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router';
 import './App.module.css';
+import { PRIVACY_PATH } from './privacy/path.ts';
 import { entryCodeOf, PATHS } from './routes.ts';
 import { type AppServices, appServices, ServicesContext } from './services.ts';
 import { HomeScreen } from './student/HomeScreen.tsx';
@@ -9,10 +10,13 @@ import { StudentExhibition } from './student/StudentExhibition.tsx';
 /**
  * 앱 뿌리와 경로(PLAN §7.1).
  * - `/` 첫 화면 · `/{6자리}` 학생 전시 · `/t/*` 교사(지연 로드 — 교사 코드가 학생 묶음에 들어가지 않게) · 그 밖은 `/`.
- * - `/privacy`(공통)는 아직 없다 — 생기기 전까지는 `/`로 간다.
+ * - `/privacy` 개인정보처리방침(학생·교사 공통, 지연 로드, P6-8).
  */
 
 const TeacherApp = lazy(() => import('./teacher/TeacherApp.tsx').then(m => ({ default: m.TeacherApp })));
+const PrivacyScreen = lazy(() =>
+  import('./privacy/PrivacyScreen.tsx').then(m => ({ default: m.PrivacyScreen })),
+);
 
 const ExhibitionRoute = () => {
   const code = entryCodeOf(useParams().code);
@@ -27,6 +31,14 @@ export const AppRoutes = () => (
       element={
         <Suspense fallback={null}>
           <TeacherApp />
+        </Suspense>
+      }
+    />
+    <Route
+      path={PRIVACY_PATH}
+      element={
+        <Suspense fallback={null}>
+          <PrivacyScreen />
         </Suspense>
       }
     />

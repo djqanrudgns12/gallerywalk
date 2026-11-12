@@ -111,6 +111,21 @@ describe('최근 전시', () => {
     expect(s.recentExhibitions().map(r => r.exhibitionId)).toEqual([ex(2)]);
   });
 
+  it('지난 전시는 목록에서 빠질 때 그 전시의 방문자 토큰·별명과 교사 세션도 기기에서 지운다(다른 전시는 그대로)', () => {
+    const s = store();
+    s.rememberExhibition({ exhibitionId: ex(1), title: '곧 끝남', expiresAt: c.now() + DAY });
+    s.rememberExhibition({ exhibitionId: ex(2), title: '오래 감', expiresAt: c.now() + 10 * DAY });
+    s.setVisitor(ex(1), visitor);
+    s.setTeacherSession(ex(1), teacher);
+    s.setVisitor(ex(2), visitor);
+    c.advance(DAY);
+    expect(s.recentExhibitions().map(r => r.exhibitionId)).toEqual([ex(2)]);
+    expect(s.visitor(ex(1))).toBeNull();
+    expect(s.teacherSession(ex(1))).toBeNull();
+    expect(m.data.has('gw:visitor:' + ex(1))).toBe(false);
+    expect(s.visitor(ex(2))).toEqual(visitor);
+  });
+
   it('잊기: 최근 목록과 교사 토큰을 함께', () => {
     const s = store();
     s.rememberExhibition({ exhibitionId: ex(1), title: '하나' });

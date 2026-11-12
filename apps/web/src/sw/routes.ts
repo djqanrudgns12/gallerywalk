@@ -31,6 +31,7 @@ export const classifyRequest = (request: Request, origin: string): Route => {
     path === '/' ||
     path === '/index.html' ||
     path === '/t' ||
+    path === '/privacy' ||
     path.startsWith('/t/') ||
     EntryCodeSchema.safeParse(path.slice(1)).success
   )

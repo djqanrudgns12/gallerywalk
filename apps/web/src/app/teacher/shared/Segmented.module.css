@@ -1,0 +1,71 @@
+/* 둘~셋 중 하나 고르기(라디오 묶음). 토큰·테마 변수만. */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+}
+
+.label {
+  font-size: var(--fs-2);
+  font-weight: 700;
+  color: var(--plate-ink);
+}
+
+.group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  padding: 3px;
+  background-color: var(--surface-wall);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+}
+
+.option {
+  min-height: calc(var(--touch-min) - 6px);
+  min-width: var(--touch-min);
+  padding: 0 var(--s-3);
+  background: none;
+  color: var(--plate-ink-sub);
+  border: 1px solid transparent;
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.option:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.optionOn {
+  background-color: var(--plate-bg-elevated);
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-plate);
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .group {
+    display: flex;
+  }
+
+  .option {
+    flex: 1;
+  }
+}

@@ -46,6 +46,8 @@ export interface WalkViewProps {
    * 광장 첫 자리. 정지 지점 번호는 처음 붙을 때와 배치가 바뀔 때마다 읽는다(새 배치에서 이어 볼 지점).
    */
   readonly start?: WalkStart | undefined;
+  /** 동작 줄이기(PRD 8.4, §6.14): 작품 앞·크게 보기로 옮길 때 카메라를 날리지 않고 바로 바꾸고, 부딪힘 흔들림을 끈다 */
+  readonly reducedMotion?: boolean | undefined;
 }
 
 export interface WalkStart {
@@ -75,6 +77,7 @@ export const WalkView = ({
   paused,
   onPose,
   start,
+  reducedMotion,
 }: WalkViewProps) => {
   const camera = useThree(s => s.camera) as PerspectiveCamera;
   const gl = useThree(s => s.gl);
@@ -126,6 +129,8 @@ export const WalkView = ({
     wasActive: true,
     /** 벽 부딪힘 흔들림 세기 1 → 0 */
     shake: 0,
+    /** 지난 프레임의 걸음 상태(동작 줄이기에서 바뀌는 순간을 알려고) */
+    lastMode: 'free' as string,
     /** 실내 분위기 0(광장)..1(실내) — 정문을 지나면 천천히 */
     indoor: 0,
   }).current;
@@ -269,7 +274,7 @@ export const WalkView = ({
     const pose = walker.pose;
     let jumped = false;
     for (const fx of walker.drainEvents()) {
-      if (fx === 'bump') st.shake = 1;
+      if (fx === 'bump' && !reducedMotion) st.shake = 1;
       else if (fx === 'jump') jumped = true;
     }
     // 관람 예절(놀이): 실내에서 오래 뛰거나 자꾸 뛰어오르면 도슨트 말풍선 + 잠깐 뛰기 잠금
@@ -321,6 +326,14 @@ export const WalkView = ({
 
     // ── 부드럽게 따라가기 ─────────────────────────────────────────
     const cur = st.cur;
+    // 동작 줄이기: 걸음 상태가 바뀌는 순간(작품 앞 도착·크게 보기·닫기) 카메라를 바로 옮긴다(화면 층이 짧게 페이드)
+    if (
+      reducedMotion &&
+      mode !== st.lastMode &&
+      (mode === 'view' || mode === 'zoom' || st.lastMode !== 'guiding')
+    )
+      cur.ready = false;
+    st.lastMode = mode;
     if (!cur.ready) {
       cur.pos.copy(want.pos);
       cur.target.copy(want.target);

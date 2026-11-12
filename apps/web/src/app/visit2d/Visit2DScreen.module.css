@@ -506,3 +506,35 @@
     animation: none;
   }
 }
+
+/* 위 전시실 탭(§6.12) — 가로로 밀어 넘긴다 */
+.tabs {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: var(--s-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: var(--s-2) calc(var(--s-3) + env(safe-area-inset-right)) 0
+    calc(var(--s-3) + env(safe-area-inset-left));
+}
+
+.tab {
+  flex: 0 0 auto;
+  min-height: var(--touch-min);
+  padding: 0 var(--s-4);
+  background: var(--plate-bg);
+  color: var(--plate-ink-sub);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab[aria-current='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}

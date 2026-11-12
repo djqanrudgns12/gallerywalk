@@ -42,6 +42,7 @@ export const createCleanupJobs = (deps: Deps, options: CleanupOptions): CleanupJ
   let nextPurgeAt = clock.now();
   let exhibitionCursor = '';
   let artworkCursor = '';
+  let pdfCursor = '';
   let assetCursor = '';
   let tmpCursor = '';
 
@@ -74,6 +75,31 @@ export const createCleanupJobs = (deps: Deps, options: CleanupOptions): CleanupJ
       if (store.transaction(() => store.artworks.deleteDeletedBefore(row.id, cutoff))) count++;
     }
     if (count > 0) log.info('deleted_artworks_purged', { count });
+  };
+
+  /**
+   * 마치지 못한 PDF(교사가 올리다 멈춤): 마지막으로 쪽을 받은 지 `PDF_INCOMPLETE_PURGE_HOURS`가 지나면 지운 상태로 바꾼다.
+   * 그 뒤는 지운 작품과 같은 길(유예 → 행·쪽 → 고아 asset 파일, §9.7). 게시 전이라 배치는 그대로, 내용 판만 올린다.
+   */
+  const abandonPdfs = (now: number): void => {
+    const cutoff = now - config().PDF_INCOMPLETE_PURGE_HOURS * MS_PER_HOUR;
+    const rows = store.artworks.listIncompletePdfBefore(cutoff, config().CLEANUP_BATCH_SIZE, pdfCursor);
+    pdfCursor = rows.length === config().CLEANUP_BATCH_SIZE ? rows.at(-1)!.id : '';
+    let count = 0;
+    for (const row of rows) {
+      if (stopped) break;
+      const done = store.transaction(() => {
+        // 트랜잭션 안에서 다시 본다(그사이 쪽을 받았거나 마쳤으면 두기)
+        const a = store.artworks.get(row.id);
+        if (!a || a.deletedAt !== null || a.status !== 'PROCESSING' || a.updatedAt > cutoff) return false;
+        store.artworks.update(a.id, { deletedAt: now, rev: a.rev + 1, updatedAt: now });
+        const ex = store.exhibitions.get(a.exhibitionId);
+        if (ex) store.exhibitions.update(ex.id, { contentVersion: ex.contentVersion + 1 });
+        return true;
+      });
+      if (done) count++;
+    }
+    if (count > 0) log.info('incomplete_pdfs_abandoned', { count });
   };
 
   const purgeAssets = async (now: number): Promise<void> => {
@@ -149,6 +175,11 @@ export const createCleanupJobs = (deps: Deps, options: CleanupOptions): CleanupJ
       await retention(now);
     } catch {
       log.warn('retention_cleanup_failed', { count: 1 });
+    }
+    try {
+      abandonPdfs(now);
+    } catch {
+      log.warn('pdf_cleanup_failed', { count: 1 });
     }
     if (stopped || now < nextPurgeAt) return;
     nextPurgeAt = now + config().PURGE_CLEANUP_INTERVAL_SEC * MS_PER_SEC;

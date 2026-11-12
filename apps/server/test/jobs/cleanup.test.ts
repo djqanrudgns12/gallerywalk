@@ -6,12 +6,14 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteArtwork, restoreArtwork } from '../../src/application/artworks.ts';
 import { createExhibition } from '../../src/application/exhibitions.ts';
+import { recomputeLayout } from '../../src/application/layout.ts';
 import { createRoom } from '../../src/application/rooms.ts';
 import { teacherView } from '../../src/application/views.ts';
 import { createMediaFiles, exhibitionMediaDir } from '../../src/deps.ts';
 import { createCleanupJobs } from '../../src/jobs/index.ts';
-import type { AssetRecord, Deps } from '../../src/ports/index.ts';
+import type { ArtworkRecord, AssetRecord, Deps } from '../../src/ports/index.ts';
 import { UploadManager } from '../../src/upload/index.ts';
+import { checkTarget, completePdfArtwork, createPdfArtwork } from '../../src/upload/records.ts';
 import { makeTempDir } from '../helpers/server.ts';
 import { TEST_STORES, type TestDeps } from '../support/sqliteDeps.ts';
 
@@ -48,7 +50,7 @@ describe.each(TEST_STORES)('주기 정리 · $name', ({ make }) => {
     await mkdir(join(file(assetId), '..'), { recursive: true });
     await writeFile(file(assetId), 'x');
   };
-  const seedArt = (artworkId = ART, assetId: string | null = ASSET) => {
+  const seedArt = (artworkId = ART, assetId: string | null = ASSET, patch: Partial<ArtworkRecord> = {}) => {
     t.store.artworks.insert({
       id: artworkId,
       exhibitionId: EX,
@@ -76,6 +78,7 @@ describe.each(TEST_STORES)('주기 정리 · $name', ({ make }) => {
       createHash: artworkId,
       createdAt: t.at(),
       updatedAt: t.at(),
+      ...patch,
     });
   };
   const tick = async (ms: number) => {
@@ -197,6 +200,95 @@ describe.each(TEST_STORES)('주기 정리 · $name', ({ make }) => {
     expect(JSON.stringify(t.logs)).not.toMatch(/합성 (별명|메모|그림)/);
   });
 
+  it('오래된 미완성 PDF는 소프트 삭제 후 기존 유예를 거쳐 작품·쪽·자산 파일을 정리한다', async () => {
+    await seedAsset(ASSET, t.at(), { kind: 'PAGE' });
+    const art = createPdfArtwork(deps, EX, {
+      id: ART,
+      roomId: ROOM,
+      order: 0,
+      title: '합성 미완성 문서',
+      kind: 'PDF',
+      pageCount: 2,
+    });
+    t.store.pages.put({ artworkId: ART, idx: 1, assetId: ASSET });
+    const layout = recomputeLayout(deps, EX);
+    const exhibition = t.store.exhibitions.get(EX)!;
+
+    await tick(config().PDF_INCOMPLETE_PURGE_HOURS * HOUR);
+    expect(t.store.artworks.get(ART)).toMatchObject({ deletedAt: t.at(), rev: art.rev + 1 });
+    expect(t.store.artworks.listByExhibition(EX)).toEqual([]);
+    expect(t.store.exhibitions.get(EX)).toEqual({
+      ...exhibition,
+      contentVersion: exhibition.contentVersion + 1,
+    });
+    expect(recomputeLayout(deps, EX)).toEqual(layout);
+    expect(t.store.pages.listByArtworks([ART])).toEqual([{ artworkId: ART, idx: 1, assetId: ASSET }]);
+    expect(existsSync(file(ASSET))).toBe(true);
+
+    await tick(config().PURGE_DELETED_HOURS * HOUR);
+    expect(t.store.artworks.get(ART)).toBeNull();
+    expect(t.store.pages.listByArtworks([ART])).toEqual([]);
+    expect(t.store.assets.get(ASSET)).toBeNull();
+    expect(existsSync(file(ASSET))).toBe(false);
+  });
+
+  it('최근 미완성 PDF와 PDF 쪽 수신을 다시 시작한 작품은 남긴다', async () => {
+    const meta = {
+      id: ART,
+      roomId: ROOM,
+      order: 0,
+      title: '합성 받는 문서',
+      kind: 'PDF' as const,
+      pageCount: 2,
+    };
+    const old = createPdfArtwork(deps, EX, meta);
+    t.advance(config().PDF_INCOMPLETE_PURGE_HOURS * HOUR - MINUTE);
+    const recent = createPdfArtwork(deps, EX, { ...meta, id: id(3, 2) });
+    checkTarget(deps, EX, { kind: 'PAGE', artworkId: ART, idx: 1 });
+    const receivedAt = t.at();
+    await tick(MINUTE);
+
+    expect(t.store.artworks.get(ART)).toEqual({ ...old, updatedAt: receivedAt });
+    expect(t.store.artworks.get(recent.id)).toEqual(recent);
+  });
+
+  it('마친 PDF·숨긴 PDF·실패 PDF와 다른 종류는 미완성 PDF 정리 뒤에도 남긴다', async () => {
+    await seedAsset(ASSET, t.at(), {
+      kind: 'PAGE',
+      analysis: {
+        edgeLuma: 0.8,
+        linePitchPx: null,
+        linePitchConfidence: 0,
+        lineProfile: null,
+        profileBinPx: 8,
+      },
+    });
+    createPdfArtwork(deps, EX, {
+      id: ART,
+      roomId: ROOM,
+      order: 0,
+      title: '합성 마친 문서',
+      kind: 'PDF',
+      pageCount: 1,
+    });
+    t.store.pages.put({ artworkId: ART, idx: 1, assetId: ASSET });
+    completePdfArtwork(deps, EX, ART);
+    seedArt(id(3, 2), null, { kind: 'PDF', status: 'HIDDEN' });
+    seedArt(id(3, 3), null, { kind: 'PDF', status: 'FAILED', failCode: 'E_FILE_BROKEN' });
+    seedArt(id(3, 4), null, { status: 'PROCESSING' });
+    seedArt(id(3, 5), null, { kind: 'AUDIO', status: 'PROCESSING' });
+    seedArt(id(3, 6), null, { kind: 'TEXT', status: 'PROCESSING' });
+    const artworks = t.store.artworks.listByExhibition(EX);
+    const asset = t.store.assets.get(ASSET);
+    await tick(config().PDF_INCOMPLETE_PURGE_HOURS * HOUR);
+    await tick(config().PURGE_DELETED_HOURS * HOUR);
+
+    expect(t.store.artworks.listByExhibition(EX)).toEqual(artworks);
+    expect(t.store.pages.listByArtworks([ART])).toEqual([{ artworkId: ART, idx: 1, assetId: ASSET }]);
+    expect(t.store.assets.get(ASSET)).toEqual(asset);
+    expect(existsSync(file(ASSET))).toBe(true);
+  });
+
   it('되살린 작품과 다른 작품·쪽·포스터·배경음악에서 쓰는 asset은 남긴다', async () => {
     for (let n = 1; n <= 5; n++) await seedAsset(id(9, n));
     seedArt();
@@ -266,7 +358,7 @@ describe.each(TEST_STORES)('주기 정리 · $name', ({ make }) => {
     expect(await readdir(tmp)).toEqual([]);
   });
 
-  it('실제 UploadManager가 수신 중인 임시 폴더를 1시간이 지나도 보호한다', async () => {
+  it('실제 UploadManager가 다시 받는 미완성 PDF와 오래된 임시 폴더를 보호한다', async () => {
     const tmpDir = join(root, 'tmp');
     const mediaDir = join(root, 'media');
     const uploads = new UploadManager({
@@ -285,9 +377,18 @@ describe.each(TEST_STORES)('주기 정리 · $name', ({ make }) => {
         isTemporaryPathActive: path => uploads.isTemporaryPathActive(path),
       },
     );
+    createPdfArtwork(deps, EX, {
+      id: ART,
+      roomId: ROOM,
+      order: 0,
+      title: '합성 받는 문서',
+      kind: 'PDF',
+      pageCount: 2,
+    });
+    t.advance(config().PDF_INCOMPLETE_PURGE_HOURS * HOUR + MINUTE);
     let finished = Promise.resolve();
     const server = createServer((incoming, response) => {
-      finished = uploads.receive(EX, { kind: 'ARTWORK' }, incoming).then(
+      finished = uploads.receive(EX, { kind: 'PAGE', artworkId: ART, idx: 1 }, incoming).then(
         () => {
           response.end();
         },
@@ -323,6 +424,11 @@ describe.each(TEST_STORES)('주기 정리 · $name', ({ make }) => {
       expect(uploads.isTemporaryPathActive(tmpDir)).toBe(true);
       expect(uploads.isTemporaryPathActive(`${folder}-other`)).toBe(false);
       await jobs.runCycle();
+      expect(t.store.artworks.get(ART)).toMatchObject({
+        status: 'PROCESSING',
+        deletedAt: null,
+        updatedAt: t.at(),
+      });
       expect(existsSync(folder)).toBe(true);
       await uploads.drainAll(0);
       await finished;

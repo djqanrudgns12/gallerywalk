@@ -203,7 +203,7 @@ export interface StaticRouteOptions {
 /**
  * 앱 정적 경로(PLAN §9.6 표):
  * - `/assets/g/*` 해시 이름 파일 → `public, max-age=1년, immutable, stale-if-error=7일`. 없으면 404(index.html 아님)
- * - `/`, `/{입장 코드}`, `/t`, `/t/*` → 앱 `index.html` + `no-cache`(배포하면 바로 새 껍데기를 받게)
+ * - `/`, `/{입장 코드}`, `/t`, `/t/*`, `/privacy`(처리방침, P6-8) → 앱 `index.html` + `no-cache`(배포하면 바로 새 껍데기를 받게)
  * - `/sw.js` → `no-cache`
  * 보안 머리(CSP 등)는 앱 미들웨어가 모든 응답에 붙인다. 그 밖의 경로는 붙이지 않는다(앱의 404 봉투).
  */
@@ -242,5 +242,6 @@ export const staticRoutes = (options: StaticRouteOptions): Hono<AppEnv> => {
   app.get(`/:code{[0-9]{${config().ENTRY_CODE_DIGITS}}}`, html);
   app.get('/t', html);
   app.get('/t/*', html);
+  app.get('/privacy', html);
   return app;
 };

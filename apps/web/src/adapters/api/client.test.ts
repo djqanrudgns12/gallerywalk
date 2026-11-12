@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiClient, DeviceStore, TeacherSession, TokenTools } from '../../ports/index.ts';
 import { createDeviceStore, type KeyValueStorage } from '../deviceStore.ts';
 import { createTokenTools } from '../tokens.ts';
+import { errorEnvelopeOf, fakeXhrFactory, okEnvelopeOf } from '../../dev/fakeXhr.ts';
 import { createApiClient } from './client.ts';
 import { createHttp } from './http.ts';
 
@@ -204,13 +205,15 @@ let device: DeviceStore;
 let tokens: TokenTools;
 let api: ApiClient;
 let srv: ReturnType<typeof server>;
+let xhrs: ReturnType<typeof fakeXhrFactory>;
 
 beforeEach(() => {
   const storage = memoryStorage();
   device = createDeviceStore({ storage: () => storage, newDeviceId: () => DEVICE });
   tokens = createTokenTools();
+  xhrs = fakeXhrFactory();
   api = createApiClient({
-    http: createHttp({ timeoutMs: 5000, deviceId: () => device.deviceId() }),
+    http: createHttp({ timeoutMs: 5000, deviceId: () => device.deviceId(), xhr: xhrs.create }),
     device,
     tokens,
   });
@@ -758,5 +761,163 @@ describe('교사 경로 표(메서드·경로·If-Match·본문·응답 스키�
     expect(Array.from(bytes.subarray(0, 3))).toEqual([0xef, 0xbb, 0xbf]);
     expect(await file.blob.text()).toBe('"작품"\r\n');
     expect(srv.calls[0]?.headers.get('Authorization')).toBe(`Bearer ${session.token}`);
+  });
+});
+
+describe('파일 올리기(multipart·진행률)', () => {
+  const meta = { id: ART, roomId: ROOM, order: 0, title: '가상의 그림', kind: 'IMAGE' as const };
+  const png = () => ({ blob: new Blob([new Uint8Array(64)], { type: 'image/png' }), name: '01_가상.png' });
+  const imageArtwork = { ...artworkTeacher, kind: 'IMAGE', form: 'PORTRAIT', textBody: null };
+  /** 약속이 한 번 돌 때까지(가짜 XHR이 만들어지도록) */
+  const tick = () => new Promise(r => setTimeout(r, 0));
+
+  it('작품: POST multipart(meta JSON + file), Bearer·X-Device-Id, 진행률을 차례로 알린다', async () => {
+    const session = linkSession();
+    device.setTeacherSession(EX, session);
+    const seen: [number, number][] = [];
+    const p = api.teacher.uploadArtwork(EX, meta, png(), { onProgress: e => seen.push([e.loaded, e.total]) });
+    const x = xhrs.last();
+    expect([x.method, x.url]).toEqual(['POST', `/api/teacher/exhibitions/${EX}/artworks`]);
+    expect(x.headers.get('authorization')).toBe(`Bearer ${session.token}`);
+    expect(x.headers.get('x-device-id')).toBe(DEVICE);
+    // Content-Type(경계 포함)은 브라우저가 FormData로 채운다 — 직접 넣으면 경계가 빠진다
+    expect(x.headers.has('content-type')).toBe(false);
+    expect(x.meta()).toEqual(meta);
+    expect(x.file()?.name).toBe('01_가상.png');
+    expect(x.file()?.size).toBe(64);
+    x.progress(16, 64);
+    x.progress(64, 64);
+    x.respond(200, okEnvelopeOf(imageArtwork));
+    await expect(p).resolves.toEqual(imageArtwork);
+    expect(seen).toEqual([
+      [16, 64],
+      [64, 64],
+    ]);
+  });
+
+  it('중복·형식 오류는 그 코드, 연결 끊김은 E_OFFLINE, 모양이 틀린 답은 E_SERVER', async () => {
+    device.setTeacherSession(EX, linkSession());
+    const dup = api.teacher.uploadArtwork(EX, meta, png());
+    xhrs.last().respond(409, errorEnvelopeOf('E_DUPLICATE'));
+    expect((await rejection(dup)).code).toBe('E_DUPLICATE');
+    const cut = api.teacher.uploadArtwork(EX, meta, png());
+    xhrs.last().fail();
+    expect((await rejection(cut)).code).toBe('E_OFFLINE');
+    const odd = api.teacher.uploadArtwork(EX, meta, png());
+    xhrs.last().respond(200, okEnvelopeOf({ nope: true }));
+    expect((await rejection(odd)).code).toBe('E_SERVER');
+  });
+
+  it('부른 쪽이 멈추면 보내던 것을 끊고 AbortError를 그대로', async () => {
+    device.setTeacherSession(EX, linkSession());
+    const ctl = new AbortController();
+    const p = api.teacher.uploadArtwork(EX, meta, png(), { signal: ctl.signal });
+    ctl.abort();
+    await expect(p).rejects.toMatchObject({ name: 'AbortError' });
+    expect(xhrs.last().aborted).toBe(true);
+  });
+
+  it('멈춤 한도 동안 진척이 없으면 E_OFFLINE(진행 알림이 오면 다시 잰다)', async () => {
+    vi.useFakeTimers();
+    try {
+      device.setTeacherSession(EX, linkSession());
+      const slow = createApiClient({
+        http: createHttp({ timeoutMs: 5000, deviceId: () => DEVICE, xhr: xhrs.create, uploadIdleMs: 1000 }),
+        device,
+        tokens,
+      });
+      const p = slow.teacher.uploadArtwork(EX, meta, png());
+      const result = p.then(
+        () => null,
+        (e: unknown) => e,
+      );
+      vi.advanceTimersByTime(900);
+      xhrs.last().progress(10, 64);
+      vi.advanceTimersByTime(900);
+      expect(xhrs.last().aborted).toBe(false);
+      vi.advanceTimersByTime(200);
+      expect(xhrs.last().aborted).toBe(true);
+      expect(await result).toMatchObject({ code: 'E_OFFLINE' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('토큰이 없으면 보내지 않고 E_AUTH', async () => {
+    expect((await rejection(api.teacher.uploadArtwork(EX, meta, png()))).code).toBe('E_AUTH');
+    expect(xhrs.made).toHaveLength(0);
+  });
+
+  it('포스터 PUT(meta 없음) → 전시 행, 배경음악 PUT → 전시실 행', async () => {
+    device.setTeacherSession(EX, linkSession());
+    const poster = api.teacher.uploadPoster(EX, png());
+    const px = xhrs.last();
+    expect([px.method, px.url, px.meta()]).toEqual([
+      'PUT',
+      `/api/teacher/exhibitions/${EX}/poster`,
+      undefined,
+    ]);
+    px.respond(200, okEnvelopeOf(exhibitionTeacher));
+    await expect(poster).resolves.toEqual(exhibitionTeacher);
+    const mp3 = { blob: new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }), name: 'bgm.mp3' };
+    const bgm = api.teacher.uploadBgm(EX, ROOM, mp3);
+    const bx = xhrs.last();
+    expect([bx.method, bx.url]).toEqual(['PUT', `/api/teacher/rooms/${ROOM}/bgm`]);
+    bx.respond(200, okEnvelopeOf(roomTeacher));
+    await expect(bgm).resolves.toEqual(roomTeacher);
+  });
+
+  it('PDF 3단계: 만들기(JSON, 쪽 수) → 쪽 PUT 1..n 차례로(합친 진행률) → complete', async () => {
+    device.setTeacherSession(EX, linkSession());
+    const processing = {
+      ...artworkTeacher,
+      kind: 'PDF',
+      form: 'MULTIPAGE',
+      status: 'PROCESSING',
+      textBody: null,
+    };
+    srv.on(`POST /api/teacher/exhibitions/${EX}/artworks`, okJson(processing));
+    srv.on(`POST /api/teacher/artworks/${ART}/complete`, okJson({ ...processing, status: 'PUBLISHED' }));
+    const page = (n: number) => ({
+      blob: new Blob([new Uint8Array(n)], { type: 'image/jpeg' }),
+      name: `p${n}.jpg`,
+    });
+    const seen: number[] = [];
+    const input = { id: ART, roomId: ROOM, order: 2, title: '가상의 보고서' };
+    const p = api.teacher.uploadPdf(EX, input, [page(10), page(30)], {
+      onProgress: e => seen.push(e.loaded),
+    });
+    await tick();
+    expect(srv.calls[0]?.body).toEqual({ ...input, kind: 'PDF', pageCount: 2 });
+    const first = xhrs.last();
+    expect([first.method, first.url]).toEqual(['PUT', `/api/teacher/artworks/${ART}/pages/1`]);
+    first.progress(5, 10);
+    first.respond(204);
+    await tick();
+    const second = xhrs.last();
+    expect(second.url).toBe(`/api/teacher/artworks/${ART}/pages/2`);
+    second.progress(30, 30);
+    second.respond(204);
+    const done = await p;
+    expect(done.status).toBe('PUBLISHED');
+    expect(seen).toEqual([5, 10, 40, 40]);
+    expect(srv.calls.map(c => `${c.method} ${c.url}`)).toEqual([
+      `POST /api/teacher/exhibitions/${EX}/artworks`,
+      `POST /api/teacher/artworks/${ART}/complete`,
+    ]);
+  });
+
+  it('PDF 쪽 하나가 실패하면 complete를 부르지 않는다', async () => {
+    device.setTeacherSession(EX, linkSession());
+    srv.on(
+      `POST /api/teacher/exhibitions/${EX}/artworks`,
+      okJson({ ...artworkTeacher, status: 'PROCESSING' }),
+    );
+    const page = { blob: new Blob([new Uint8Array(4)]), name: 'p.jpg' };
+    const p = api.teacher.uploadPdf(EX, { id: ART, roomId: ROOM, order: 0, title: 't' }, [page]);
+    await tick();
+    xhrs.last().respond(413, errorEnvelopeOf('E_FILE_TOO_LARGE'));
+    expect((await rejection(p)).code).toBe('E_FILE_TOO_LARGE');
+    expect(srv.calls).toHaveLength(1);
   });
 });

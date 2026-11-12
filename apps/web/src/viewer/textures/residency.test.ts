@@ -147,6 +147,63 @@ describe('Residency', () => {
     expect(made[0]!.disposed).toBe(true);
   });
 
+  it('받지 못한 그림은 간격이 지나면 다시 받고(실패마다 배로), 정한 횟수를 넘으면 더 받지 않는다', async () => {
+    let clock = 0;
+    let failing = true;
+    const loads: string[] = [];
+    const r = new Residency<FakeTex>({
+      budget: budgetBytes('HIGH'),
+      now: () => clock,
+      load: async (id, v) => {
+        loads.push(`${id}|${v}`);
+        if (failing) throw new Error('offline');
+        return { id, v, disposed: false, dispose() {} };
+      },
+      upload: () => {},
+      onChange: () => {},
+    });
+    r.setArtworks(ARTS);
+    const want = new Map<string, Variant>([['b0', 'thumb']]);
+    const settle = async () => {
+      for (let i = 0; i < 4; i++) await Promise.resolve();
+    };
+    const { max, delayMs } = config().RESIDENCY_RETRY;
+    r.update(want);
+    await settle();
+    expect(loads).toHaveLength(1);
+    // 간격 전에는 다시 받지 않는다
+    clock += delayMs - 1;
+    r.update(want);
+    await settle();
+    expect(loads).toHaveLength(1);
+    // 간격이 지나면 다시(아직 끊김), 다음 간격은 두 배
+    clock += 1;
+    r.update(want);
+    await settle();
+    expect(loads).toHaveLength(2);
+    clock += delayMs;
+    r.update(want);
+    await settle();
+    expect(loads).toHaveLength(2);
+    clock += delayMs;
+    // 이어진 뒤: 받아서 올린다
+    failing = false;
+    r.update(want);
+    await settle();
+    expect(loads).toHaveLength(3);
+    while (r.tick());
+    expect(r.textureOf('b0')?.variant).toBe('thumb');
+    // 끝내 받지 못하는 그림은 `max`번 다시 받은 뒤 멈춘다
+    failing = true;
+    const other = new Map<string, Variant>([['b1', 'thumb']]);
+    for (let i = 0; i < max + 3; i++) {
+      r.update(other);
+      await settle();
+      clock += delayMs * 2 ** (max + 1);
+    }
+    expect(loads.filter(l => l === 'b1|thumb')).toHaveLength(1 + max);
+  });
+
   it('dispose는 모두 해제', async () => {
     const { r, made, flush } = rig(budgetBytes('HIGH'));
     r.update(

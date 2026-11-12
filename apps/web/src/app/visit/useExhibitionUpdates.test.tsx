@@ -1,4 +1,5 @@
 import { config } from '@gallery/core/config';
+import { AppError } from '@gallery/core/errors';
 import type { ExhibitionView, VersionInfo } from '@gallery/core/types';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -99,6 +100,62 @@ describe('useExhibitionUpdates', () => {
     status = 'CLOSED';
     await act(async () => void (await vi.advanceTimersByTimeAsync(pollMs)));
     expect(onClosed).toHaveBeenCalledTimes(1);
+  });
+
+  it('관람 중 전시가 사라지면(E_NOT_FOUND) 닫힘으로 알리고 보기 묶음을 한 번 더 불러 기기 사본을 지우게 한다, 끊김은 그대로', async () => {
+    vi.useFakeTimers();
+    const view = testExhibitionView([3]);
+    let fail: AppError = new AppError('E_OFFLINE');
+    const versions = vi.fn(async (): Promise<VersionInfo> => {
+      throw fail;
+    });
+    const exhibition = vi.fn(async () => {
+      throw new AppError('E_NOT_FOUND');
+    });
+    const onClosed = vi.fn();
+    mount({
+      code: '123456',
+      view,
+      enabled: true,
+      student: { versions, exhibition },
+      currentStopId: () => null,
+      onPlan: vi.fn(),
+      onClosed,
+      onNotReady: vi.fn(),
+    });
+    const pollMs = config().CHANGE_POLL_SEC * 1000;
+    await act(async () => void (await vi.advanceTimersByTimeAsync(pollMs + 1000)));
+    expect(versions).toHaveBeenCalledTimes(1);
+    expect(onClosed).not.toHaveBeenCalled();
+    fail = new AppError('E_NOT_FOUND');
+    await act(async () => void (await vi.advanceTimersByTimeAsync(pollMs)));
+    expect(onClosed).toHaveBeenCalledTimes(1);
+    expect(exhibition).toHaveBeenCalledTimes(1);
+  });
+
+  it('알고 있는 만료 시각이 지났으면 묻지 않고 닫힘으로', async () => {
+    vi.useFakeTimers();
+    const view = testExhibitionView([3]);
+    const versions = vi.fn(async (): Promise<VersionInfo> => ({ ...view.versions, status: 'OPEN' }));
+    const onClosed = vi.fn();
+    mount({
+      code: '123456',
+      view,
+      enabled: true,
+      student: { versions, exhibition: vi.fn() },
+      currentStopId: () => null,
+      onPlan: vi.fn(),
+      onClosed,
+      onNotReady: vi.fn(),
+      // 타이머와 함께 가는 시계를 만료 바로 뒤로 옮긴다
+      now: (
+        skew => () =>
+          Date.now() + skew
+      )(view.exhibition.expiresAt + 1 - Date.now()),
+    });
+    await act(async () => void (await vi.advanceTimersByTimeAsync(config().CHANGE_POLL_SEC * 1000 + 1000)));
+    expect(onClosed).toHaveBeenCalledTimes(1);
+    expect(versions).not.toHaveBeenCalled();
   });
 
   it('들어오기 전(포스터)에는 확인하지 않는다', async () => {

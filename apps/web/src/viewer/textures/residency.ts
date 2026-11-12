@@ -98,6 +98,8 @@ interface Entry<T> {
   tex: T | null;
   state: 'loading' | 'ready' | 'uploaded' | 'failed';
   usedAt: number;
+  /** 받기 실패한 시각(다시 받기 간격) */
+  failedAt: number;
 }
 
 const keyOf = (id: string, v: Variant): string => `${id}|${v}`;
@@ -108,6 +110,8 @@ export class Residency<T extends TextureLike> {
   private readonly arts = new Map<string, ResidentArt>();
   private wanted = new Map<string, Variant>();
   private readonly queue: string[] = [];
+  /** 그림마다 받기 실패 수(끊겼다 이어진 뒤 다시 받게, `RESIDENCY_RETRY`) */
+  private readonly fails = new Map<string, number>();
   private disposed = false;
 
   constructor(deps: ResidencyDeps<T>) {
@@ -151,7 +155,13 @@ export class Residency<T extends TextureLike> {
       if (!art || !size) continue;
       const k = keyOf(id, v);
       const e = this.entries.get(k);
-      if (e) {
+      if (e && e.state === 'failed') {
+        // 받지 못한 것: 간격(실패마다 배로)이 지났고 횟수가 남았으면 새로 받는다, 아니면 그대로 둔다
+        const n = this.fails.get(k) ?? 1;
+        const retry = config().RESIDENCY_RETRY;
+        if (n > retry.max || t - e.failedAt < retry.delayMs * 2 ** (n - 1)) continue;
+        this.entries.delete(k);
+      } else if (e) {
         e.usedAt = t;
         continue;
       }
@@ -162,6 +172,7 @@ export class Residency<T extends TextureLike> {
         tex: null,
         state: 'loading',
         usedAt: t,
+        failedAt: 0,
       };
       this.entries.set(k, entry);
       this.deps.load(id, v).then(
@@ -172,11 +183,14 @@ export class Residency<T extends TextureLike> {
           }
           entry.tex = tex;
           entry.state = 'ready';
+          this.fails.delete(k);
           this.queue.push(k);
           this.deps.onChange(id);
         },
         () => {
           entry.state = 'failed';
+          entry.failedAt = this.now();
+          this.fails.set(k, (this.fails.get(k) ?? 0) + 1);
         },
       );
     }

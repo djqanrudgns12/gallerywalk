@@ -5,7 +5,9 @@ import type {
   CharacterId,
   CreateExhibitionResultSchema,
   CreateExhibitionSchema,
+  CreateFileArtworkMetaSchema,
   CreateJsonArtworkSchema,
+  CreatePdfArtworkSchema,
   CreateRoomSchema,
   ExhibitionTeacher,
   ExhibitionView,
@@ -51,8 +53,12 @@ export type TeacherMe = z.output<typeof TeacherMeSchema>;
 export type PinLoginResult = z.output<typeof PinLoginResultSchema>;
 export type CreateRoomInput = In<typeof CreateRoomSchema>;
 export type PatchRoomInput = In<typeof PatchRoomSchema>;
-/** 글 작품·PDF 1단계(JSON). 그림·소리·PDF 쪽은 파일 올리기 길(P5-3)이라 여기 없다 */
+/** 글 작품·PDF 1단계(JSON). 그림·소리·PDF 쪽은 파일 올리기 길(`uploadArtwork`·`uploadPdf`) */
 export type CreateJsonArtworkInput = In<typeof CreateJsonArtworkSchema>;
+/** 그림·HEIC·소리 작품 multipart의 `meta` 칸 */
+export type CreateFileArtworkMetaInput = In<typeof CreateFileArtworkMetaSchema>;
+/** PDF 3단계 올리기의 작품 칸(쪽 수는 받은 쪽 그림 수로 어댑터가 채운다) */
+export type CreatePdfArtworkInput = Omit<In<typeof CreatePdfArtworkSchema>, 'kind' | 'pageCount'>;
 export type PatchArtworkInput = In<typeof PatchArtworkSchema>;
 export type ArtworkBatchInput = In<typeof ArtworkBatchSchema>;
 export type ReactionPatchInput = In<typeof ReactionPatchSchema>;
@@ -66,6 +72,23 @@ export type StatusAction = 'open' | 'close' | 'reopen';
 export interface CallOptions {
   /** 화면을 떠날 때 등 부른 쪽이 멈추기 */
   readonly signal?: AbortSignal;
+}
+
+/** 올리는 파일 하나. `name`은 multipart 파일 이름(서버가 글 많음 추정에 씀) */
+export interface UploadFile {
+  readonly blob: Blob;
+  readonly name: string;
+}
+
+/** 보낸 바이트. `total`을 모르면 0 */
+export interface UploadProgress {
+  readonly loaded: number;
+  readonly total: number;
+}
+
+export interface UploadCallOptions extends CallOptions {
+  /** 보내는 동안 여러 번(PDF는 모든 쪽을 합친 값) */
+  readonly onProgress?: (p: UploadProgress) => void;
 }
 
 /** 받은 파일(반응 CSV) */
@@ -106,7 +129,7 @@ export interface StudentApi {
 }
 
 /**
- * 교사 경로(PLAN §9.2 교사 표 중 파일 올리기를 뺀 것). 토큰은 이 기기에 저장된 그 전시의 원문을
+ * 교사 경로(PLAN §9.2 교사 표). 토큰은 이 기기에 저장된 그 전시의 원문을
  * `Authorization: Bearer`로 보낸다(서버는 해시만 저장, ADR-025). 그래서 모든 메서드가 전시 ID를 먼저 받는다.
  * `rev`를 받는 메서드는 `If-Match: {rev}` — 어긋나면 `E_CONFLICT`(화면이 새로 불러옴).
  */
@@ -176,6 +199,45 @@ export interface TeacherApi {
   ): Promise<TeacherReaction>;
   /** `GET …/{id}/reactions.csv` — 내려받기(Bearer가 필요해 링크로 열 수 없음) */
   reactionsCsv(exhibitionId: string, opts?: CallOptions): Promise<DownloadedFile>;
+
+  // ── 파일 올리기(P5-3, multipart `meta` + `file`) ──────────────
+  // 멱등 키는 서버 규칙 그대로: 작품은 기기가 만든 `meta.id`(+ 내용 해시), 쪽은 (작품, 쪽 번호), 포스터·배경음악은 내용 해시.
+  // 답을 못 받았으면(`E_OFFLINE`) 같은 ID·같은 파일로 다시 보내면 처음 결과가 온다. 처리가 끝난 뒤 응답한다.
+
+  /** `POST …/{id}/artworks` multipart — 그림·HEIC·소리. 같은 파일이 이미 있으면 `E_DUPLICATE` */
+  uploadArtwork(
+    exhibitionId: string,
+    meta: CreateFileArtworkMetaInput,
+    file: UploadFile,
+    opts?: UploadCallOptions,
+  ): Promise<ArtworkTeacher>;
+  /** `PUT …/{id}/poster` — 바뀐 전시 행 */
+  uploadPoster(exhibitionId: string, file: UploadFile, opts?: UploadCallOptions): Promise<ExhibitionTeacher>;
+  /** `PUT /api/teacher/rooms/{roomId}/bgm` — 바뀐 전시실 행 */
+  uploadBgm(
+    exhibitionId: string,
+    roomId: string,
+    file: UploadFile,
+    opts?: UploadCallOptions,
+  ): Promise<RoomTeacher>;
+  /** `PUT /api/teacher/artworks/{aid}/pages/{idx}`(1부터) — PDF 2단계 한 쪽 */
+  uploadPdfPage(
+    exhibitionId: string,
+    artworkId: string,
+    idx: number,
+    file: UploadFile,
+    opts?: UploadCallOptions,
+  ): Promise<void>;
+  /**
+   * PDF 3단계(ADR-056, PLAN §9.2): ① `createArtwork({kind:'PDF', pageCount})` ② 쪽마다 `uploadPdfPage`(차례로)
+   * ③ `completePdf`. 중간에 끊겨도 같은 `input.id`로 다시 부르면 이미 받은 쪽은 처음 결과로 지나간다.
+   */
+  uploadPdf(
+    exhibitionId: string,
+    input: CreatePdfArtworkInput,
+    pages: readonly UploadFile[],
+    opts?: UploadCallOptions,
+  ): Promise<ArtworkTeacher>;
 }
 
 export interface ApiClient {

@@ -1,0 +1,94 @@
+/* 화면 숫자 키패드: 칸 표시 + 3×4 큰 단추. 토큰·테마 변수만. */
+.pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-5);
+}
+
+.cells {
+  display: flex;
+  justify-content: center;
+  gap: var(--s-2);
+  min-height: 52px;
+}
+
+.cell {
+  width: 40px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--plate-bg);
+  border: 1.5px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  font-family: var(--font-display);
+  font-size: var(--fs-5);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.cell[data-filled='1'] {
+  border-color: var(--accent);
+}
+
+/* 가린 칸: 가운데 점 */
+.cell[data-filled='1']:empty::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background-color: var(--accent);
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-2);
+  width: 100%;
+  max-width: 300px;
+}
+
+.key {
+  min-height: 56px;
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  font-family: var(--font-ui);
+  font-size: var(--fs-5);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--t-hover) var(--ease-out);
+}
+
+.key:hover:not(:disabled) {
+  background-color: var(--accent-soft);
+}
+
+.key:active:not(:disabled) {
+  background-color: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.key:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.key:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.keySub {
+  font-size: var(--fs-2);
+  color: var(--plate-ink-sub);
+}
+
+@media (max-width: 380px) {
+  .cell {
+    width: 34px;
+    height: 46px;
+  }
+}

@@ -2,6 +2,7 @@ import { config } from '@gallery/core/config';
 import { copy, fill } from '@gallery/core/copy';
 import { type ChangeEvent, useId, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { PrivacyLink } from '../privacy/PrivacyLink.tsx';
 import { digitsOnly, PATHS } from '../routes.ts';
 import { STUDENT_THEME } from './theme.ts';
 import s from './HomeScreen.module.css';
@@ -81,6 +82,7 @@ export const HomeScreen = () => {
         <button type="button" className={s.teacher} onClick={() => navigate(PATHS.teacher)}>
           {copy.entry.teacher}
         </button>
+        <PrivacyLink />
       </div>
     </main>
   );

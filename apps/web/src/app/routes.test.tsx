@@ -1,7 +1,15 @@
 import { copy } from '@gallery/core/copy';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { digitsOnly, entryCodeOf } from './routes.ts';
-import { buttonByText, click, flush, makeServices, mountAt, typeInto } from './student/testDom.tsx';
+import {
+  buttonByText,
+  click,
+  flush,
+  flushUntil,
+  makeServices,
+  mountAt,
+  typeInto,
+} from './student/testDom.tsx';
 import { deferred } from '../dev/studentFixtures.ts';
 
 vi.mock('./visit/VisitScreen.tsx', async () => {
@@ -53,8 +61,9 @@ describe('경로', () => {
   });
 
   it.each(['/t', '/t/e/abc'])('%s → 교사 화면(지연 로드)', async path => {
-    mounted = mountAt(path, pending().services);
-    await flush(8);
+    const m = mountAt(path, pending().services);
+    mounted = m;
+    await flushUntil(() => m.q('[data-testid="teacher-app"]') !== null);
     expect(mounted.q('[data-testid="teacher-app"]')).not.toBeNull();
     expect(mounted.q('[data-testid="entry-home"]')).toBeNull();
   });
@@ -76,9 +85,10 @@ describe('첫 화면', () => {
   });
 
   it('선생님이세요? → /t', async () => {
-    mounted = mountAt('/', makeServices().services);
-    click(buttonByText(mounted.container, copy.entry.teacher));
-    await flush(8);
+    const m = mountAt('/', makeServices().services);
+    mounted = m;
+    click(buttonByText(m.container, copy.entry.teacher));
+    await flushUntil(() => m.q('[data-testid="teacher-app"]') !== null);
     expect(mounted.q('[data-testid="teacher-app"]')).not.toBeNull();
   });
 });

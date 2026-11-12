@@ -119,6 +119,12 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
+  it('WalkNav: 작품 앞이 아니면(total 0) 숫자를 숨긴다', () => {
+    render(<WalkNav current={0} total={0} onPrev={() => {}} onNext={() => {}} />);
+    const nextBtn = container.querySelector('[data-testid="next"]');
+    expect(nextBtn?.textContent).toBe(copy.viewer.nextArtwork);
+  });
+
   it('NearArtworkCard: 대표작 배지·제목·작가·짧은 설명을 그리고 크게 보기 클릭 시 onZoom을 호출한다', () => {
     const onZoom = vi.fn();
     render(

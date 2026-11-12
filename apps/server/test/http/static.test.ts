@@ -145,7 +145,7 @@ describe('해시 이름 앱 파일 /assets/g/*', () => {
 
 describe('HTML과 서비스 워커', () => {
   it('/, /{6자리 코드}, /t, /t/* 는 index.html + no-cache + 보안 머리', async () => {
-    for (const path of ['/', '/123456', '/t', '/t/x', '/t/abc/def']) {
+    for (const path of ['/', '/123456', '/t', '/t/x', '/t/abc/def', '/privacy']) {
       const res = await call(path);
       expect(res.status, path).toBe(200);
       expect(res.text, path).toBe(INDEX);

@@ -1,0 +1,20 @@
+/* 화면 아래 작은 처리방침 링크. 누르기 쉬운 높이만 두고 글자는 작게. 토큰·테마 변수만. */
+.link {
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  padding: 0 var(--s-3);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-1);
+  font-weight: 600;
+  color: var(--plate-ink-sub);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

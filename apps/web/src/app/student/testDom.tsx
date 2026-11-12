@@ -72,6 +72,13 @@ export const flush = async (times = 4): Promise<void> => {
     });
 };
 
+/** 조건이 맞을 때까지 이벤트 차례를 돌린다(지연 로드 묶음처럼 걸리는 시간이 들쭉날쭉한 것) — 상한 `timeoutMs` */
+export const flushUntil = async (ok: () => boolean, timeoutMs = 3000): Promise<boolean> => {
+  const end = Date.now() + timeoutMs;
+  while (!ok() && Date.now() < end) await flush(1);
+  return ok();
+};
+
 /** React가 알아채는 방식으로 입력 칸 값을 바꾼다 */
 export const typeInto = (el: HTMLInputElement, value: string): void => {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;

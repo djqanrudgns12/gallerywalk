@@ -73,8 +73,12 @@ export const TextZoom = ({
     },
     [total],
   );
-  useEffect(() => setPage(p => Math.min(p, total - 1)), [total]);
-  useEffect(() => onPage?.(page + 1, total), [onPage, page, total]);
+  useEffect(() => {
+    setPage(p => Math.min(p, total - 1));
+  }, [total]);
+  useEffect(() => {
+    onPage?.(page + 1, total);
+  }, [onPage, page, total]);
   // 좌우 키는 쪽 넘기기(걷기 키보다 먼저 받아 크게 보기가 닫히지 않게)
   useEffect(() => {
     const key = (e: KeyboardEvent): void => {

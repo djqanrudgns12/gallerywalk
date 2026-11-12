@@ -1,0 +1,144 @@
+/* 교사 덮개(시트·창). 휴대폰은 아래 둥근 시트, 넓은 화면은 가운데 창. 토큰·테마 변수만. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-6) var(--s-4);
+  background-color: var(--scrim);
+  font-family: var(--font-ui);
+}
+
+.panel {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100dvh - var(--s-12));
+  display: flex;
+  flex-direction: column;
+  background-color: var(--plate-bg-elevated);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  animation: rise var(--t-sheet) var(--ease-out);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-4) var(--s-2) var(--s-6);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-5);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+}
+
+.close {
+  flex-shrink: 0;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  cursor: pointer;
+}
+
+.close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--s-2) var(--s-6) var(--s-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+  padding: var(--s-4) var(--s-6) calc(var(--s-5) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--plate-edge);
+}
+
+/* 전체 화면(QR 크게 띄우기) */
+.backdrop[data-size='full'] {
+  padding: 0;
+  background-color: var(--loader-bg);
+}
+
+.backdrop[data-size='full'] .panel {
+  max-width: none;
+  max-height: none;
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.backdrop[data-size='full'] .body {
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(var(--s-6));
+    opacity: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .panel {
+    max-width: none;
+    max-height: 92dvh;
+    border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+    box-shadow: var(--shadow-sheet);
+  }
+
+  .head {
+    padding-left: var(--s-4);
+  }
+
+  .body {
+    padding: var(--s-2) var(--s-4) var(--s-4);
+  }
+
+  .footer {
+    padding-left: var(--s-4);
+    padding-right: var(--s-4);
+  }
+
+  .footer > * {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation-duration: var(--t-reduced);
+  }
+}

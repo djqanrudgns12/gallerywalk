@@ -134,9 +134,11 @@
     min-width: 0;
   }
 
+  /* 좁으면 자리 표시가 먼저 줄고, 이름도 넘치면 말줄임(글자 가운데서 잘리지 않게) */
   .title {
     font-size: var(--fs-2);
-    flex-shrink: 0;
+    flex-shrink: 1;
+    min-width: 0;
   }
 
   .sep {
@@ -146,6 +148,7 @@
   .place {
     font-size: var(--fs-1);
     min-width: 0;
+    flex-shrink: 4;
   }
 
   .liveCounter {

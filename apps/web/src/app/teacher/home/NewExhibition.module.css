@@ -1,0 +1,232 @@
+/* 새 전시 만들기(G-09): 한 줄로 쌓인 네 칸 + 접힌 `더 설정하기`. 토큰·테마 변수만. */
+.form {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  padding: var(--s-6);
+  background-color: var(--plate-bg);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-2);
+}
+
+.head > button {
+  margin-left: calc(-1 * var(--s-3));
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-6);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+}
+
+.templates {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.templateGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+
+.templateCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-2) var(--s-2) var(--s-3);
+  background-color: var(--plate-bg-elevated);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+button.templateCard:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.templateOn {
+  border: 2px solid var(--accent);
+  padding: calc(var(--s-2) - 1px) calc(var(--s-2) - 1px) calc(var(--s-3) - 1px);
+  background-color: var(--accent-soft);
+}
+
+.templateSoon {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* 미리 보기 그림 자리: 템플릿 색 조각(그림 에셋이 생기면 바꾼다) */
+.templateArt {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-plate);
+  background-color: var(--surface-wall);
+  border: 1px solid var(--plate-edge);
+  box-shadow: inset 0 -18px 0 var(--surface-oak);
+}
+
+.templateArt[data-template='modern-history'] {
+  background-color: var(--surface-wall);
+  box-shadow:
+    inset 0 -18px 0 var(--surface-oak),
+    inset 0 -20px 0 var(--brass-border);
+}
+
+.templateArt[data-template='soon'] {
+  background-color: var(--status-muted-bg);
+  box-shadow: none;
+}
+
+.templateName {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-1);
+  margin-top: var(--s-1);
+  font-size: var(--fs-2);
+  font-weight: 700;
+}
+
+.templateDesc {
+  font-size: var(--fs-1);
+  line-height: var(--lh-tight);
+  color: var(--plate-ink-sub);
+}
+
+.more {
+  border-top: 1px solid var(--plate-edge);
+  padding-top: var(--s-2);
+}
+
+.moreToggle {
+  width: 100%;
+  min-height: var(--touch-min);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--s-1);
+  background: none;
+  border: 0;
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.moreToggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.chevron {
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--t-hover) var(--ease-out);
+}
+
+.chevron[data-open='1'] {
+  transform: rotate(-135deg);
+}
+
+.moreBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding-top: var(--s-3);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  background-color: var(--plate-bg-elevated);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: var(--fs-3);
+  font-weight: 700;
+}
+
+.schoolRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--s-3);
+}
+
+.secondsRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.seconds {
+  width: 96px;
+  text-align: right;
+}
+
+.submitRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--s-2);
+}
+
+@media (max-width: 1279px) {
+  .templateGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .form {
+    padding: var(--s-4);
+    gap: var(--s-5);
+  }
+
+  .title {
+    font-size: var(--fs-5);
+  }
+
+  .templateGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .schoolRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .submitRow {
+    align-items: stretch;
+  }
+}

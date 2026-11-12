@@ -1,0 +1,43 @@
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--s-6) + env(safe-area-inset-bottom));
+  z-index: 60;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - var(--s-8));
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-5);
+  background-color: var(--plate-ink);
+  color: var(--plate-bg);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  line-height: var(--lh-body);
+  animation: up var(--t-sheet) var(--ease-out);
+}
+
+.action {
+  min-height: var(--touch-min);
+  padding: 0 var(--s-3);
+  background: none;
+  color: var(--brass-soft);
+  border: 0;
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@keyframes up {
+  from {
+    transform: translate(-50%, var(--s-4));
+    opacity: 0;
+  }
+}

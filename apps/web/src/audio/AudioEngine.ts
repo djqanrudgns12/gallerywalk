@@ -52,6 +52,10 @@ export class AudioEngine {
   private active: 0 | 1 = 0;
   private unlocked = false;
   private muted = false;
+  /** 지금 곡을 줄여 멈추는 중(`playRoom(null)`) — 그사이 같은 곡으로 돌아오면 다시 키운다 */
+  private stopping = false;
+  /** 줄이기 예약 차례(앞선 예약이 뒤의 줄이기를 일찍 끊지 않게) */
+  private fadeGen = 0;
   private readonly cleanups: (() => void)[] = [];
 
   /**
@@ -67,9 +71,11 @@ export class AudioEngine {
     } catch {
       return false;
     }
+    // 이미 풀렸으면 요소를 다시 깨우지 않는다 — 깨우기는 재생 뒤 멈추므로 흐르던 곡이 멈춘다(두 번째 누름·키 입력)
+    if (this.unlocked && ctx.state === 'running') return true;
     const silent = silentWavUrl();
     const elements = [...this.slots!.map(s => s.el), this.art!.el];
-    await Promise.all(elements.map(el => primeElement(el, silent)));
+    await Promise.all(elements.filter(el => el.paused).map(el => primeElement(el, silent)));
     this.unlocked = ctx.state === 'running';
     return this.unlocked;
   }
@@ -81,16 +87,32 @@ export class AudioEngine {
   playRoom(track: Track | null, seconds = config().BGM_CROSSFADE_SEC): void {
     if (!this.ctx || !this.slots) return;
     const current = this.slots[this.active];
-    if (track && current.track?.id === track.id) return;
     const now = this.ctx.currentTime;
+    if (track && current.track?.id === track.id) {
+      // 같은 곡: 그대로(나뉜 관 사이 이동). 줄여 멈추던 중이었으면 그 자리에서 다시 키운다
+      if (this.stopping) {
+        this.stopping = false;
+        fadeCurve(current, now, seconds, 'in', trackGain(track));
+        if (current.el.paused) void current.el.play().catch(() => undefined);
+      }
+      return;
+    }
     // 지금 곡 줄이기
-    if (current.track) fadeCurve(current, now, seconds, 'out', trackGain(current.track));
+    if (current.track && !(this.stopping && !track))
+      fadeCurve(current, now, seconds, 'out', trackGain(current.track));
     const fadingOut = current;
+    const fadingTrack = current.track;
+    this.stopping = !track && current.track !== null;
+    const gen = ++this.fadeGen;
     window.setTimeout(
       () => {
-        if (fadingOut.track && fadingOut !== this.slots?.[this.active]) {
+        if (!fadingOut.track || fadingOut.track !== fadingTrack) return;
+        // 다른 곡으로 넘어갔거나(쉬는 요소가 됨), 멈춘 채 돌아오지 않았으면 요소를 쉬게 한다
+        const replaced = fadingOut !== this.slots?.[this.active];
+        if (replaced || (this.stopping && gen === this.fadeGen)) {
           fadingOut.el.pause();
           fadingOut.track = null;
+          if (!replaced) this.stopping = false;
         }
       },
       seconds * 1000 + 50,

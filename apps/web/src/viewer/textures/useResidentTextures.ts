@@ -92,6 +92,16 @@ export const useResidentTextures = (
     residency.update(wantedVariants(source.arts, focusRef.current, tier, gl.capabilities.maxTextureSize));
     invalidate();
   }, [residency, source, key, tier, gl, invalidate]);
+  // 끊겼다 이어지면(제자리에 서 있어도) 받지 못한 그림을 다시 받는다 — 간격·횟수는 `Residency`가 본다
+  useEffect(() => {
+    if (!residency || !source) return;
+    const again = (): void => {
+      residency.update(wantedVariants(source.arts, focusRef.current, tier, gl.capabilities.maxTextureSize));
+      invalidate();
+    };
+    window.addEventListener('online', again);
+    return () => window.removeEventListener('online', again);
+  }, [residency, source, tier, gl, invalidate]);
 
   useFrame(() => {
     if (residency?.tick()) invalidate();

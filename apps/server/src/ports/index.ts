@@ -203,6 +203,8 @@ export interface RoomRepo {
 export interface ArtworkRepo {
   get(id: string): ArtworkRecord | null;
   listDeletedBefore(cutoff: number, limit: number, afterId?: string): ArtworkRecord[];
+  /** 마치지 못한 PDF(`PROCESSING`, 지우지 않음)로 마지막 변경이 기준 시각 이전인 것(§9.2 `PDF_INCOMPLETE_PURGE_HOURS`) */
+  listIncompletePdfBefore(cutoff: number, limit: number, afterId?: string): ArtworkRecord[];
   /** 기준 시각까지 지운 상태일 때만 행·쪽·반응 연쇄 삭제. asset 행은 파일 정리 재시도 근거로 남긴다 */
   deleteDeletedBefore(id: string, cutoff: number): boolean;
   /** 지운 작품 포함 여부 */

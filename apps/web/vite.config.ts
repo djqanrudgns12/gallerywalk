@@ -1,5 +1,8 @@
 import react from '@vitejs/plugin-react';
 import { createHash } from 'node:crypto';
+import { createReadStream, readdirSync, readFileSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, extname, join } from 'node:path';
 import { defaultClientConditions, defineConfig, type Plugin } from 'vite';
 
 /**
@@ -19,6 +22,56 @@ const devPages = (): Plugin => ({
     });
   },
 });
+
+/**
+ * pdf.js가 PDF를 열 때 읽는 자원(CMap·표준 글꼴·wasm 해독기·ICC)을 같은 출처에 둔다(PLAN §5.3 — 외부 주소 금지).
+ * 저장소에 복사해 두지 않고 설치된 `pdfjs-dist`에서 바로 내보내 판이 늘 같다. 판 번호가 경로에 들어가
+ * `/assets/g/`의 오래 두는 캐시(immutable)와 겹치지 않는다. 쓰는 곳은 `src/app/teacher/upload/pdfjs.ts`.
+ * 묶음(`bundle`)에 들어가지만 어떤 진입 파일도 가져오지 않아 서비스 워커 미리 받기 목록에는 없다.
+ */
+const PDFJS_DIRS = ['cmaps', 'standard_fonts', 'wasm', 'iccs'] as const;
+const PDFJS_FILE = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
+const PDFJS_TYPES: Readonly<Record<string, string>> = {
+  '.wasm': 'application/wasm',
+  '.js': 'text/javascript; charset=utf-8',
+  '.ttf': 'font/ttf',
+};
+
+const pdfjsAssets = (): Plugin => {
+  const root = dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'));
+  const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string };
+  const prefix = `/assets/g/pdfjs/${version}/`;
+  const files = (): { dir: string; name: string }[] =>
+    PDFJS_DIRS.flatMap(dir =>
+      readdirSync(join(root, dir))
+        .filter(name => PDFJS_FILE.test(name))
+        .map(name => ({ dir, name })),
+    );
+  return {
+    name: 'gallery-pdfjs-assets',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const path = req.url?.split('?')[0] ?? '';
+        if (!path.startsWith(prefix)) return next();
+        const [dir, name, ...rest] = path.slice(prefix.length).split('/');
+        if (!PDFJS_DIRS.some(d => d === dir) || !name || !PDFJS_FILE.test(name) || rest.length > 0)
+          return next();
+        const file = join(root, dir ?? '', name);
+        if (!statSync(file, { throwIfNoEntry: false })?.isFile()) return next();
+        res.setHeader('Content-Type', PDFJS_TYPES[extname(name)] ?? 'application/octet-stream');
+        createReadStream(file).pipe(res);
+      });
+    },
+    generateBundle() {
+      for (const { dir, name } of files())
+        this.emitFile({
+          type: 'asset',
+          fileName: `${prefix.slice(1)}${dir}/${name}`,
+          source: readFileSync(join(root, dir, name)),
+        });
+    },
+  };
+};
 
 /** 첫 진입의 정적 의존 파일만 설치한다. 동적 교사 묶음은 제외한다. */
 const serviceWorkerManifest = (): Plugin => ({
@@ -62,7 +115,7 @@ const serviceWorkerManifest = (): Plugin => ({
 });
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), devPages(), serviceWorkerManifest()],
+  plugins: [react(), devPages(), pdfjsAssets(), serviceWorkerManifest()],
   resolve: { conditions: ['@gallery/source', ...defaultClientConditions] },
   server: {
     host: '127.0.0.1',

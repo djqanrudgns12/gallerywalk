@@ -40,6 +40,8 @@ export const OutboxItemSchema = z.object({
   register: z.object({ consentVersion: z.string(), nickname: z.string().optional() }).nullable(),
   /** 줄에 넣은 시각(UTC ms) — 오래된 것부터 보낸다 */
   queuedAt: z.number(),
+  /** 그 전시가 지워지는 시각(UTC ms). 지나면 보내지 않고 기기에서 지운다(옛 줄에는 없음) */
+  expiresAt: z.number().optional(),
 });
 
 export interface OutboxItem {
@@ -50,6 +52,7 @@ export interface OutboxItem {
   readonly body: ReactionBodyInput;
   readonly register: VisitorRegisterInput | null;
   readonly queuedAt: number;
+  readonly expiresAt?: number;
 }
 
 /** 줄을 남기는 곳(주입: 운영은 IndexedDB, 시험은 가짜) */
@@ -147,6 +150,7 @@ export interface OutboxDeps {
   readonly storage: OutboxStorage;
   /** 등록(필요하면) + PUT */
   readonly send: (item: OutboxItem) => Promise<ReactionView>;
+  readonly now?: () => number;
 }
 
 export const errorCodeOf = (err: unknown): ErrorCode => (err instanceof AppError ? err.code : 'E_SERVER');
@@ -154,7 +158,10 @@ export const errorCodeOf = (err: unknown): ErrorCode => (err instanceof AppError
 /** 줄에 넣어 다시 보낼 실패인가 */
 export const isQueueable = (code: ErrorCode): boolean => QUEUE_CODES.has(code);
 
-export const createReactionOutbox = ({ storage, send }: OutboxDeps): ReactionOutbox => {
+export const createReactionOutbox = ({ storage, send, now = Date.now }: OutboxDeps): ReactionOutbox => {
+  /** 전시가 지워질 때가 지난 칸(보낼 곳이 없다 — 메모가 기기에 남지 않게 지운다, PLAN §9.6) */
+  const expired = (item: { readonly expiresAt?: number | undefined }): boolean =>
+    item.expiresAt !== undefined && item.expiresAt <= now();
   const pending = new Map<string, OutboxItem>();
   const listeners = new Set<(event: OutboxEvent) => void>();
   let chain: Promise<unknown> = Promise.resolve();
@@ -187,9 +194,15 @@ export const createReactionOutbox = ({ storage, send }: OutboxDeps): ReactionOut
         if (typeof key === 'string') await quietly(() => storage.remove(key));
         continue;
       }
-      const { register, ...rest } = parsed.data;
+      if (expired(parsed.data)) {
+        const key = parsed.data.key;
+        await quietly(() => storage.remove(key));
+        continue;
+      }
+      const { register, expiresAt, ...rest } = parsed.data;
       const item: OutboxItem = {
         ...rest,
+        ...(expiresAt === undefined ? {} : { expiresAt }),
         register:
           register === null
             ? null
@@ -279,6 +292,10 @@ export const createReactionOutbox = ({ storage, send }: OutboxDeps): ReactionOut
         const queue = [...pending.values()].sort((a, b) => a.queuedAt - b.queuedAt);
         for (const item of queue) {
           if (pending.get(item.key) !== item) continue;
+          if (expired(item)) {
+            await removeIf(item);
+            continue;
+          }
           try {
             const view = await send(item);
             await removeIf(item);

@@ -250,6 +250,7 @@ export const createReactionSheetStore = (deps: ReactionSheetDeps): ReactionSheet
           body,
           register,
           queuedAt: now(),
+          expiresAt: view.exhibition.expiresAt,
         };
         set({ status: 'sending', memoError: null, formError: null });
         const result = await runtime.outbox.submit(item);

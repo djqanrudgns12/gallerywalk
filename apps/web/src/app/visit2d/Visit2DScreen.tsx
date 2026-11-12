@@ -104,6 +104,22 @@ export const Visit2DScreen = ({
     return { target: targetOf(slides[resumeSlide(slides, from)] ?? EXIT_SLIDE), page: 0 };
   });
   const index = resumeSlide(slides, pos.target);
+  // 위 전시실 탭(§6.12): 전시 순서대로, 누르면 그 전시실 첫 작품으로. 나뉜 관은 한 전시실로
+  const roomOfPart = useMemo(
+    () => new Map(model.layout.parts.map(p => [p.partId, p.roomId])),
+    [model.layout],
+  );
+  const roomTabs = useMemo(() => {
+    const first = new Map<string, number>();
+    slides.forEach((sl, i) => {
+      if (sl.kind !== 'artwork' || !sl.partId) return;
+      const r = roomOfPart.get(sl.partId);
+      if (r && !first.has(r)) first.set(r, i);
+    });
+    return [...view.rooms]
+      .sort((a, b) => a.order - b.order)
+      .flatMap(r => (first.has(r.id) ? [{ id: r.id, title: r.title, slide: first.get(r.id)! }] : []));
+  }, [slides, roomOfPart, view.rooms]);
   const slide = slides[index] ?? EXIT_SLIDE;
   const art = slide.kind === 'artwork' ? byId.get(slide.artworkId) : undefined;
   const card = art ? model.cards.get(art.id) : undefined;
@@ -247,6 +263,25 @@ export const Visit2DScreen = ({
           <span className={s.soundLabel}>{copy.viewer.sound}</span>
         </button>
       </header>
+      {roomTabs.length > 1 && (
+        <nav className={s.tabs} aria-label={copy.viewer.collection} data-testid="visit2d-tabs">
+          {roomTabs.map(t => {
+            const cur = slides[index];
+            const on = cur?.kind === 'artwork' && !!cur.partId && roomOfPart.get(cur.partId) === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                className={s.tab}
+                aria-current={on ? 'true' : undefined}
+                onClick={() => setPos({ target: targetOf(slides[t.slide] ?? EXIT_SLIDE), page: 0 })}
+              >
+                {t.title}
+              </button>
+            );
+          })}
+        </nav>
+      )}
 
       {(pendingUpdate && onApplyUpdate) || notice ? (
         <div className={s.overlays}>

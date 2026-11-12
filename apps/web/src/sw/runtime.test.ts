@@ -46,6 +46,7 @@ describe('주소와 Range', () => {
       kind: 'asset',
     });
     expect(classifyRequest(new Request(`${ORIGIN}/123456`), ORIGIN)).toEqual({ kind: 'shell' });
+    expect(classifyRequest(new Request(`${ORIGIN}/privacy`), ORIGIN)).toEqual({ kind: 'shell' });
     for (const path of [
       '/api/teacher/me',
       '/api/e/123456/live',
@@ -184,6 +185,20 @@ describe('전시 캐시 정책', () => {
     expect(await worker.message({ type: 'PRELOAD_URL', url: '/assets/g/core.glb' })).toEqual({
       kind: 'NO_SPACE',
     });
+  });
+  it('수업 전 미리 불러오기: 기억한 전시의 배경음악 전체를 받아 저장하고 바이트를 알린다(P5-10)', async () => {
+    const s = setup();
+    expect(
+      await s.worker.message({ type: 'REMEMBER_EXHIBITION', exhibitionId: EX, expiresAt: 10_000 }),
+    ).toEqual({ kind: 'DONE' });
+    s.fetch.mockResolvedValue(new Response('0123456789', { headers: { 'Content-Type': 'audio/mp4' } }));
+    expect(await s.worker.message({ type: 'PRELOAD_URL', url: mediaUrl })).toEqual({
+      kind: 'CACHED',
+      bytes: 10,
+    });
+    expect(s.fetch.mock.calls.map(([r]) => r.headers.get('Range'))).toEqual([null]);
+    s.fetch.mockRejectedValue(new Error('offline'));
+    expect((await s.get(request('bytes=0-3'))).status).toBe(206);
   });
   it('삭제 뒤 오래된 화면이 보낸 미리 받기 알림으로 전시를 되살리지 않는다', async () => {
     const s = setup();

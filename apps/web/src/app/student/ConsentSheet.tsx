@@ -3,6 +3,7 @@ import { copy, fill } from '@gallery/core/copy';
 import { normalizeLine, type ExhibitionView } from '@gallery/core/types';
 import { useEffect, useId, useRef } from 'react';
 import { useStore } from 'zustand';
+import { PrivacyLink } from '../privacy/PrivacyLink.tsx';
 import { consentAudience, formatDay, type ConsentAudience } from './posterView.ts';
 import type { ConsentState, VisitorStore } from './visitorStore.ts';
 import s from './ConsentSheet.module.css';
@@ -177,6 +178,7 @@ export const ConsentPanel = ({
           <button type="button" className={s.back} onClick={onBack} disabled={consent.busy}>
             {copy.consent.back}
           </button>
+          <PrivacyLink newTab />
         </div>
       </div>
     </div>

@@ -117,21 +117,36 @@ export const createDeviceStore = (opts: DeviceStoreOptions = {}): DeviceStore =>
   };
   const writeJson = (key: string, value: unknown): void => kv.write(key, JSON.stringify(value));
 
-  /** 저장된 목록을 다듬어 읽기: 틀린 칸은 버리고, 같은 전시는 앞의 것만, 지난 전시 제외, 최신 순, 상한 */
+  /**
+   * 저장된 목록을 다듬어 읽기: 틀린 칸은 버리고, 같은 전시는 앞의 것만, 지난 전시 제외, 최신 순, 상한.
+   * 지난 전시는 목록에서 빼면서 그 전시의 방문자 토큰·별명과 교사 세션도 기기에서 지운다(PLAN §9.6 "기기 사본은 다음에 열 때").
+   */
   const readRecent = (): RecentExhibition[] => {
     const list = readJson(KEY.recent, z.array(z.unknown())) ?? [];
     const seen = new Set<string>();
     const t = now();
     const out: RecentExhibition[] = [];
+    const gone: string[] = [];
     for (const item of list) {
       const r = RecentSchema.safeParse(item);
       if (!r.success || seen.has(r.data.exhibitionId)) continue;
       seen.add(r.data.exhibitionId);
-      if (r.data.expiresAt !== null && r.data.expiresAt <= t) continue;
+      if (r.data.expiresAt !== null && r.data.expiresAt <= t) {
+        gone.push(r.data.exhibitionId);
+        continue;
+      }
       out.push(r.data);
     }
     out.sort((a, b) => b.touchedAt - a.touchedAt);
-    return out.slice(0, config().RECENT_EXHIBITIONS_MAX);
+    const kept = out.slice(0, config().RECENT_EXHIBITIONS_MAX);
+    if (gone.length > 0) {
+      for (const id of gone) {
+        kv.write(KEY.visitor(id), null);
+        kv.write(KEY.teacher(id), null);
+      }
+      writeJson(KEY.recent, kept);
+    }
+    return kept;
   };
 
   return {

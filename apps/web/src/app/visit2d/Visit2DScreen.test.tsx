@@ -144,6 +144,20 @@ const pointer = (el: Element, type: 'pointerdown' | 'pointerup', x: number, y = 
   });
 
 describe('2D 대체 화면 넘기기', () => {
+  it('위 전시실 탭: 지금 전시실이 표시되고, 누르면 그 전시실 첫 작품으로', () => {
+    const v = testExhibitionView([3, 4]);
+    const m = mount({ view: v });
+    const tabs = m.q('[data-testid="visit2d-tabs"]')!;
+    const buttons = Array.from(tabs.querySelectorAll('button'));
+    expect(buttons.map(b => b.textContent)).toEqual(['전시실 1', '전시실 2']);
+    expect(buttons[0]!.getAttribute('aria-current')).toBe('true');
+    click(buttons[1]!);
+    const room2Part = v.layout.parts.find(p => p.roomId === testRoomId(1))!.partId;
+    const firstOfRoom2 = v.layout.stops.find(s => s.kind === 'artwork' && s.partId === room2Part)!;
+    expect(m.stop()).toBe(firstOfRoom2.id);
+    expect(buttons[1]!.getAttribute('aria-current')).toBe('true');
+  });
+
   it('정지 지점 순서대로 작품만 한 칸씩, 처음에서는 이전이 잠기고, 끝은 출구(다음이 잠김)', () => {
     const v = view();
     const m = mount({ view: v });

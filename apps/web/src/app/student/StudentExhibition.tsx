@@ -18,6 +18,7 @@ import { PATHS } from '../routes.ts';
 import { useExhibitionUpdates } from '../visit/useExhibitionUpdates.ts';
 import { useWalk } from '../../viewer/walk/walkStore.ts';
 import { useServices } from '../services.ts';
+import { PrivacyLink } from '../privacy/PrivacyLink.tsx';
 import { ConsentSheet } from './ConsentSheet.tsx';
 import { isInAppBrowser } from './inAppBrowser.ts';
 import { prefersReducedMotion } from './motion.ts';
@@ -25,7 +26,9 @@ import { NoticeScreen } from './NoticeScreen.tsx';
 import { formatDay, posterImageUrl, schoolSummary } from './posterView.ts';
 import { STUDENT_THEME } from './theme.ts';
 import { createVisitorStore, isEntered, isVisiting, type VisitorStore } from './visitorStore.ts';
+import { combineProgress, usePosterPreload } from './posterPreload.ts';
 import { useWakeLock } from './wakeLock.ts';
+import type { VisitProgress } from '../visit/contract.ts';
 import s from './StudentExhibition.module.css';
 
 /**
@@ -67,6 +70,12 @@ export const StudentExhibition = ({ code }: { readonly code: string }) => {
   const liveToken = useStore(store, st => st.liveToken);
   const mode = useStore(store, st => st.mode);
   const { setProgress, load } = store.getState();
+  // 입장 단추: 3D 첫 자리 준비 + 포스터 동안 미리 불러오기(P4-8)
+  const [scene, setScene] = useState<VisitProgress>({ ready: false, progress: 0 });
+  const preload = usePosterPreload(view, services.media);
+  useEffect(() => {
+    if (store.getState().mode === '3d') setProgress(combineProgress(scene, preload));
+  }, [scene, preload, setProgress, store]);
   // 소리 켬/끔(PRD G-06 "기기에 기억")
   const [soundOn, setSoundOn] = useState(() => services.device.soundOn());
   const sound = useMemo(
@@ -143,7 +152,7 @@ export const StudentExhibition = ({ code }: { readonly code: string }) => {
               character={character}
               liveToken={liveToken}
               entered={entered}
-              onProgress={setProgress}
+              onProgress={setScene}
               onHome={goHome}
               sound={sound}
               pendingUpdate={pending !== null}
@@ -247,6 +256,7 @@ const PosterLayer = ({ store, view, leaving, covered, inApp }: PosterLayerProps)
           showInAppBrowserHint={inApp}
         />
         {progress.ready ? null : <PrepareProgress value={progress.progress} />}
+        <PrivacyLink newTab />
       </div>
     </div>
   );

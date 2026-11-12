@@ -31,6 +31,8 @@ export const checkTarget = (deps: UploadDeps, exhibitionId: string, target: Uplo
     const art = ownPdf(deps, exhibitionId, target.artworkId);
     if (!Number.isSafeInteger(target.idx) || target.idx < 1 || target.idx > (art.pageCount ?? 0))
       throw new AppError('E_VALIDATION', { fields: { idx: 'page_range' } });
+    // 쪽을 받기 시작한 때를 남긴다 — 마치지 못한 PDF 정리(`PDF_INCOMPLETE_PURGE_HOURS`)가 받는 중인 것을 치우지 않게
+    if (art.status === 'PROCESSING') deps.store.artworks.update(art.id, { updatedAt: deps.clock.now() });
   }
 };
 

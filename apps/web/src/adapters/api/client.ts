@@ -22,10 +22,13 @@ import type {
   TeacherMe,
   TeacherSession,
   TokenTools,
+  UploadCallOptions,
+  UploadFile,
+  UploadProgress,
   VisitTarget,
   VisitorIdentity,
 } from '../../ports/index.ts';
-import type { Http } from './http.ts';
+import type { Http, UploadRequest } from './http.ts';
 
 /**
  * `ApiClient` 구현(PLAN §9.2): 경로·메서드·응답 스키마의 짝과 토큰 다루기(ADR-025).
@@ -59,6 +62,19 @@ const artworkPath = (id: string, rest = '') => `/teacher/artworks/${seg(id)}${re
 /** 답을 받지 못해 서버에서 됐는지 모르는 실패(연결 끊김·시간 초과·앞단 오류·부른 쪽이 멈춤) */
 const outcomeUnknown = (err: unknown): boolean =>
   !(err instanceof AppError) || err.code === 'E_OFFLINE' || err.code === 'E_SERVER';
+
+/** multipart 본문: `meta`(있으면, JSON) 먼저, 그다음 `file`(서버 한도: 파일 1·필드 1) */
+const formOf = (file: UploadFile, meta?: unknown): FormData => {
+  const form = new FormData();
+  if (meta !== undefined) form.append('meta', JSON.stringify(meta));
+  form.append('file', file.blob, file.name);
+  return form;
+};
+
+const uploadOpts = (opts: UploadCallOptions | undefined): Pick<UploadRequest, 'signal' | 'onProgress'> => ({
+  signal: opts?.signal,
+  onProgress: opts?.onProgress,
+});
 
 const nicknameOf = (nickname: string | undefined): string | null => {
   if (nickname === undefined) return null;
@@ -423,6 +439,85 @@ export const createApiClient = ({ http, device, tokens }: ApiClientDeps): ApiCli
         token: asTeacher(exhibitionId),
         signal: opts?.signal,
       }),
+
+    uploadArtwork: async (exhibitionId, meta, file, opts) =>
+      http.upload(
+        {
+          method: 'POST',
+          path: exhibitionPath(exhibitionId, '/artworks'),
+          form: formOf(file, meta),
+          token: asTeacher(exhibitionId),
+          ...uploadOpts(opts),
+        },
+        ArtworkTeacherSchema,
+      ),
+
+    uploadPoster: async (exhibitionId, file, opts) =>
+      http.upload(
+        {
+          method: 'PUT',
+          path: exhibitionPath(exhibitionId, '/poster'),
+          form: formOf(file),
+          token: asTeacher(exhibitionId),
+          ...uploadOpts(opts),
+        },
+        ExhibitionTeacherSchema,
+      ),
+
+    uploadBgm: async (exhibitionId, roomId, file, opts) =>
+      http.upload(
+        {
+          method: 'PUT',
+          path: roomPath(roomId, '/bgm'),
+          form: formOf(file),
+          token: asTeacher(exhibitionId),
+          ...uploadOpts(opts),
+        },
+        RoomTeacherSchema,
+      ),
+
+    uploadPdfPage: async (exhibitionId, artworkId, idx, file, opts) =>
+      http.uploadSend({
+        method: 'PUT',
+        path: artworkPath(artworkId, `/pages/${seg(String(idx))}`),
+        form: formOf(file),
+        token: asTeacher(exhibitionId),
+        ...uploadOpts(opts),
+      }),
+
+    async uploadPdf(exhibitionId, input, pages, opts) {
+      const token = asTeacher(exhibitionId);
+      if (pages.length === 0) throw new AppError('E_VALIDATION', { fields: { pageCount: 'required' } });
+      await http.json(
+        {
+          method: 'POST',
+          path: exhibitionPath(exhibitionId, '/artworks'),
+          body: { ...input, kind: 'PDF', pageCount: pages.length },
+          token,
+          signal: opts?.signal,
+        },
+        ArtworkTeacherSchema,
+      );
+      const total = pages.reduce((sum, p) => sum + p.blob.size, 0);
+      let done = 0;
+      for (const [i, page] of pages.entries()) {
+        await http.uploadSend({
+          method: 'PUT',
+          path: artworkPath(input.id, `/pages/${i + 1}`),
+          form: formOf(page),
+          token,
+          signal: opts?.signal,
+          onProgress: (p: UploadProgress) =>
+            opts?.onProgress?.({ loaded: done + Math.min(p.loaded, page.blob.size), total }),
+        });
+        done += page.blob.size;
+        opts?.onProgress?.({ loaded: done, total });
+      }
+      return http.json(
+        { method: 'POST', path: artworkPath(input.id, '/complete'), token, signal: opts?.signal },
+        ArtworkTeacherSchema,
+      );
+    },
   };
 
   return { student, teacher };

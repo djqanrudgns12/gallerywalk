@@ -1,0 +1,202 @@
+/* 반응 탭: 작품별 한 줄 + 펼친 메모 목록. 토큰·테마 변수만. */
+.tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  font-family: var(--font-ui);
+  color: var(--plate-ink);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-5);
+  font-weight: 700;
+}
+
+.failed {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--s-5) var(--s-4);
+  background-color: var(--plate-bg);
+  border: 1px dashed var(--plate-edge);
+  border-radius: var(--r-card);
+  color: var(--plate-ink-sub);
+  text-align: center;
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.row {
+  background-color: var(--plate-bg-elevated);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+
+.rowHead {
+  width: 100%;
+  min-height: var(--touch-min);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: none;
+  color: var(--plate-ink);
+  border: 0;
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rowHead:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.rowTitle {
+  font-size: var(--fs-3);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--s-1) var(--s-3);
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-size: var(--fs-2);
+  color: var(--plate-ink-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat[data-count='0'] {
+  opacity: 0.5;
+}
+
+.chevron {
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--plate-ink-sub);
+  border-bottom: 2px solid var(--plate-ink-sub);
+  transform: rotate(45deg);
+  transition: transform var(--t-hover) var(--ease-out);
+}
+
+.chevron[data-open='1'] {
+  transform: rotate(-135deg);
+}
+
+.memos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: 0 var(--s-4) var(--s-4);
+  border-top: 1px solid var(--plate-edge);
+  padding-top: var(--s-3);
+}
+
+.memoList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.memo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-3);
+  background-color: var(--plate-bg);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+}
+
+.memo[data-hidden='1'] .memoText {
+  color: var(--plate-ink-sub);
+  text-decoration: line-through;
+}
+
+.memoMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.memoName {
+  font-size: var(--fs-2);
+  font-weight: 700;
+}
+
+.memoTime {
+  font-size: var(--fs-1);
+  color: var(--plate-ink-sub);
+}
+
+.badgePublic {
+  background-color: var(--status-ok-bg);
+  color: var(--status-ok);
+}
+
+.memoText {
+  margin: 0;
+  font-size: var(--fs-3);
+  line-height: var(--lh-body);
+  word-break: break-word;
+}
+
+.memoActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+}
+
+@media (max-width: 767px) {
+  .rowHead {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .stats {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+
+  .chevron {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}

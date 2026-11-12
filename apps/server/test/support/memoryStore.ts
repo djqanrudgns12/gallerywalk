@@ -150,6 +150,15 @@ export const memoryStore = (): Store & { readonly tables: () => Tables } => {
           limit,
           afterId,
         ),
+      listIncompletePdfBefore: (cutoff, limit, afterId) =>
+        batch(
+          [...t.artworks.values()].filter(
+            a =>
+              a.kind === 'PDF' && a.status === 'PROCESSING' && a.deletedAt === null && a.updatedAt <= cutoff,
+          ),
+          limit,
+          afterId,
+        ),
       deleteDeletedBefore: (id, cutoff) => {
         const a = t.artworks.get(id);
         if (!a || a.deletedAt === null || a.deletedAt > cutoff) return false;

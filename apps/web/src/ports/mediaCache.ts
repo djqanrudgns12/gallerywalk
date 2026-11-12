@@ -12,11 +12,23 @@ export interface StorageSpace {
   readonly availableBytes: number | null;
   readonly sufficient: boolean | null;
 }
+/**
+ * 미리 받을 범위. `FIRST_ROOM`(기본) = 학생 포스터의 첫 전시실(§2.5) ·
+ * `WHOLE` = 교사의 수업 전 미리 불러오기(P5-10): 모든 작품 썸네일·벽용, 배경음악, 소리 작품, 포스터, 템플릿.
+ */
+export type PreloadScope = 'FIRST_ROOM' | 'WHOLE';
+export interface PreloadOptions {
+  readonly scope?: PreloadScope;
+}
 /** 앱 연결 계층이 등록·시작·visibilitychange 알림을 소유한다. */
 export interface MediaCache {
   register(): Promise<boolean>;
   appStarted(): Promise<void>;
   screenResumed(): Promise<void>;
-  preload(view: ExhibitionView, onProgress: (progress: PreloadProgress) => void): Promise<PreloadResult>;
+  preload(
+    view: ExhibitionView,
+    onProgress: (progress: PreloadProgress) => void,
+    options?: PreloadOptions,
+  ): Promise<PreloadResult>;
   space(requiredBytes: number): Promise<StorageSpace>;
 }

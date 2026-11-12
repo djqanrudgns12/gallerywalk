@@ -1,0 +1,65 @@
+/* 수업 전 미리 불러오기 시트: 진행 막대 + 저장한 MB. 토큰·테마 변수만. */
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-top: var(--s-4);
+}
+
+.row,
+.meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s-3);
+}
+
+.row {
+  font-size: var(--fs-3);
+  font-weight: 700;
+  color: var(--plate-ink);
+}
+
+.meta {
+  font-size: var(--fs-2);
+  color: var(--plate-ink-sub);
+}
+
+.pct {
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  height: 8px;
+  overflow: hidden;
+  background-color: var(--plate-edge);
+  border-radius: var(--r-pill);
+}
+
+.fill {
+  height: 100%;
+  background-color: var(--accent);
+  border-radius: var(--r-pill);
+  transition: width var(--t-hover) var(--ease-out);
+}
+
+.fill[data-done='1'] {
+  background-color: var(--status-ok);
+}
+
+.done {
+  color: var(--status-ok);
+}
+
+.notice {
+  margin: var(--s-4) 0 0;
+  font-size: var(--fs-2);
+  font-weight: 600;
+  color: var(--plate-ink-sub);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}

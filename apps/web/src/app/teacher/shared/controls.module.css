@@ -1,0 +1,202 @@
+/*
+ * 교사 화면 공용 조작 모양(P5-A — B도 `composes`로 쓴다). 색·간격·모서리·글꼴은 토큰·테마 변수만.
+ * 터치 영역 44px 이상(PLAN §7.5), 버튼 사이 8px 이상.
+ */
+
+.page {
+  min-height: 100dvh;
+  background-color: var(--loader-bg);
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+  padding: calc(var(--s-6) + env(safe-area-inset-top)) calc(var(--s-4) + env(safe-area-inset-right))
+    calc(var(--s-10) + env(safe-area-inset-bottom)) calc(var(--s-4) + env(safe-area-inset-left));
+}
+
+.button {
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+  padding: 0 var(--s-5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  cursor: pointer;
+  transition:
+    background-color var(--t-hover) var(--ease-out),
+    border-color var(--t-hover) var(--ease-out);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.primary {
+  composes: button;
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  box-shadow: var(--shadow-plate);
+}
+
+.secondary {
+  composes: button;
+  background-color: var(--plate-bg-elevated);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+}
+
+.secondary:hover:not(:disabled) {
+  border-color: var(--brass-border);
+}
+
+.ghost {
+  composes: button;
+  padding: 0 var(--s-3);
+  background: none;
+  color: var(--accent);
+  border: 1px solid transparent;
+  font-size: var(--fs-2);
+}
+
+.ghost:hover:not(:disabled) {
+  background-color: var(--accent-soft);
+}
+
+.danger {
+  composes: button;
+  background-color: var(--danger);
+  color: var(--accent-ink);
+  border: 1px solid var(--danger);
+}
+
+.iconButton {
+  composes: button;
+  padding: 0;
+  width: var(--touch-min);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+
+.label {
+  font-size: var(--fs-2);
+  font-weight: 700;
+  color: var(--plate-ink);
+}
+
+.optional {
+  margin-left: var(--s-2);
+  font-size: var(--fs-1);
+  font-weight: 600;
+  color: var(--plate-ink-sub);
+}
+
+.counter {
+  font-size: var(--fs-1);
+  color: var(--plate-ink-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.input {
+  min-height: var(--touch-min);
+  width: 100%;
+  padding: 0 var(--s-3);
+  background-color: var(--plate-bg-elevated);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+  color: var(--plate-ink);
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--fs-2);
+  line-height: var(--lh-body);
+  color: var(--plate-ink-sub);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--fs-2);
+  font-weight: 600;
+  line-height: var(--lh-body);
+  color: var(--danger);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 var(--s-2);
+  border-radius: var(--r-pill);
+  background-color: var(--status-muted-bg);
+  color: var(--status-muted);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 전시 상태 점(준비 중·열림·닫힘) */
+.statusDot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-1);
+  font-weight: 700;
+  color: var(--status-muted);
+}
+
+.statusDot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background-color: currentColor;
+}
+
+.statusDot[data-status='OPEN'] {
+  color: var(--status-ok);
+}
+
+.statusDot[data-status='DRAFT'] {
+  color: var(--status-warn);
+}
+
+.statusDot[data-status='CLOSED'] {
+  color: var(--status-muted);
+}

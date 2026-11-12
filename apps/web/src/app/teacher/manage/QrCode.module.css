@@ -1,0 +1,44 @@
+/* QR(G-14): 흰 종이 위 짙은 칸(대비가 커야 휴대폰 카메라가 읽는다) + 아래 주소 글자 */
+.qr {
+  margin: 0;
+  width: 220px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.qr[data-size='large'] {
+  width: min(64vh, 86vw);
+}
+
+.svg {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  display: block;
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+}
+
+.paper {
+  fill: var(--plate-bg-elevated);
+}
+
+.ink {
+  fill: var(--plate-ink);
+}
+
+.text {
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  color: var(--plate-ink-sub);
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.qr[data-size='large'] .text {
+  font-size: var(--fs-5);
+  color: var(--plate-ink);
+}

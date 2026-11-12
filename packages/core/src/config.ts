@@ -26,6 +26,18 @@ export const configDefaults = {
   PIN_LOCK_MIN: 10,
   RECENT_EXHIBITIONS_MAX: 5,
   UNDO_DELETE_SEC: 10,
+  /** "지금 삭제" 단추가 잠겨 있는 시간(PRD G-18) · 교사 화면 알림 띠가 떠 있는 시간 */
+  DELETE_CONFIRM_SEC: 3,
+  TOAST_SEC: 4,
+  /** 교사 관리 화면(P5): 입력이 멈추고 저장하기까지 · 길게 누르기 · 끌기 시작 거리 */
+  AUTOSAVE_DELAY_MS: 600,
+  LONG_PRESS_MS: 500,
+  DRAG_START_PX: 8,
+  /** 올리기(P5-3): 바쁨·속도 제한 다시 보내기 횟수·간격 · 사전 검사에서 머리만 읽는 바이트 · 소리 길이 읽기 상한 */
+  UPLOAD_RETRY_MAX: 4,
+  UPLOAD_RETRY_DELAY_MS: 2000,
+  UPLOAD_HEAD_BYTES: 262_144,
+  AUDIO_PROBE_TIMEOUT_MS: 8000,
   PURGE_DELETED_HOURS: 24,
   /**
    * 정리 작업(PLAN §9.7, `apps/server/src/jobs`): 보관 정리 주기(만료·지우는 중 전시), 지운 작품·남은 asset·임시 정리 주기,
@@ -47,6 +59,20 @@ export const configDefaults = {
   CREATE_PER_IP_DAY: 30,
   CREATE_GLOBAL_DAY: 200,
   START_CODE_REQUIRED: true,
+  /**
+   * 학생 경로 속도 칸(PLAN §9.2 학생 표, ADR-062): `[한도, 창 초]`. 한 반이 한 IP(학교 공용)로 들어와도 막히지 않게 IP 칸은 넉넉히.
+   * 틀린 입장 코드는 IP마다 세어 넘으면 그 IP의 입장 조회를 막는다(열린 전시 캐내기).
+   */
+  PUBLIC_RATE: {
+    viewDevice: [30, 60],
+    viewIp: [600, 60],
+    badCodeIp: [60, 600],
+    versionDevice: [10, 60],
+    registerIp: [200, 600],
+    renameVisitor: [10, 600],
+    reactVisitor: [120, 600],
+    reactIp: [3000, 600],
+  },
 
   // ── 글자 수 한도 (PRD 4장·PLAN §7. 전시실 30·200은 PLAN §7.4, 나머지는 [추천]) ─
   EXHIBITION_TITLE_MAX_CHARS: 40,
@@ -433,6 +459,8 @@ export const configDefaults = {
     LOW: { behind: 1, ahead: 2 },
   },
   RESIDENCY_MIN_TEXTURE_FOR_WALL: 2048,
+  /** 받지 못한 작품 그림 다시 받기(§6.5): 실패 뒤 `delayMs`가 지나 다음 원하는 집합을 정할 때, 그림마다 `max`번까지(배로 늘림) */
+  RESIDENCY_RETRY: { max: 3, delayMs: 5000 },
   /** 그리는 관(§6.6, 자유 관람): 캐릭터에서 관 바닥까지 이 거리 안이면 붙인다 */
   VISIBLE_PART_RADIUS_M: { HIGH: 14, MEDIUM: 10, LOW: 6 },
   /** 품질 단계 내리기(§6.10): 움직이는 구간 중앙 fps 기준·판정에 필요한 최소 프레임 수 */

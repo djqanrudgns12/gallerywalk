@@ -1,0 +1,96 @@
+/* `···` 메뉴: 넓은 화면은 단추 아래 펼침, 휴대폰은 아래 시트처럼. 토큰·테마 변수만. */
+.wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + var(--s-2));
+  right: 0;
+  z-index: 30;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-2);
+  background-color: var(--plate-bg-elevated);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-ui);
+}
+
+.item {
+  min-height: var(--touch-min);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  background: none;
+  color: var(--plate-ink);
+  border: 0;
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover:not(:disabled),
+.item:focus-visible {
+  background-color: var(--accent-soft);
+  outline: none;
+}
+
+.item:disabled {
+  cursor: not-allowed;
+  color: var(--plate-ink-sub);
+}
+
+.itemText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.warn {
+  font-size: var(--fs-1);
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.itemDanger {
+  color: var(--danger);
+}
+
+.itemDanger:hover:not(:disabled),
+.itemDanger:focus-visible {
+  background-color: var(--danger-bg);
+}
+
+.sep {
+  height: 1px;
+  margin: var(--s-1) var(--s-2);
+  background-color: var(--plate-edge);
+}
+
+.menuError {
+  padding: var(--s-2) var(--s-3) var(--s-1);
+}
+
+@media (max-width: 767px) {
+  .menu {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    padding: var(--s-3) var(--s-3) calc(var(--s-4) + env(safe-area-inset-bottom));
+    border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+    box-shadow: var(--shadow-sheet);
+  }
+}

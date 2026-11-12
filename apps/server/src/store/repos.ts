@@ -674,6 +674,13 @@ export const createSqliteStore = (db: Db): Store => {
       selectSql(artworkCodec, 'WHERE deleted_at <= @cutoff AND id > @after ORDER BY id LIMIT @limit'),
     ),
     deleteDeleted: db.prepare('DELETE FROM artworks WHERE id = @id AND deleted_at <= @cutoff'),
+    incompletePdf: db.prepare(
+      selectSql(
+        artworkCodec,
+        `WHERE kind = 'PDF' AND status = 'PROCESSING' AND deleted_at IS NULL AND updated_at <= @cutoff
+         AND id > @after ORDER BY id LIMIT @limit`,
+      ),
+    ),
     listAll: db.prepare(selectSql(artworkCodec, 'WHERE exhibition_id = ? ORDER BY rowid')),
     listLive: db.prepare(
       selectSql(artworkCodec, 'WHERE exhibition_id = ? AND deleted_at IS NULL ORDER BY rowid'),
@@ -785,6 +792,8 @@ export const createSqliteStore = (db: Db): Store => {
       listDeletedBefore: (cutoff, limit, afterId = '') =>
         artworks.deleted.all({ cutoff, limit, after: afterId }).map(artworkCodec.read),
       deleteDeletedBefore: (id, cutoff) => artworks.deleteDeleted.run({ id, cutoff }).changes > 0,
+      listIncompletePdfBefore: (cutoff, limit, afterId = '') =>
+        artworks.incompletePdf.all({ cutoff, limit, after: afterId }).map(artworkCodec.read),
       listByExhibition: (exhibitionId, options) =>
         (options?.includeDeleted ? artworks.listAll : artworks.listLive)
           .all(exhibitionId)

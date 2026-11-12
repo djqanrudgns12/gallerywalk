@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMediaCache, planPreload, type WorkerConnection } from './mediaCache.ts';
 import { ART, EX, view } from '../../sw/testSupport.ts';
 import type { PreloadProgress } from '../../ports/mediaCache.ts';
+import { testArtworkId, testAssetId, testExhibitionView, uuid } from '../../dev/testView.ts';
+import type { ExhibitionView, MediaVariant } from '@gallery/core/types';
 
 const setup = () => {
   const connection: WorkerConnection = {
@@ -136,5 +138,113 @@ describe('기기 캐시 포트', () => {
       `/assets/g/m/${EX}/${b.id}/wall.webp`,
       `/assets/g/m/${EX}/${ART}/wall.webp`,
     ]);
+  });
+});
+
+/** 전시 전체(P5-10) 시험 재료: 전시실 2곳(작품 4·2), 1관 배경음악, 2관 작품 하나는 소리(표지 있음), 포스터 */
+const wholeView = (): ExhibitionView => {
+  const v = testExhibitionView([4, 2]);
+  const variant = (name: string, ext: MediaVariant['ext'], bytes: number): MediaVariant => ({
+    name,
+    ext,
+    w: ext === 'webp' ? 512 : 0,
+    h: ext === 'webp' ? 512 : 0,
+    bytes,
+  });
+  v.exhibition.poster = {
+    assetId: uuid(0xf001),
+    variants: [variant('thumb', 'webp', 10), variant('wall', 'webp', 100)],
+  };
+  v.rooms[0]!.bgm = {
+    asset: { assetId: uuid(0xf002), variants: [variant('audio', 'm4a', 3_000_000)] },
+    durationMs: 150_000,
+    analysis: { audibleStartMs: 0, audibleEndMs: 150_000, loudnessDb: -16 },
+  };
+  const sound = v.artworks.find(a => a.id === testArtworkId(1, 1))!;
+  sound.kind = 'AUDIO';
+  sound.image = null;
+  sound.audio = {
+    asset: { assetId: uuid(0xf003), variants: [variant('audio', 'mp3', 2_000_000)] },
+    durationMs: 60_000,
+    analysis: { audibleStartMs: 0, audibleEndMs: 60_000, loudnessDb: null },
+    cover: { assetId: uuid(0xf004), variants: [variant('thumb', 'webp', 20), variant('wall', 'webp', 200)] },
+  };
+  return v;
+};
+const m = (asset: string, file: string) =>
+  `/assets/g/m/${testExhibitionView().exhibition.id}/${asset}/${file}`;
+
+describe('수업 전 미리 불러오기 — 전시 전체(P5-10)', () => {
+  it('모든 작품 썸네일·벽용, 배경음악, 소리 작품, 포스터, 템플릿이 목록에 들어간다(글 작품·줌 제외)', () => {
+    const v = wholeView();
+    const urls = planPreload(v, ['/assets/g/core.glb', '/assets/g/core.glb'], 'WHOLE').map(x => x.url);
+    // 1관: 그림 3 + 글 1(번호 3) · 2관: 그림 1 + 소리 1(표지)
+    const pictures = [testAssetId(0, 0), testAssetId(0, 1), testAssetId(0, 2), testAssetId(1, 0)];
+    const cover = uuid(0xf004);
+    for (const id of [...pictures, cover]) expect(urls).toContain(m(id, 'thumb.webp'));
+    for (const id of pictures) {
+      expect(urls).toContain(m(id, 'wall.webp'));
+      expect(urls).toContain(m(id, 'wall-lo.webp'));
+    }
+    expect(urls).toContain(m(cover, 'wall.webp'));
+    expect(urls).toContain(m(uuid(0xf002), 'audio.m4a'));
+    expect(urls).toContain(m(uuid(0xf003), 'audio.mp3'));
+    expect(urls).toContain(m(uuid(0xf001), 'wall.webp'));
+    expect(urls[0]).toBe('/assets/g/core.glb');
+    expect(new Set(urls).size).toBe(urls.length);
+    expect(urls.some(u => /zoom/.test(u))).toBe(false);
+    // 4 그림 × 3 + 표지 2 + 소리 2 + 포스터 1 + 템플릿 1
+    expect(urls).toHaveLength(4 * 3 + 2 + 2 + 1 + 1);
+    // 첫 전시실만(학생 포스터)은 그대로 — 다른 관·배경음악·소리는 없다
+    const first = planPreload(v, ['/assets/g/core.glb']).map(x => x.url);
+    expect(first).not.toContain(m(testAssetId(1, 0), 'thumb.webp'));
+    expect(first).not.toContain(m(uuid(0xf002), 'audio.m4a'));
+  });
+  it('썸네일을 먼저 다 받고, 관 차례대로 벽용 뒤에 그 전시실 배경음악을 받는다', () => {
+    const urls = planPreload(wholeView(), [], 'WHOLE').map(x => x.url);
+    const lastThumb = Math.max(...urls.flatMap((u, i) => (u.endsWith('/thumb.webp') ? [i] : [])));
+    const firstWall = urls.findIndex(u => u.endsWith('/wall.webp') && !u.includes(uuid(0xf001)));
+    expect(lastThumb).toBeLessThan(firstWall);
+    const bgm = urls.indexOf(m(uuid(0xf002), 'audio.m4a'));
+    expect(bgm).toBeGreaterThan(urls.indexOf(m(testAssetId(0, 2), 'wall.webp')));
+    expect(bgm).toBeLessThan(urls.indexOf(m(testAssetId(1, 0), 'wall.webp')));
+  });
+  it('WHOLE로 받으면 목록 전부를 보내고 진행률·저장 바이트를 알린다', async () => {
+    const s = setup();
+    vi.mocked(s.connection.send).mockImplementation(async msg =>
+      msg.type === 'PRELOAD_URL' ? { kind: 'CACHED', bytes: 1000 } : { kind: 'DONE' },
+    );
+    const v = wholeView();
+    const plan = planPreload(v, ['/assets/g/core-hash.glb', '/assets/g/fixtures-hash.glb'], 'WHOLE');
+    const progress: PreloadProgress[] = [];
+    expect(await s.cache.preload(v, p => progress.push(p), { scope: 'WHOLE' })).toEqual({ kind: 'READY' });
+    const sent = vi
+      .mocked(s.connection.send)
+      .mock.calls.flatMap(([msg]) => (msg.type === 'PRELOAD_URL' ? [msg.url] : []));
+    expect(sent).toEqual(plan.map(x => x.url));
+    expect(sent).toContain(m(uuid(0xf002), 'audio.m4a'));
+    expect(sent).toContain(m(testAssetId(1, 0), 'wall.webp'));
+    expect(progress[0]).toEqual({ kind: 'LOADING', completed: 0, total: plan.length, bytes: 0 });
+    expect(progress.at(-1)).toEqual({
+      kind: 'READY',
+      completed: plan.length,
+      total: plan.length,
+      bytes: plan.length * 1000,
+    });
+  });
+  it('전시 전체가 남은 공간보다 크면 첫 다운로드 전에 NO_SPACE(첫 전시실은 들어가도)', async () => {
+    const s = setup();
+    s.estimate.mockResolvedValue({ quota: 6_000_000, usage: 0 });
+    vi.mocked(s.connection.send).mockImplementation(async msg =>
+      msg.type === 'PRELOAD_URL' ? { kind: 'CACHED', bytes: 1 } : { kind: 'DONE' },
+    );
+    const v = wholeView();
+    const progress: PreloadProgress[] = [];
+    expect(await s.cache.preload(v, p => progress.push(p), { scope: 'WHOLE' })).toEqual({
+      kind: 'NO_SPACE',
+    });
+    expect(progress.at(-1)?.kind).toBe('NO_SPACE');
+    expect(s.connection.send).not.toHaveBeenCalled();
+    expect(await s.cache.preload(v, () => {})).toEqual({ kind: 'READY' });
   });
 });

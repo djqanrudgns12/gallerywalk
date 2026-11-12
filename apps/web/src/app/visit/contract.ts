@@ -38,4 +38,9 @@ export interface VisitScreenProps {
   /** 띠 "전시가 새로 바뀌었어요 `새로 보기`"(P4-9 — 지금 보던 관이 바뀌어 적용을 미룬 새 보기 묶음이 있음) */
   readonly pendingUpdate?: boolean | undefined;
   readonly onApplyUpdate?: (() => void) | undefined;
+  /**
+   * 교사 3D 미리 보기(P5-6, PRD G-13): 3D에서 작품을 누르면 걸어가 크게 보는 대신 이것을 부른다(그 작품 관리 패널).
+   * 있으면 학생 일(반응 남기기·보내기 줄)을 하지 않는다.
+   */
+  readonly onPickArtwork?: ((artworkId: string) => void) | undefined;
 }

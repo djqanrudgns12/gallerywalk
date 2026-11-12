@@ -1,3 +1,4 @@
+import { AppError } from '@gallery/core/errors';
 import type { ExhibitionView } from '@gallery/core/types';
 import { useEffect, useRef } from 'react';
 import type { StudentApi } from '../../ports/index.ts';
@@ -6,7 +7,8 @@ import { decideLayoutApply, decideUpdate, shouldPoll } from '../../viewer/update
 /**
  * 전시 바뀜 확인·적용(P4-9, ADR-027, PLAN §7.3) — 자유 관람에 맞춤(ADR-059).
  * - 관람 중에만 `CHANGE_POLL_SEC`마다·화면 복귀 때 `GET /api/e/{code}/v`.
- * - 닫힘·준비 중이면 그 화면으로.
+ * - 닫힘·준비 중이면 그 화면으로. 전시가 사라졌으면(`E_NOT_FOUND` — 교사가 지움·만료) 또는 알고 있는 만료 시각이 지났으면
+ *   닫힘 화면으로. 사라졌을 때는 보기 묶음 주소를 한 번 더 불러 기기 사본도 지우게 한다(서비스 워커가 없음 답에 그 전시를 지움, §9.6).
  * - 내용·설정만 바뀌면 조용히 새 보기 묶음으로 — 배치 객체는 옛 것을 그대로 둬 걷던 자리·장면이 흔들리지 않게.
  * - 배치가 바뀌었으면: 지금 관이 그대로(또는 관 밖)면 조용히 적용(캐릭터는 그 자리에서 새 벽으로 이어 감),
  *   지금 관이 바뀌었으면 띠 "전시가 새로 바뀌었어요 `새로 보기`"로 미룬다(보던 방이 갑자기 바뀌지 않게).
@@ -69,6 +71,10 @@ export const useExhibitionUpdates = (args: UpdatesArgs): void => {
       last = now();
       try {
         if (!a.view) return;
+        if (now() >= a.view.exhibition.expiresAt) {
+          ref.current.onClosed();
+          return;
+        }
         const v = await a.student.versions(code, { signal: ac.signal });
         const cur = ref.current.view;
         if (!cur) return;
@@ -80,8 +86,12 @@ export const useExhibitionUpdates = (args: UpdatesArgs): void => {
           const now = ref.current.view;
           if (now) ref.current.onPlan(planUpdate(now, next, ref.current.currentStopId()));
         }
-      } catch {
-        // 끊김·일시 오류는 다음 확인 때 다시(혼자 관람은 그대로). 전시가 사라졌으면 다음 확인의 `versions`가 알려 준다
+      } catch (err) {
+        if (err instanceof AppError && err.code === 'E_NOT_FOUND' && !ac.signal.aborted) {
+          void a.student.exhibition(code).catch(() => undefined);
+          ref.current.onClosed();
+        }
+        // 그 밖의 끊김·일시 오류는 다음 확인 때 다시(혼자 관람은 그대로)
       } finally {
         busy = false;
       }

@@ -1,0 +1,142 @@
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  background-color: var(--surface-wall);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  font-size: var(--fs-3);
+  font-weight: 600;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.editorActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+}
+
+.locked {
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  background-color: var(--status-warn-bg);
+  color: var(--status-warn);
+  border-radius: var(--r-plate);
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.opened {
+  display: flex;
+  align-items: center;
+  gap: var(--s-6);
+}
+
+.facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+
+.fact dt {
+  font-size: var(--fs-1);
+  font-weight: 700;
+  color: var(--plate-ink-sub);
+}
+
+.fact dd {
+  margin: var(--s-1) 0 0;
+}
+
+.url {
+  font-size: var(--fs-4);
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.code {
+  font-family: var(--font-display);
+  font-size: var(--fs-7);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 크게 띄우기(프로젝터) */
+.big {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-12);
+}
+
+.bigText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.bigUrl {
+  margin: 0;
+  font-size: var(--fs-6);
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.bigCodeLabel {
+  margin: var(--s-4) 0 0;
+  font-size: var(--fs-3);
+  font-weight: 700;
+  color: var(--plate-ink-sub);
+}
+
+.bigCode {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: calc(var(--fs-7) * 2.4);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1279px) {
+  .big {
+    flex-direction: column;
+    gap: var(--s-6);
+    text-align: center;
+  }
+}
+
+@media (max-width: 767px) {
+  .opened {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .opened > figure {
+    align-self: center;
+  }
+
+  .bigCode {
+    font-size: calc(var(--fs-7) * 1.4);
+  }
+
+  .bigUrl {
+    font-size: var(--fs-4);
+  }
+}

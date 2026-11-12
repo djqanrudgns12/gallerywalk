@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { z } from 'zod';
 import { copy, fill } from '../../packages/core/src/copy/ko.ts';
@@ -18,6 +18,8 @@ const SIZES = [
   { name: 'desktop', width: 1440, height: 900, touch: false },
 ] as const;
 const SHOTS = '.local/screens/p4-12';
+/** 자동 시험이 잰 그리기 수(P6-4 `docs/perf.md`) — 줄마다 JSON 하나. 소프트웨어 그리기라 fps는 적지 않는다 */
+const PERF_LOG = '.local/perf/student-e2e.jsonl';
 const READY_TIMEOUT = 60_000;
 const WALK_TIMEOUT = 90_000;
 const IDLE_OBSERVATION_MS = 10_000;
@@ -113,9 +115,13 @@ async function walkTo(page: Page, index: number): Promise<void> {
   await expect(page.getByTestId('walk-perf')).toHaveAttribute('data-mode', 'view', {
     timeout: WALK_TIMEOUT,
   });
-  await expect(page.getByTestId('walk-nav')).toContainText(
-    fill(copy.viewer.pageOf, { page: index + 1, total: view.layout.stops.length }),
-  );
+  // PRD 9.1: 숫자는 그 관 안의 작품 순번(광장·소개·출구는 숫자 없음)
+  const stop = view.layout.stops[index];
+  if (stop?.index != null && stop.count != null)
+    await expect(page.getByTestId('walk-nav')).toContainText(
+      fill(copy.viewer.pageOf, { page: stop.index, total: stop.count }),
+    );
+  else await expect(page.getByTestId('walk-nav')).toHaveAttribute('data-stop-count', '');
 }
 
 for (const size of SIZES) {
@@ -212,6 +218,14 @@ for (const size of SIZES) {
 
       const idle = await settle(page);
       expect(idle.frames).toBe(idle.mark);
+      // 예산(ADR-057, walk-dev와 같은 기준): 그리기 호출 휴대폰·태블릿 120·데스크톱 160, 삼각형 30만
+      expect(idle.calls).toBeLessThanOrEqual(size.touch ? 120 : 160);
+      expect(idle.triangles).toBeLessThanOrEqual(300_000);
+      mkdirSync('.local/perf', { recursive: true });
+      appendFileSync(
+        PERF_LOG,
+        `${JSON.stringify({ at: new Date().toISOString(), size: size.name, place: 'artwork-view', calls: idle.calls, triangles: idle.triangles })}\n`,
+      );
       await page.waitForTimeout(IDLE_OBSERVATION_MS);
       const after = await snap(page);
       expect(after.frames).toBe(idle.frames);

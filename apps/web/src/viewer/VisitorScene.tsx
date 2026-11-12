@@ -21,6 +21,7 @@ import { type ArtworkTextureSource, useResidentTextures } from './textures/useRe
 import { visibleParts } from './walk/visibleParts.ts';
 import { type WalkStart, WalkView } from './walk/WalkView.tsx';
 import { useWalk } from './walk/walkStore.ts';
+import { ZoomDim } from './walk/ZoomDim.tsx';
 
 /**
  * 자유 관람 3D 장면 한 벌(ADR-057): 무대 빛·하늘·템플릿 조각·설비·정면 이름판·명판·액자·캐릭터·다른 관람객.
@@ -62,10 +63,19 @@ export interface VisitorSceneProps {
   readonly onPose?: ((pose: Pose) => void) | undefined;
   /** 캐릭터가 들어간 구역이 바뀜(외관·회랑·관 ID) — 배경음악 등 바깥이 따라간다 */
   readonly onRegion?: ((region: string) => void) | undefined;
+  /**
+   * 걷기 대신 카메라를 몰 조종기(자동 투어·미리 보기). 있으면 캐릭터와 걷기(`WalkView`)를 그리지 않는다.
+   * 받는 함수로 지금 구역을 알려야 그 둘레 관만 붙인다.
+   */
+  readonly controller?: ((onRegion: (region: string) => void) => ReactNode) | undefined;
+  /** 동작 줄이기(PRD 8.4) */
+  readonly reducedMotion?: boolean | undefined;
   /** 시작 자리(캔버스를 다시 붙일 때 이어 걷기) */
   readonly start?: WalkStart | undefined;
   /** 첫 조각 묶음(외관)이 올라와 첫 자리를 그릴 수 있음 — 한 번 */
   readonly onReady?: (() => void) | undefined;
+  /** 작품을 눌렀을 때(교사 3D 미리 보기 — 걸어가 크게 보기 대신 그 작품 패널, PRD G-13). 없으면 크게 보기 */
+  readonly onArtworkTap?: ((artworkId: string) => void) | undefined;
   /** 개발 화면 전용(외관 조각이 없을 때 대신 세울 것 등) — 조각 목록을 받아 그 위에 */
   readonly extra?: (modules: ReadonlyMap<string, unknown> | null) => ReactNode;
 }
@@ -92,7 +102,10 @@ export const VisitorScene = ({
   onReady,
   onRegion,
   start,
+  reducedMotion,
+  controller,
   extra,
+  onArtworkTap,
 }: VisitorSceneProps) => {
   const modules = useTemplateModules(modulesUrl, look);
   const loaded = modules !== null;
@@ -181,24 +194,33 @@ export const VisitorScene = ({
             key={a.id}
             artwork={a}
             holder={holders[a.id]!}
-            onTap={id => zoom?.(id)}
+            onTap={id => (onArtworkTap ? onArtworkTap(id) : zoom?.(id))}
             pool={look.pool}
           />
         ))}
-      <WalkView
-        layout={layout}
-        artworks={artworks}
-        character={character}
-        placeOf={placeOf}
-        onRegion={r => {
+      {controller ? (
+        controller(r => {
           setRegion(r);
           onRegion?.(r);
-        }}
-        crowd={crowd}
-        paused={paused}
-        onPose={onPose}
-        start={start}
-      />
+        })
+      ) : (
+        <WalkView
+          layout={layout}
+          artworks={artworks}
+          character={character}
+          placeOf={placeOf}
+          onRegion={r => {
+            setRegion(r);
+            onRegion?.(r);
+          }}
+          crowd={crowd}
+          paused={paused}
+          onPose={onPose}
+          start={start}
+          reducedMotion={reducedMotion}
+        />
+      )}
+      {!controller && <ZoomDim holders={holders} reducedMotion={reducedMotion ?? false} />}
       {peers && (
         <Peers
           sample={peers.sample}

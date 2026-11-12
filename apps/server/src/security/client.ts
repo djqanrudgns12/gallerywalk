@@ -42,6 +42,7 @@ export const DEVICE_ID_HEADER = 'x-device-id';
 /** HMAC 입력의 앞말 — 기기 ID·이름 없는 기기·IP 묶음이 같은 키를 만들지 않게(IP 묶음은 앞말 없이 그대로) */
 const DEVICE_PREFIX = 'device:';
 const ANON_DEVICE_PREFIX = 'anon:';
+const VISITOR_PREFIX = 'visitor:';
 
 declare const subjectBrand: unique symbol;
 /** 칸 주인 키: HMAC으로만 만든다(원문 IP·기기 ID가 칸 표에 들어가지 못하게 타입으로 막음) */
@@ -140,6 +141,8 @@ export interface ClientKeys {
   ip(ip: string): SubjectKey | null;
   /** `X-Device-Id` 값 + 그 요청의 IP → 기기 칸 키. IP 묶음을 만들 수 없으면 `null` */
   device(deviceId: string | undefined, ip: string): DeviceKey | null;
+  /** 방문자 토큰 해시 → 방문자 칸 키(학생 경로 별명·반응 칸, PLAN §9.2) */
+  visitor(tokenHash: string): SubjectKey;
 }
 
 /** `RATE_KEY_SECRET`으로 IP·기기 칸 키를 만드는 묶음 */
@@ -156,6 +159,7 @@ export const createClientKeys = (secret: KeySource | KeyObject): ClientKeys => {
         ? null
         : { key: subjectKey(key, `${ANON_DEVICE_PREFIX}${bucket}`), named: false };
     },
+    visitor: hash => subjectKey(key, `${VISITOR_PREFIX}${hash}`),
   };
 };
 
