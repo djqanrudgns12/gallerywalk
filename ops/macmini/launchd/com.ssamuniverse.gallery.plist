@@ -25,6 +25,8 @@
     <key>TMP_DIR</key><string>/Users/__GW_USER__/gallery-server/tmp</string>
     <key>WEB_DIR</key><string>/Users/__GW_USER__/gallery-server/app/apps/web/dist</string>
   </dict>
+  <!-- 만드는 파일(DB·작품 파일·기록)을 gwsvc만 읽게: umask 077 = 10진 63 (ADR-066) -->
+  <key>Umask</key><integer>63</integer>
   <key>ProcessType</key><string>Interactive</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>

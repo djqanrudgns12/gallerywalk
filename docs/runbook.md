@@ -83,6 +83,12 @@ sh ops/gw.sh start-code
 
 되돌리기(글방을 원래대로): `rollback-config.json`으로 `update-distribution`, `gallery` CNAME 삭제. 함수 `we-viewer-request`는 지우지 않고 남겨 둔다.
 
+### ⑤ 감시·알림 (ADR-066)
+
+1. 맥미니 쪽(언제든, sudo): `sh ops/gw.sh install-daemons watch` — 1분마다 로컬·공개·뒷문을 점검해 `logs/watch.log`와 `sh ops/gw.sh status`의 "하트비트"에 남긴다.
+2. AWS 쪽(사용자 로그인·승인 필요): 지표 쓰기 전용 IAM 자격 증명을 gwsvc `secrets/aws-macmini-credentials`(600)에 넣고, CloudWatch 알람(`Gallerywalk/EndToEndOK`, 1분 × 3회, 신호 없음도 알림)과 알림 메일을 연결한다. 그 뒤로는 맥미니가 꺼져도 3분 안에 메일이 온다.
+3. 서버 파일 권한(umask 077)은 서버 데몬을 다시 설치할 때 반영된다(서버 재시작 — 평일 16시 뒤): `sh ops/gw.sh install-daemons server`
+
 ## 평소
 
 | 하고 싶은 것 | 명령 |

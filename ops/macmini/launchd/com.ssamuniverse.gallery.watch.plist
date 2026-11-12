@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 갤러리 1분 하트비트(PLAN §19, ADR-066). 로컬·공개·뒷문을 점검하고 CloudWatch Gallerywalk/EndToEndOK를 보낸다.
+     운영 릴리스(app)의 스크립트를 쓰고, 없을 때만 bootstrap 사본을 쓴다. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.ssamuniverse.gallery.watch</string>
+  <key>UserName</key><string>__GW_USER__</string>
+  <key>WorkingDirectory</key><string>/Users/__GW_USER__/gallery-server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>d=/Users/__GW_USER__/gallery-server; s=$d/app/ops/macmini/scripts; [ -f "$s/heartbeat.sh" ] || s=$d/bootstrap/scripts; exec /bin/sh "$s/heartbeat.sh"</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>HOME</key><string>/Users/__GW_USER__</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>60</integer>
+  <key>StandardOutPath</key><string>/Users/__GW_USER__/gallery-server/logs/watch.log</string>
+  <key>StandardErrorPath</key><string>/Users/__GW_USER__/gallery-server/logs/watch.log</string>
+</dict>
+</plist>

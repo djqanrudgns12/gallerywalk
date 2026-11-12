@@ -1,16 +1,17 @@
 #!/bin/sh
-# 갤러리 launchd 시스템 데몬 설치·제거(관리자 권한). com.ssamuniverse.gallery* 세 개만 다룬다 —
+# 갤러리 launchd 시스템 데몬 설치·제거(관리자 권한). com.ssamuniverse.gallery* 네 개만 다룬다 —
 # 쌤유니버스의 다른 com.ssamuniverse.* 데몬, net.rollinthunder.*, com.ssamwrite.*는 건드리지 않는다.
 set -eu
 
 usage() {
   cat <<'EOF'
-사용법: sh ops/gw.sh install-daemons <server|autodeploy|tunnel ...>
-        sh ops/gw.sh install-daemons --remove <server|autodeploy|tunnel ...>
+사용법: sh ops/gw.sh install-daemons <server|autodeploy|tunnel|watch ...>
+        sh ops/gw.sh install-daemons --remove <server|autodeploy|tunnel|watch ...>
 
   server      com.ssamuniverse.gallery            운영 서버 127.0.0.1:4520 (KeepAlive)
   autodeploy  com.ssamuniverse.gallery.autodeploy 1분마다 main 확인·CI 통과 커밋 배포 (첫 배포 뒤)
   tunnel      com.ssamuniverse.gallery.tunnel     전용 cloudflared 터널 (메트릭 20243, tunnel-create 뒤)
+  watch       com.ssamuniverse.gallery.watch      1분 하트비트(로컬·공개·뒷문 점검 → CloudWatch)
 EOF
 }
 
@@ -25,9 +26,9 @@ src="$(cd "$(dirname "$0")/../launchd" && pwd -P)"
 
 remove=0
 if [ "${1:-}" = "--remove" ]; then remove=1; shift; fi
-[ $# -gt 0 ] || die "항목을 주세요: server | autodeploy | tunnel"
+[ $# -gt 0 ] || die "항목을 주세요: server | autodeploy | tunnel | watch"
 for name in "$@"; do
-  case "$name" in server|autodeploy|tunnel) ;; *) die "알 수 없는 항목: '$name'" ;; esac
+  case "$name" in server|autodeploy|tunnel|watch) ;; *) die "알 수 없는 항목: '$name'" ;; esac
 done
 
 label_of() {
@@ -35,6 +36,7 @@ label_of() {
     server) echo com.ssamuniverse.gallery ;;
     autodeploy) echo com.ssamuniverse.gallery.autodeploy ;;
     tunnel) echo com.ssamuniverse.gallery.tunnel ;;
+    watch) echo com.ssamuniverse.gallery.watch ;;
   esac
 }
 
@@ -44,7 +46,7 @@ if [ "$remove" = "0" ]; then
       server)
         [ -s "$gw_home/secrets/app.env" ] || die "secrets/app.env 가 없습니다 — setup-host 먼저"
         [ -f "$gw_home/app/apps/server/dist/index.js" ] || die "배포된 앱이 없습니다 — sh ops/gw.sh deploy --init 먼저" ;;
-      autodeploy)
+      autodeploy|watch)
         [ -f "$gw_home/app/.gw-commit" ] || die "첫 배포 전입니다 — sh ops/gw.sh deploy --init 먼저" ;;
       tunnel)
         [ -s "$gw_home/cloudflared/config.yml" ] || die "cloudflared/config.yml 이 없습니다 — sh ops/gw.sh tunnel-create 먼저" ;;

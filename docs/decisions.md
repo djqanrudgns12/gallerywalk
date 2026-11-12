@@ -694,3 +694,13 @@
 - **배운 것**: 소유자의 `~/.cloudflared/cert.pem`은 `rollinthunder.net` 영역 로그인이라 `cloudflared tunnel route dns`가 레코드를 그 영역에 만든다. 원본 DNS는 대시보드에서 만든다(runbook ④).
 - **남은 위험(다른 저장소)**: 글방 `ops/aws/setup-ops.sh --apply`(원본 비밀값 회전 등에 씀)는 세 동작의 함수를 `we-viewer-request`로 다시 연결한다. 그 함수는 `write` 외 주소를 308로 보내므로 **돌리면 갤러리가 끊긴다.** 글방 쪽에서 공용 함수를 쓰도록 고쳐야 한다(이 저장소에서는 고치지 않음). 그 전까지 글방 `setup-ops.sh --apply`를 돌리지 않는다.
 - **되돌리기**: `~/.gallerywalk-admin/rollback-config.json`(600)으로 `update-distribution`(실행 순간 ETag 사용), `gallery` CNAME 삭제.
+
+## ADR-066 · 운영 감시(1분 하트비트)와 운영 파일 권한 (2026-11-13, PLAN §19)
+
+- **결정**
+  1. launchd `com.ssamuniverse.gallery.watch`가 1분마다 gwsvc로 `ops/macmini/scripts/heartbeat.sh`를 돌린다. ① 맥미니 안 `/api/health` 200(DB 열림·디스크 여유, 대기열 길이 포함) ② 공개 `https://gallery.ssamuniverse.com/api/health` 200(CloudFront·터널·원본 잠금 통과) ③ 원본 직접 접속 403(뒷문 잠김)이 모두 맞을 때만 CloudWatch(us-east-1) `Gallerywalk/EndToEndOK=1`, 아니면 0을 보낸다.
+  2. 알림은 CloudWatch 알람 하나: 1분 주기, 3회 연속 1 미만 **또는 신호 없음**이면 메일(PLAN §19 "실패 3번이면 알림"). 신호 없음도 알리므로 맥미니 전원·회선이 통째로 죽어도 안다. 글방 하트비트와 같은 틀(글방은 5분)이고 지표 이름 공간은 `Gallerywalk`로 나눈다.
+  3. 하트비트는 지표 쓰기 권한만 가진 전용 IAM 자격 증명(gwsvc `secrets/aws-macmini-credentials`, 600)을 쓴다. 자격 증명이 없으면 맥미니 안 기록만 남긴다. 비밀값은 출력하지 않는다.
+  4. 서버 데몬에 `Umask 63`(= 077)을 준다. DB·작품 파일·기록이 644로 만들어지던 것을 600으로. 이미 있는 파일은 2026-11-13에 600으로 바꿨다.
+- **비용**: 사용자 지정 지표 1개·알람 1개·한 달 약 4.3만 번 지표 쓰기 — CloudWatch 상시 무료 한도(지표 10·알람 10·요청 100만) 안이다. 같은 계정의 글방 감시와 합쳐도 한도 안인지 설치 때 다시 센다.
+- **남은 것**: AWS 쪽(IAM 사용자·알람·알림 메일 주제)은 사용자 로그인과 승인이 필요해 따로 한다. 서버 데몬 다시 설치(umask 반영, 서버 재시작)는 평일 16시 뒤에.

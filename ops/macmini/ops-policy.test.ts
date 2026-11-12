@@ -138,6 +138,7 @@ describe('운영 스크립트', () => {
       'com.ssamuniverse.gallery.autodeploy.plist',
       'com.ssamuniverse.gallery.plist',
       'com.ssamuniverse.gallery.tunnel.plist',
+      'com.ssamuniverse.gallery.watch.plist',
     ]);
     for (const f of files) {
       const text = readFileSync(join(dir, f), 'utf8');

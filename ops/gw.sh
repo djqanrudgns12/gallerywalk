@@ -18,10 +18,11 @@ usage() {
   rollback                   이전 릴리스로 되돌리기 (자동 배포는 멈춤)
   autodeploy <status|dry-run|retry|pause|resume|run>
   status                     데몬·건강·릴리스·자동 배포 상태
-  logs [server|autodeploy|tunnel]  마지막 기록 40줄
+  logs [server|autodeploy|tunnel|watch]  마지막 기록 40줄
   tunnel-create              전용 cloudflared 터널 만들기 (cloudflared tunnel login 뒤)
   origin-secret              원본 잠금 값(64자)을 만들거나 그대로 두고 클립보드로 복사(화면에 안 냄)
   start-code [--status]      전시 만들기 시작 코드(숫자 6~32자리)를 숨김 입력으로 받아 HMAC만 저장
+  heartbeat                  하트비트 한 번 돌려 보기(로컬·공개·뒷문 점검)
 EOF
 }
 
@@ -65,12 +66,12 @@ case "$cmd" in
     ;;
   status)
     echo "== 데몬"
-    for l in com.ssamuniverse.gallery com.ssamuniverse.gallery.autodeploy com.ssamuniverse.gallery.tunnel; do
+    for l in com.ssamuniverse.gallery com.ssamuniverse.gallery.autodeploy com.ssamuniverse.gallery.tunnel com.ssamuniverse.gallery.watch; do
       if [ -f "/Library/LaunchDaemons/$l.plist" ]; then
         st="$(launchctl print "system/$l" 2>/dev/null | awk -F'= ' '/^\tstate/ {print $2; exit}')"
         # 자동 배포는 1분마다 깨어나 확인하고 끝나므로 평소에는 not running이 정상이다.
         case "$l:$st" in
-          *.autodeploy:"not running") st="대기 중 — 1분마다 깨어나 확인" ;;
+          *.autodeploy:"not running"|*.watch:"not running") st="대기 중 — 1분마다 깨어나 확인" ;;
           *:running) st="실행 중" ;;
         esac
         echo "$l: 설치됨 (${st:-알 수 없음})"
@@ -82,6 +83,7 @@ case "$cmd" in
     if sudo -n -u "$GW_SERVICE_USER" true 2>/dev/null; then
       echo "== 릴리스: $(as_svc cat "$GW_STATE/current-release" 2>/dev/null || echo 없음) · 직전: $(as_svc cat "$GW_STATE/previous-release" 2>/dev/null || echo 없음)"
       as_svc sh "$(svc_script auto-deploy.sh)" --status || true
+      echo "하트비트: $(as_svc cat "$GW_STATE/heartbeat-status" 2>/dev/null || echo 기록 없음) · AWS 감시 자격 증명: $(as_svc test -s "$GW_SECRETS/aws-macmini-credentials" && echo 있음 || echo 없음)"
     else
       echo "(sudo 위임 전 — setup-host 를 먼저)"
     fi
@@ -89,9 +91,10 @@ case "$cmd" in
     ;;
   logs)
     which="${1:-server}"
-    case "$which" in server|autodeploy|tunnel) ;; *) usage >&2; exit 1 ;; esac
+    case "$which" in server|autodeploy|tunnel|watch) ;; *) usage >&2; exit 1 ;; esac
     as_svc tail -n 40 "$GW_LOGS/$which.log"
     ;;
+  heartbeat) refresh_bootstrap; as_svc sh "$GW_BOOTSTRAP/scripts/heartbeat.sh" ;;
   tunnel-create) refresh_bootstrap; sh "$ops/scripts/tunnel-create.sh" "$@" ;;
   start-code)
     refresh_bootstrap
