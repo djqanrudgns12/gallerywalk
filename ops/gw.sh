@@ -65,6 +65,11 @@ case "$cmd" in
     for l in com.ssamuniverse.gallery com.ssamuniverse.gallery.autodeploy com.ssamuniverse.gallery.tunnel; do
       if [ -f "/Library/LaunchDaemons/$l.plist" ]; then
         st="$(launchctl print "system/$l" 2>/dev/null | awk -F'= ' '/^\tstate/ {print $2; exit}')"
+        # 자동 배포는 1분마다 깨어나 확인하고 끝나므로 평소에는 not running이 정상이다.
+        case "$l:$st" in
+          *.autodeploy:"not running") st="대기 중 — 1분마다 깨어나 확인" ;;
+          *:running) st="실행 중" ;;
+        esac
         echo "$l: 설치됨 (${st:-알 수 없음})"
       else
         echo "$l: 설치 안 됨"
