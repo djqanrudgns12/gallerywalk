@@ -13,7 +13,8 @@ usage() {
 
   setup-host                 (sudo) 서비스 계정·폴더·sudo 위임·비밀값 준비, 1회
   install-daemons <항목...>  (sudo) server | autodeploy | tunnel 데몬 등록 (--remove로 제거)
-  deploy [--init] [SHA]      GitHub main의 커밋(기본 최신)을 배포. 평일 08~16시는 거부
+  deploy [--init] [--now] [SHA]  GitHub main의 커밋(기본 최신)을 배포. 평일 08~16시는 거부
+                             --now: 맥미니가 바빠도 기다리지 않음(수동 전용)
   rollback                   이전 릴리스로 되돌리기 (자동 배포는 멈춤)
   autodeploy <status|dry-run|retry|pause|resume|run>
   status                     데몬·건강·릴리스·자동 배포 상태
@@ -42,9 +43,9 @@ case "$cmd" in
   setup-host) sudo sh "$ops/scripts/setup-host.sh" "$@" ;;
   install-daemons) sudo sh "$ops/scripts/install-daemons.sh" "$@" ;;
   deploy)
-    init=""; sha=""
+    init=""; now=""; sha=""
     for a in "$@"; do
-      case "$a" in --init) init="--init" ;; -*) gw_die "알 수 없는 옵션: $a" ;; *) sha="$a" ;; esac
+      case "$a" in --init) init="--init" ;; --now) now="--now" ;; -*) gw_die "알 수 없는 옵션: $a" ;; *) sha="$a" ;; esac
     done
     if [ -z "$sha" ]; then
       sha="$(git ls-remote "$GW_REPO_HTTPS" "refs/heads/$GW_DEPLOY_BRANCH" | awk 'NR == 1 {print $1}')"
@@ -52,7 +53,7 @@ case "$cmd" in
     fi
     refresh_bootstrap
     # 수동 배포는 저장소의 지금 스크립트(bootstrap)로 한다 — 스크립트를 고친 커밋을 처음 올릴 때도 그 판이 쓰인다.
-    as_svc sh "$GW_BOOTSTRAP/scripts/deploy.sh" --sha "$sha" $init
+    as_svc sh "$GW_BOOTSTRAP/scripts/deploy.sh" --sha "$sha" $init $now
     ;;
   rollback) as_svc sh "$(svc_script rollback.sh)" "$@" ;;
   autodeploy)

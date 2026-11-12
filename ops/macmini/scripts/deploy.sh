@@ -16,6 +16,8 @@ usage() {
 
   --sha <SHA>   배포할 커밋. GitHub main에 들어 있는 커밋만 받는다.
   --init        운영 DB(data/gallery.sqlite)가 아직 없을 때 첫 배포를 허용한다.
+  --now         맥미니가 바빠도(부하·메모리 압박) 기다리지 않는다. 소유자 수동 배포 전용.
+                수업 시간 금지는 그대로이고, 자동 배포에서는 쓸 수 없다.
   -h, --help    이 도움말.
 종료 코드 75 = 지금은 할 수 없음(수업 시간·부하·다른 배포 중). 실패가 아니라 나중에 다시.
 EOF
@@ -23,9 +25,11 @@ EOF
 
 sha=""
 allow_init=0
+now=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|--help|help) usage; exit 0 ;;
+    --now) now=1; shift ;;
     --sha)
       [ $# -ge 2 ] || { echo "ERROR: --sha 뒤에 40자 SHA를 주세요" >&2; exit 1; }
       sha="$2"; shift 2 ;;
@@ -44,9 +48,16 @@ if gw_is_school_hours; then
   echo "ERROR: 평일 08:00~16:00 KST(수업 시간)에는 배포하지 않습니다 (지금 $(TZ=Asia/Seoul date '+%F %T KST'))" >&2
   exit 75
 fi
+if [ "$now" = "1" ] && [ "${GW_AUTODEPLOY_RUN:-0}" = "1" ]; then
+  gw_die "--now는 소유자 수동 배포에서만 쓸 수 있습니다"
+fi
 if gw_is_busy; then
-  echo "ERROR: 맥미니가 바쁩니다($(gw_load_summary)) — 잠시 뒤 다시" >&2
-  exit 75
+  if [ "$now" = "1" ]; then
+    echo "주의: 맥미니가 바쁘지만(--now) 기다리지 않고 진행합니다 ($(gw_load_summary))"
+  else
+    echo "ERROR: 맥미니가 바쁩니다($(gw_load_summary)) — 잠시 뒤 다시 (지금 하려면 sh ops/gw.sh deploy --now)" >&2
+    exit 75
+  fi
 fi
 if ! gw_lock deploy; then
   echo "ERROR: 다른 배포 또는 되돌리기가 진행 중입니다" >&2

@@ -90,6 +90,21 @@ describe('운영 스크립트', () => {
     expect(r.status).toBe(75);
   });
 
+  it('--now는 바쁨만 건너뛰고, 수업 시간과 자동 배포에서는 통하지 않는다', () => {
+    const busy = { GW_TEST_KST_DOW_HOUR: '6:10', GW_TEST_LOAD: '100', GW_TEST_NCPU: '4' };
+    // 바쁨을 지나 다음 관문(비밀값 파일 없음)에서 멈추면 바쁨 판정을 건너뛴 것이다
+    const passed = sh([join(scripts, 'deploy.sh'), '--now', '--sha', SHA], busy);
+    expect(passed.status).toBe(1);
+    expect(passed.stdout).toContain('기다리지 않고');
+    expect(passed.stderr).toContain('app.env');
+    expect(
+      sh([join(scripts, 'deploy.sh'), '--now', '--sha', SHA], { GW_TEST_KST_DOW_HOUR: '2:10' }).status,
+    ).toBe(75);
+    const auto = sh([join(scripts, 'deploy.sh'), '--now', '--sha', SHA], { ...busy, GW_AUTODEPLOY_RUN: '1' });
+    expect(auto.status).toBe(1);
+    expect(auto.stderr).toContain('수동 배포에서만');
+  });
+
   it('자동 배포는 수업 시간에 아무것도 받지 않고 기다린다', () => {
     const r = sh([join(scripts, 'auto-deploy.sh'), '--run'], { GW_TEST_KST_DOW_HOUR: '4:09' });
     expect(r.status).toBe(0);
