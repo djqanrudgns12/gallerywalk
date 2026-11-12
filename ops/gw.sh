@@ -21,6 +21,7 @@ usage() {
   logs [server|autodeploy|tunnel]  마지막 기록 40줄
   tunnel-create              전용 cloudflared 터널 만들기 (cloudflared tunnel login 뒤)
   origin-secret              원본 잠금 값(64자)을 만들거나 그대로 두고 클립보드로 복사(화면에 안 냄)
+  start-code [--status]      전시 만들기 시작 코드(숫자 6~32자리)를 숨김 입력으로 받아 HMAC만 저장
 EOF
 }
 
@@ -92,6 +93,28 @@ case "$cmd" in
     as_svc tail -n 40 "$GW_LOGS/$which.log"
     ;;
   tunnel-create) refresh_bootstrap; sh "$ops/scripts/tunnel-create.sh" "$@" ;;
+  start-code)
+    refresh_bootstrap
+    if [ "${1:-}" = "--status" ]; then
+      as_svc sh "$GW_BOOTSTRAP/scripts/start-code.sh" --status
+      exit 0
+    fi
+    [ $# -eq 0 ] || gw_die "코드는 인자로 받지 않습니다(ps·기록에 남음) — sh ops/gw.sh start-code 로 숨김 입력"
+    if [ -t 0 ]; then
+      # 화면에 보이지 않게 두 번 받는다. 중간에 끊겨도 입력 표시는 되살린다.
+      trap 'stty echo 2>/dev/null || true' EXIT INT TERM
+      printf '새 시작 코드(숫자 6~32자리, 화면에 안 보임): '
+      stty -echo; IFS= read -r c1; stty echo; echo
+      printf '한 번 더: '
+      stty -echo; IFS= read -r c2; stty echo; echo
+      [ "$c1" = "$c2" ] || { c1=""; c2=""; gw_die "두 번 입력한 코드가 다릅니다"; }
+      c2=""
+    else
+      IFS= read -r c1 || true
+    fi
+    printf '%s\n' "$c1" | as_svc sh "$GW_BOOTSTRAP/scripts/start-code.sh"
+    c1=""
+    ;;
   origin-secret)
     # CloudFront 원본 머리(x-gw-origin-auth)와 Cloudflare WAF 식(gw-origin-lock)에만 들어가는 값. 서버는 몰라도 된다.
     # 소유자 전용 폴더에 두고, 화면·기록에는 내지 않고 클립보드로만 건넨다. 있으면 바꾸지 않는다.

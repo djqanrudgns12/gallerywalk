@@ -106,6 +106,12 @@ describe('운영 스크립트', () => {
     expect(auto.stderr).toContain('수동 배포에서만');
   });
 
+  it('시작 코드는 명령줄 인자로 받지 않는다(ps·기록에 남으므로)', () => {
+    const r = sh([join(scripts, 'start-code.sh'), '482913']);
+    expect(r.status).toBe(1);
+    expect(r.stdout + r.stderr).not.toContain('저장했습니다');
+  });
+
   it('자동 배포는 수업 시간에 아무것도 받지 않고 기다린다', () => {
     const r = sh([join(scripts, 'auto-deploy.sh'), '--run'], { GW_TEST_KST_DOW_HOUR: '4:09' });
     expect(r.status).toBe(0);
