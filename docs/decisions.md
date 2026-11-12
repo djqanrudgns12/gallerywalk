@@ -683,3 +683,14 @@
   - 캡션 카드는 `--t-zoom-caption-delay`(0.25초) 늦게 아래에서 올라온다.
   - 카메라 다가가기는 여전히 따라가기 감쇠(`CAM_FOLLOW_DAMP`)라 정확히 0.8초 곡선은 아니다(95% 약 0.7초).
   - `ZOOM_POOL_BOOST`(액자 빛 더 밝게)는 작품과 빛 웅덩이가 밝기 손잡이를 함께 써서 아직 쓰지 않는다.
+
+## ADR-061 · 바깥 공개: 글방 CloudFront를 공용 입구로 (2026-11-13, P7-2 앞당김, U-01 1안 재확인)
+
+- **배경**: ADR-002 1안을 고를 때는 "글방이 아직 운영 전"이었으나, 공개 시점에는 글방이 운영 중이었다. 사용자가 그 사실을 알고 1안으로 진행하라고 했다(2026-11-12).
+- **결과**: `gallery.ssamuniverse.com`(Cloudflare DNS 회색 구름) → CloudFront 글방 배포 `E3TFCRGRU1HG1Q`(서울) → `origin-gallery.ssamuniverse.com`(주황 구름) → Cloudflare WAF `gw-origin-lock`(머리 `x-gw-origin-auth` 없으면 Block)·Cache Rule `gw-origin-no-cache` → 터널 `gallerywalk` → `127.0.0.1:4520`.
+  - 배포 변경 한 번: 원본 `origin-gallery`(HTTPS 전용, 비밀 머리) 추가, 대체 도메인 `gallery` 추가, 인증서를 `write`+`gallery` 인증서로 교체, 세 동작의 viewer-request 함수를 `ssam-viewer-request`(= `ops/cloudfront/viewer-request.js`)로 교체. `we-viewer-request`는 지우지 않고 남겼다.
+  - 공용 입구 함수는 운영 중인 `we-viewer-request`(LIVE)를 내려받아 비교한 뒤, 빠져 있던 `x-we-forwarded-host`를 넣어 글방 요청을 전과 같게 했다(test-function으로 gallery·write·기본 주소 확인).
+  - 확인(2026-11-13 00:3x): gallery `/api/health`·`/` 200(ICN57, API 첫 바이트 0.055~0.084초), 작품 파일 캐시 Hit, write 200 그대로, 원본 직접·틀린 머리 403.
+- **배운 것**: 소유자의 `~/.cloudflared/cert.pem`은 `rollinthunder.net` 영역 로그인이라 `cloudflared tunnel route dns`가 레코드를 그 영역에 만든다. 원본 DNS는 대시보드에서 만든다(runbook ④).
+- **남은 위험(다른 저장소)**: 글방 `ops/aws/setup-ops.sh --apply`(원본 비밀값 회전 등에 씀)는 세 동작의 함수를 `we-viewer-request`로 다시 연결한다. 그 함수는 `write` 외 주소를 308로 보내므로 **돌리면 갤러리가 끊긴다.** 글방 쪽에서 공용 함수를 쓰도록 고쳐야 한다(이 저장소에서는 고치지 않음). 그 전까지 글방 `setup-ops.sh --apply`를 돌리지 않는다.
+- **되돌리기**: `~/.gallerywalk-admin/rollback-config.json`(600)으로 `update-distribution`(실행 순간 ETag 사용), `gallery` CNAME 삭제.
