@@ -14,7 +14,7 @@ gw_env_usage() {
   운영 포트   : 127.0.0.1:4520 (배포 사전 검사 4523, 개발 4521·4522는 쓰지 않음)
   터널 메트릭 : 127.0.0.1:20243
   배포 금지창 : Asia/Seoul 월~금 08:00~15:59
-  부하 기준   : 1분 부하가 코어 수 x 0.75를 넘거나 메모리 압박이 정상이 아니면 미룬다
+  부하 기준   : 1분 부하가 코어 수 x 0.75를 넘거나 메모리 압박이 위험(4)이면 미룬다
 EOF
 }
 
@@ -145,7 +145,8 @@ gw_is_school_hours() {
   esac
 }
 
-# 맥미니가 바쁘면 0: 1분 부하 > 코어 수 x 비율, 또는 커널 메모리 압박이 정상(1)이 아님(2 경고·4 위험).
+# 맥미니가 바쁘면 0: 1분 부하 > 코어 수 x 비율, 또는 커널 메모리 압박이 위험(4). 경고(2)는 아바타 작업 중 늘 나와서
+# 그때마다 미루면 자동 배포가 거의 돌지 않는다(사용자 결정 2026-11-12) — 빌드는 nice로 양보한다.
 # 서비스 계정은 소유자 홈(700)의 resource-guard를 볼 수 없어 그 기준 중 계정과 무관하게 읽히는 두 가지를 직접 쓴다.
 gw_is_busy() {
   if [ -n "${GW_TEST_LOAD:-}" ]; then
@@ -155,7 +156,7 @@ gw_is_busy() {
   fi
   ncpu="${GW_TEST_NCPU:-$(sysctl -n hw.ncpu 2>/dev/null || echo 1)}"
   pressure="${GW_TEST_PRESSURE:-$(sysctl -n kern.memorystatus_vm_pressure_level 2>/dev/null || echo 1)}"
-  [ "$pressure" = "1" ] || return 0
+  [ "$pressure" != "4" ] || return 0
   awk -v l="${load1:-0}" -v n="$ncpu" -v r="$GW_LOAD_MAX_RATIO" 'BEGIN { exit !(l > n * r) }'
 }
 
