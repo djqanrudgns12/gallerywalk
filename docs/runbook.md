@@ -49,16 +49,31 @@ sh ops/gw.sh status
 
 `건강 … → 200`이면 서버가 뜬 것이다. 이때부터 `main`에 푸시하면 자동으로 배포된다.
 
-### ④ 바깥에 열기 — P7-2에서 함께 (콘솔 작업)
+### ④ 바깥에 열기 (2026-11-13 실제로 한 순서)
 
-아직 바깥 주소는 없다(맥미니 안에서만 열림). 열 때는 이 순서를 지킨다. WAF 규칙보다 DNS를 먼저 붙이면 원본이 그대로 드러난다.
+```
+학생 → gallery.ssamuniverse.com(회색 구름) → CloudFront 글방 배포 E3TFCRGRU1HG1Q(서울)
+     → origin-gallery.ssamuniverse.com(주황 구름) → Cloudflare WAF gw-origin-lock → 터널 gallerywalk → 127.0.0.1:4520
+```
 
-1. Cloudflare 로그인이 안 되어 있으면 `cloudflared tunnel login`(브라우저에서 `ssamuniverse.com` 선택).
+순서를 지킨다. WAF 규칙보다 원본 DNS를 먼저 붙이면 CloudFront를 거치지 않는 뒷문이 열린다.
+
+1. `sh ops/gw.sh origin-secret` — 원본 잠금 값(64자)을 `~/.gallerywalk-admin/`(600)에 만들고 클립보드로만 건넨다. 서버는 이 값을 몰라도 된다.
 2. `sh ops/gw.sh tunnel-create` — 터널 `gallerywalk`를 만들고 자격 증명을 gwsvc로 옮긴다.
-3. Cloudflare WAF: `origin-gallery.ssamuniverse.com`에 원본 비밀 머리가 없으면 403(글방·쌤유니버스와 같은 방식).
-4. `sh ops/gw.sh install-daemons tunnel`
-5. `cloudflared tunnel route dns gallerywalk origin-gallery.ssamuniverse.com`
-6. CloudFront 공용 입구(ADR-002, U-01): 글방 배포에 대체 도메인·원본·함수(`ops/cloudfront/viewer-request.js`) 반영, Cloudflare DNS `gallery` CNAME.
+3. Cloudflare(`ssamuniverse.com`) 사용자 지정 규칙 `gw-origin-lock`(Block):
+   `(http.host eq "origin-gallery.ssamuniverse.com" and not any(http.request.headers["x-gw-origin-auth"][*] eq "<값>"))`,
+   Cache Rule `gw-origin-no-cache`(호스트 = origin-gallery → 캐시 우회).
+4. `sh ops/gw.sh install-daemons tunnel` (sudo)
+5. 원본 DNS는 **대시보드에서** 만든다: `ssamuniverse.com`에 CNAME `origin-gallery` → `<터널ID>.cfargotunnel.com`, **주황 구름(필수 — 터널은 프록시로만 들어감, WAF도 그때만 걸림)**.
+   `cloudflared tunnel route dns`는 쓰지 않는다 — 소유자의 `~/.cloudflared/cert.pem`이 `rollinthunder.net` 영역으로 로그인돼 있어 레코드가 엉뚱한 영역에 생긴다(실제로 생겨서 지웠다).
+   확인: 비밀 머리 없음·틀림 → 403, 맞음 → 200. 이 맥은 옛 DNS 조회가 남아 있을 수 있어 `curl --resolve`로 1.1.1.1의 답을 고정해 본다.
+6. 인증서(us-east-1 ACM): 배포 하나는 인증서를 하나만 쓴다. `write`+`gallery`를 함께 담은 인증서를 DNS 검증으로 받는다(`gallery` 검증 CNAME은 회색 구름).
+7. CloudFront 글방 배포 `E3TFCRGRU1HG1Q` 한 번에 바꾸기: 원본 `origin-gallery`(HTTPS 전용, 머리 `x-gw-origin-auth`) 추가, 대체 도메인 `gallery.ssamuniverse.com` 추가, 인증서 교체, 세 동작(`*`·`/assets/*`·`/art/*`)의 함수를 `ssam-viewer-request`(= `ops/cloudfront/viewer-request.js`, 먼저 test-function으로 확인 뒤 LIVE 게시)로 교체.
+   바꾸기 전 설정은 `~/.gallerywalk-admin/backup/`·`rollback-config.json`(600, 글방 원본 비밀값이 들어 있어 화면에 내지 않음).
+   `--if-match`는 실행 순간 `get-distribution-config`로 받은 ETag를 쓴다.
+8. Cloudflare DNS: CNAME `gallery` → `d2gtrsnqpjb6in.cloudfront.net`, **회색 구름(필수 — 켜면 CDN 두 겹)**.
+
+되돌리기(글방을 원래대로): `rollback-config.json`으로 `update-distribution`, `gallery` CNAME 삭제. 함수 `we-viewer-request`는 지우지 않고 남겨 둔다.
 
 ## 평소
 
