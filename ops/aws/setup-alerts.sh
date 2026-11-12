@@ -46,7 +46,7 @@ echo "== 계정 $account (프로필 $AWS_PROFILE)"
 echo "== 무료 한도 확인(사용자 지정 지표·알람 수)"
 alarms="$(aws cloudwatch describe-alarms --query 'length(MetricAlarms)' --output text)"
 metrics="$(aws cloudwatch list-metrics --query 'Metrics[?!starts_with(Namespace, `AWS/`)].[Namespace,MetricName]' --output text | sort -u | grep -c . || true)"
-echo "  알람 $alarms개, 사용자 지정 지표 $metrics개 (무료 한도 각 10개) — 이번에 각 1개를 더함"
+echo "  알람 ${alarms}개, 사용자 지정 지표 ${metrics}개 (무료 한도 각 10개) — 이번에 각 1개를 더함"
 [ "$alarms" -lt 10 ] || die "알람이 이미 10개라 무료 한도를 넘습니다"
 
 echo "== 1. IAM 사용자 $user (지표 쓰기 전용)"

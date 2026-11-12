@@ -38,6 +38,20 @@ describe('운영 스크립트', () => {
     }
   });
 
+  it('셸 변수 바로 뒤에 한글을 붙이지 않는다(문자 설정에 따라 변수 이름으로 읽혀 unbound variable)', () => {
+    const files = [
+      ...readdirSync(scripts).map(f => join(scripts, f)),
+      join(repoRoot, 'ops/gw.sh'),
+      ...readdirSync(join(repoRoot, 'ops/aws')).map(f => join(repoRoot, 'ops/aws', f)),
+    ].filter(f => f.endsWith('.sh'));
+    for (const file of files) {
+      const bad = readFileSync(file, 'utf8')
+        .split('\n')
+        .filter(line => /\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/.test(line));
+      expect(bad, file).toEqual([]);
+    }
+  });
+
   it.each([
     ['1:08', 'yes'],
     ['3:12', 'yes'],
