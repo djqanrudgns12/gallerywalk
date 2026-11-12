@@ -20,7 +20,7 @@ sudo -n -u "$GW_SERVICE_USER" true 2>/dev/null || gw_die "sudo 위임이 없습�
 
 id_of() { cloudflared tunnel list --name "$GW_TUNNEL_NAME" --output json 2>/dev/null | "$NODE_BIN" -e '
   let s = ""; process.stdin.on("data", c => (s += c)).on("end", () => {
-    try { const t = JSON.parse(s).find(x => x.name === process.argv[1] && !x.deleted_at); if (t) console.log(t.id); } catch {}
+    try { const t = JSON.parse(s).find(x => x.name === process.argv[1] && (!x.deleted_at || x.deleted_at.startsWith("0001-"))); if (t) console.log(t.id); } catch {}
   });' "$GW_TUNNEL_NAME"; }
 
 tid="$(id_of)"

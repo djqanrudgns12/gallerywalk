@@ -20,6 +20,7 @@ usage() {
   status                     데몬·건강·릴리스·자동 배포 상태
   logs [server|autodeploy|tunnel]  마지막 기록 40줄
   tunnel-create              전용 cloudflared 터널 만들기 (cloudflared tunnel login 뒤)
+  origin-secret              원본 잠금 값(64자)을 만들거나 그대로 두고 클립보드로 복사(화면에 안 냄)
 EOF
 }
 
@@ -91,6 +92,26 @@ case "$cmd" in
     as_svc tail -n 40 "$GW_LOGS/$which.log"
     ;;
   tunnel-create) refresh_bootstrap; sh "$ops/scripts/tunnel-create.sh" "$@" ;;
+  origin-secret)
+    # CloudFront 원본 머리(x-gw-origin-auth)와 Cloudflare WAF 식(gw-origin-lock)에만 들어가는 값. 서버는 몰라도 된다.
+    # 소유자 전용 폴더에 두고, 화면·기록에는 내지 않고 클립보드로만 건넨다. 있으면 바꾸지 않는다.
+    case "$(id -un)" in root|gwsvc|clsvc|rtsvc|wesvc) gw_die "소유자 계정에서 실행하세요" ;; esac
+    admin="$HOME/.gallerywalk-admin"
+    file="$admin/cloudfront-origin-secret"
+    (umask 077; mkdir -p "$admin")
+    chmod 700 "$admin"
+    if [ ! -s "$file" ]; then
+      (umask 077; openssl rand -hex 32 > "$file.tmp")
+      [ "$(tr -d '\n' < "$file.tmp" | wc -c | tr -d ' ')" = "64" ] || { rm -f "$file.tmp"; gw_die "값 만들기 실패"; }
+      mv "$file.tmp" "$file"
+      echo "새 원본 잠금 값을 만들었습니다: $file (600)"
+    else
+      echo "기존 원본 잠금 값을 그대로 씁니다: $file"
+    fi
+    chmod 600 "$file"
+    tr -d '\n' < "$file" | pbcopy
+    echo "클립보드에 복사했습니다(64자, 화면에는 표시하지 않음). 붙여 넣은 뒤 다른 것을 복사해 지우세요."
+    ;;
   -h|--help|help|"") usage ;;
   *) usage >&2; exit 1 ;;
 esac
