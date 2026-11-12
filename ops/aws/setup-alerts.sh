@@ -35,7 +35,8 @@ creds="/Users/$svc/gallery-server/secrets/aws-macmini-credentials"
 user=gw-macmini
 alarm=gw-heartbeat-missing
 die() { echo "ERROR: $*" >&2; exit 1; }
-do_() { if [ "$dry" = "1" ]; then echo "  (할 일) $*"; else "$@"; fi; }
+# 미리 보기 문구는 표준 오류로 낸다 — 부르는 쪽의 `>/dev/null`에 삼켜지지 않게
+do_() { if [ "$dry" = "1" ]; then echo "  (할 일) $*" >&2; else "$@"; fi; }
 case "$(id -un)" in root|gwsvc|clsvc|rtsvc|wesvc) die "소유자 계정에서 실행하세요" ;; esac
 cd /
 
