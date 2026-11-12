@@ -47,6 +47,17 @@ describe('쌤유 앱 공용 입구 함수', () => {
     expect(selected).toEqual([]);
     expect(out.headers['x-we-client-ip']?.value).toBe('203.0.113.7');
     expect(out.headers['x-gw-viewer-ip']).toBeUndefined();
+    // 운영 중인 we-viewer-request와 같게 원래 주소도 넣는다
+    expect(out.headers['x-we-forwarded-host']?.value).toBe('write.ssamuniverse.com');
+  });
+
+  it('시청자가 꾸며 보낸 x-we-forwarded-host는 덮어쓰거나(write) 지운다(gallery)', () => {
+    const { handler } = load();
+    const fake = { 'x-we-forwarded-host': { value: 'evil.example' } };
+    const w = handler(event('write.ssamuniverse.com', fake)) as CfRequest;
+    expect(w.headers['x-we-forwarded-host']?.value).toBe('write.ssamuniverse.com');
+    const g = handler(event('gallery.ssamuniverse.com', fake)) as CfRequest;
+    expect(g.headers['x-we-forwarded-host']).toBeUndefined();
   });
 
   it('시청자가 꾸며 보낸 IP 머리는 덮어쓰고, 다른 앱의 머리는 지운다', () => {

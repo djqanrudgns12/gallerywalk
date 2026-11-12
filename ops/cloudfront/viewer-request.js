@@ -10,11 +10,13 @@
 import cf from 'cloudfront';
 
 var APPS = {
-  'write.ssamuniverse.com': { originId: null, ipHeader: 'x-we-client-ip' },
-  'gallery.ssamuniverse.com': { originId: 'origin-gallery', ipHeader: 'x-gw-viewer-ip' },
+  // hostHeader: 글방 운영 함수(we-viewer-request)가 넣던 x-we-forwarded-host를 그대로 넣는다(글방 요청은 지금과 같게)
+  'write.ssamuniverse.com': { originId: null, ipHeader: 'x-we-client-ip', hostHeader: 'x-we-forwarded-host' },
+  'gallery.ssamuniverse.com': { originId: 'origin-gallery', ipHeader: 'x-gw-viewer-ip', hostHeader: null },
 };
 var FALLBACK_HOST = 'write.ssamuniverse.com';
 var IP_HEADERS = ['x-we-client-ip', 'x-gw-viewer-ip'];
+var HOST_HEADERS = ['x-we-forwarded-host'];
 
 function serializeQuery(querystring) {
   var parts = [];
@@ -47,7 +49,9 @@ function handler(event) {
   }
 
   for (var i = 0; i < IP_HEADERS.length; i++) delete request.headers[IP_HEADERS[i]];
+  for (var j = 0; j < HOST_HEADERS.length; j++) delete request.headers[HOST_HEADERS[j]];
   request.headers[app.ipHeader] = { value: event.viewer.ip };
+  if (app.hostHeader) request.headers[app.hostHeader] = { value: host };
   if (app.originId) cf.selectRequestOriginById(app.originId);
   return request;
 }
