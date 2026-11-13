@@ -1,3 +1,4 @@
+import { type TemplateLook, templateLooks } from '@gallery/core/templates';
 import type { ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
 import { BoxGeometry, type BufferGeometry, MeshStandardMaterial, type Texture } from 'three';
@@ -8,6 +9,7 @@ import {
   contactShadowMaterial,
   type DimHolder,
   lightPoolMaterial,
+  matMaterial,
   type PoolStyle,
   standard,
   withDim,
@@ -20,7 +22,14 @@ import { artPlaneOffsetOf, FRAME_DEPTH, hangOf, outerOf, type ViewerArtwork } fr
  * P4-2에서는 관 단위로 테·매트를 한 기하로 합치고 `aArtworkIndex`로 줌 대상을 가른다(뼈대는 작품마다 따로).
  * 마우스를 올리면 `onHover`로 알리고, 빛 웅덩이 세기(`boost`)는 바깥(`MicroMotion`)이 `T_HOVER`에 걸쳐 바꾼다(V-40).
  * `fit: cover`(소리 명판 표지)는 그림을 판에 늘이지 않고 가운데를 잘라 채운다.
+ * 나무 테는 테 폭(`artwork.frame`)의 `look.frame.faceRatio`만 그리고 나머지는 매트로 채운다 — 바깥 크기·배치는 그대로(V-57).
  */
+
+/** 템플릿 `look` 중 액자가 쓰는 것 */
+export type FrameLook = Pick<TemplateLook, 'frame' | 'art'>;
+
+const DEFAULT_LOOK: FrameLook = templateLooks['modern-history'];
+
 export const ArtworkFrame = ({
   artwork,
   holder,
@@ -28,6 +37,7 @@ export const ArtworkFrame = ({
   pool,
   boost,
   onHover,
+  look = DEFAULT_LOOK,
 }: {
   artwork: ViewerArtwork;
   holder: DimHolder;
@@ -38,33 +48,50 @@ export const ArtworkFrame = ({
   boost?: DimHolder | undefined;
   /** 실제 마우스 이동의 광선 적중 — 장면에서 한 사건으로 모아 밝힐 작품을 정한다 */
   onHover?: ((id: string, event: PointerEvent) => void) | undefined;
+  /** 액자 색·작품 면 밝기(템플릿 `look`). 없으면 근대 역사관 기본 */
+  look?: FrameLook | undefined;
 }) => {
   const outer = outerOf(artwork);
   const depth = FRAME_DEPTH;
   const hang = hangOf(artwork);
   const easel = artwork.mount === 'EASEL';
+  const style = look.frame;
+  const light = look.art;
+  // 눈에 보이는 나무 테 폭(나머지 테 폭은 매트가 덮는다)
+  const face = artwork.frame * style.faceRatio;
   const frameGeometry = useMemo(
-    () => buildFrame(outer.w, outer.h, artwork.frame, depth),
-    [outer.w, outer.h, artwork.frame, depth],
+    () => buildFrame(outer.w, outer.h, face, depth),
+    [outer.w, outer.h, face, depth],
   );
   const materials = useMemo(
     () => ({
       frame: withDim(
-        new MeshStandardMaterial({ color: '#2b1d15', roughness: 0.38, metalness: 0.25 }),
+        new MeshStandardMaterial({ color: style.wood, roughness: 0.38, metalness: 0.25 }),
         holder,
       ),
-      lip: standard({ color: '#a8854e', roughness: 0.3, metalness: 0.85 }, holder),
-      mat: standard({ color: artwork.matColor, roughness: 0.92 }, holder),
+      lip: standard({ color: style.lip, roughness: 0.3, metalness: 0.85 }, holder),
+      mat: matMaterial(artwork.matColor, style.matLight, holder),
       // 텍스처를 받는 중이면 매트 색 판(빈 벽처럼 보이지 않게, 받으면 바꿔 끼움)
       art: artwork.texture
-        ? artMaterial(fitted(artwork.texture, artwork), holder)
-        : standard({ color: artwork.matColor, roughness: 0.9 }, holder),
+        ? artMaterial(fitted(artwork.texture, artwork), holder, light)
+        : matMaterial(artwork.matColor, style.matLight, holder),
       pool: lightPoolMaterial(holder, pool, boost),
       shadow: contactShadowMaterial(holder),
-      back: standard({ color: '#3a2a1e', roughness: 0.85 }, holder),
+      back: standard({ color: style.back, roughness: 0.85 }, holder),
     }),
     // `fitted`가 읽는 `fit`·판 크기도 함께 본다
-    [artwork.matColor, artwork.texture, artwork.fit, artwork.art.w, artwork.art.h, holder, pool, boost],
+    [
+      artwork.matColor,
+      artwork.texture,
+      artwork.fit,
+      artwork.art.w,
+      artwork.art.h,
+      holder,
+      pool,
+      boost,
+      style,
+      light,
+    ],
   );
   useEffect(
     () => () => {
@@ -83,8 +110,9 @@ export const ArtworkFrame = ({
     if (e.pointerType === 'mouse') onHover?.(artwork.id, e.nativeEvent);
   };
   const pointer = { onClick: tap, onPointerMove: move };
-  const innerW = outer.w - 2 * artwork.frame;
-  const innerH = outer.h - 2 * artwork.frame;
+  // 나무 테 안쪽(놋쇠 띠·매트가 여기까지 — 배치의 테 폭 중 나무가 덮지 않는 부분도 매트)
+  const innerW = outer.w - 2 * face;
+  const innerH = outer.h - 2 * face;
 
   return (
     <group position={[artwork.center.x, artwork.center.y, artwork.center.z]} rotation-y={rotationY}>

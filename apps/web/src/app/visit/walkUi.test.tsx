@@ -147,6 +147,64 @@ describe('관람 화면의 안내판 배치', () => {
     expect(layout.style.getPropertyValue('--zoom-reactions-height')).toBe('0px');
   });
 
+  it('그림 쪽 크게 보기는 뒤의 3D 액자를 덮개 한 장으로 가리고, 덮개는 누르기를 막지 않는다(V-57)', () => {
+    render();
+    const layout = scope();
+    const backdrop = layout.querySelector('[data-testid="zoom-backdrop"]');
+    expect(backdrop).not.toBeNull();
+    // 덮개는 맨 아래(첫 자식) — 닫기·쪽·캡션이 그 위에 온다
+    expect(layout.firstElementChild).toBe(backdrop);
+    expect(backdrop?.getAttribute('aria-hidden')).toBe('true');
+    act(() => useWalk.setState({ mode: 'view', zoomId: null }));
+    expect(host.querySelector('[data-testid="zoom-backdrop"]')).toBeNull();
+  });
+
+  it('출구: 패널 제목은 3D 안내판과 다른 말, 단추는 주요 하나 + 글자 단추, `다음 작품으로`는 숨긴다(V-57)', () => {
+    const exitIndex = view.layout.stops.findIndex(stop => stop.kind === 'exit');
+    expect(exitIndex).toBeGreaterThan(0);
+    act(() => useWalk.setState({ mode: 'view', zoomId: null, stopIndex: exitIndex }));
+    act(() =>
+      root.render(
+        <WalkOverlay
+          title="합성 전시관"
+          layout={view.layout}
+          artworks={[]}
+          liveCount={0}
+          touch
+          onHome={() => {}}
+          onCollection={() => {}}
+        />,
+      ),
+    );
+    const exit = host.querySelector<HTMLElement>('[data-testid="exit-panel"]')!;
+    expect(exit.textContent).toContain(copy.viewer.exitPanelTitle);
+    expect(exit.textContent).not.toContain(copy.viewer.exitThanks);
+    expect(exit.getAttribute('aria-label')).toBe(copy.viewer.exitPanelTitle);
+    const buttons = [...exit.querySelectorAll('button')];
+    expect(buttons.map(b => b.textContent)).toEqual([
+      copy.viewer.restart,
+      copy.viewer.collection,
+      copy.closed.home,
+    ]);
+    expect(buttons.map(b => b.getAttribute('data-variant'))).toEqual(['primary', 'text', 'text']);
+    const nav = host.querySelector('[data-testid="walk-nav"]')!;
+    expect(nav.querySelector('[data-testid="next"]')).toBeNull();
+    expect(nav.querySelector('[data-testid="prev"]')).not.toBeNull();
+    // 서 있는 동안(view)에는 뛰기·점프를 숨긴다
+    expect(host.querySelector('[data-testid="move-buttons"]')).toBeNull();
+  });
+
+  it('작품 앞에 서 있을 때(view)는 뛰기·점프를 숨기고, 걷기 시작하면(free) 다시 보인다(V-57)', () => {
+    act(() => useWalk.setState({ mode: 'view', zoomId: null }));
+    act(() =>
+      root.render(<WalkOverlay title="합성 전시관" layout={view.layout} artworks={[]} liveCount={0} touch />),
+    );
+    expect(host.querySelector('[data-testid="move-buttons"]')).toBeNull();
+    expect(host.querySelector('[data-testid="walk-nav"] [data-testid="next"]')).not.toBeNull();
+    act(() => useWalk.setState({ mode: 'free' }));
+    expect(host.querySelector('[data-testid="move-buttons"]')).not.toBeNull();
+  });
+
   it('현재 장소를 먼저 보이고 그 아래 작품 순번을 붙이며, 장소가 없으면 전시관 이름을 쓴다', () => {
     act(() => useWalk.setState({ mode: 'view', zoomId: null, place: '가상 전시실' }));
     render();

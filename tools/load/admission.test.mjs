@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { config } from '../../packages/core/src/config.ts';
 import {
   countTogether,
   firstMediaUrls,
@@ -55,6 +56,28 @@ test('기본은 21대 dry-run이며 네트워크를 실행하지 않는 계획�
     '첫 관 미디어 받기',
   ]);
   assert.equal(plan.target, 'http://127.0.0.1:4521');
+});
+
+test('판정 기준은 요청한 전원·오류 0과 기존 시간 제한을 쓰고 학교망 목표는 미측정으로 표시한다', () => {
+  for (const clients of ['21', '30']) {
+    const plan = planLoad(parseOptions(['--clients', clients, '--entry-code', '654289']));
+    assert.deepEqual(plan.criteria.protocol, {
+      completed: Number(clients),
+      together: Number(clients),
+      errors: 0,
+      note: '모든 기기의 HTTP 입장·첫 관 미디어 받기·웹소켓 연결과 상호 위치 수신이 성공해야 합니다.',
+    });
+    assert.deepEqual(plan.criteria.timeoutsMs, {
+      http: config().API_TIMEOUT_MS,
+      websocketHello: config().LIVE_HELLO_TIMEOUT_MS,
+    });
+    assert.deepEqual(plan.criteria.schoolTarget, {
+      source: 'PRD §10.1·§15.5 / PLAN §14.5',
+      status: '미측정',
+      note: '학교 와이파이에서 21대가 동시에 입장해 첫 관람까지 4초 이내. 별도 실기기 확인이 필요합니다.',
+    });
+    assert.equal(JSON.stringify(plan).includes('654289'), false);
+  }
 });
 
 test('30대 실행은 입장 코드를 요구하며, 21·30 이외의 수와 긴 실행은 거절한다', () => {

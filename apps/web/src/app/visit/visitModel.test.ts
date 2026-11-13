@@ -30,8 +30,9 @@ describe('visitModelOf', () => {
   it('자리 이름: 외관 = "{이름판} 앞", 회랑 = 전시명, 관 = 전시실 이름(나뉜 관은 "{전시실} · {n}관")', () => {
     const view = testExhibitionView([3, 40]);
     const m = visitModelOf(view);
-    expect(m.facade).toBe('시험 전시 전시관');
-    expect(m.placeOf('exterior')).toBe('시험 전시 전시관 앞');
+    // '…전시'로 끝나면 '전시관'을 덧붙이지 않는다(V-57: "시험 전시 전시관" 겹침)
+    expect(m.facade).toBe('시험 전시');
+    expect(m.placeOf('exterior')).toBe('시험 전시 앞');
     expect(m.placeOf('spine')).toBe('시험 전시');
     expect(m.placeOf('없는 구역')).toBe('');
     const split = m.layout.parts.filter(p => p.partCount > 1);

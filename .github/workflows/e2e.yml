@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: '돌릴 작업(all·dev·prod)'
+        description: '돌릴 작업(all·dev·prod·load)'
         type: choice
-        options: [all, dev, prod]
+        options: [all, dev, prod, load]
         default: all
 
 permissions:
@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   dev:
-    if: inputs.only != 'prod'
+    if: inputs.only == 'all' || inputs.only == 'dev'
     runs-on: macos-15
     timeout-minutes: 60
     steps:
@@ -49,7 +49,7 @@ jobs:
           retention-days: 14
 
   prod:
-    if: inputs.only != 'dev'
+    if: inputs.only == 'all' || inputs.only == 'prod'
     runs-on: macos-15
     timeout-minutes: 60
     steps:
@@ -76,3 +76,88 @@ jobs:
             .local/test-results/
           if-no-files-found: ignore
           retention-days: 14
+
+  load:
+    if: inputs.only == 'all' || inputs.only == 'load'
+    runs-on: macos-15
+    timeout-minutes: 15
+    env:
+      DATA_DIR: ${{ github.workspace }}/.local/load/data
+      MEDIA_DIR: ${{ github.workspace }}/.local/load/media
+      TMP_DIR: ${{ github.workspace }}/.local/load/tmp
+      # 호스트 러너에는 resource-guard가 없다. 로컬 실측에는 여전히 실제 guard가 필요하다.
+      RESOURCE_GUARD_ACTIVE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: 개발 서버 실행과 건강 확인
+        run: |
+          mkdir -p "$DATA_DIR/logs"
+          # 요청 경로에 든 입장 코드를 러너의 서버 기록에도 남기지 않는다(자정 경계 포함).
+          for day in "$(date -u +%F)" "$(date -u -v+1d +%F)"; do
+            ln -s /dev/null "$DATA_DIR/logs/gallery-$day.log"
+          done
+          node apps/server/scripts/dev.mjs > /dev/null 2>&1 &
+          echo "$!" > .local/load/server.pid
+          for attempt in {1..60}; do
+            if curl --silent --fail --max-time 2 --output /dev/null http://127.0.0.1:4521/api/health; then
+              echo '개발 서버 건강 확인 통과'
+              exit 0
+            fi
+            sleep 1
+          done
+          echo '개발 서버 건강 확인 시간 초과' >&2
+          exit 1
+      - name: 합성 그림 전시 준비
+        id: seed
+        run: |
+          node --conditions=@gallery/source --input-type=module <<'NODE'
+          import { writeFile } from 'node:fs/promises';
+          import { join } from 'node:path';
+          import { seedExhibition } from './tools/dev/seed-exhibition.mjs';
+          try {
+            const result = await seedExhibition({ rooms: 1, perRoom: 21, text: 0 });
+            // 교사 토큰·PIN은 저장하지 않고 입장 코드만 러너 임시 파일로 전달한다.
+            await writeFile(join(process.env.RUNNER_TEMP, 'gallerywalk-load-entry-code'), result.entryCode, {
+              mode: 0o600,
+              flag: 'wx',
+            });
+            console.log(`합성 그림 ${result.artworks}점 전시 준비 완료`);
+          } catch {
+            console.error('합성 전시 준비 실패. 자격·원본 응답은 기록하지 않았습니다.');
+            process.exitCode = 1;
+          }
+          NODE
+      - name: 21대 동시 입장 실측
+        run: |
+          entry_code="$(cat "$RUNNER_TEMP/gallerywalk-load-entry-code")"
+          printf '::add-mask::%s\n' "$entry_code"
+          node --conditions=@gallery/source tools/load/admission.mjs --clients 21 --duration-seconds 10 --entry-code "$entry_code" --execute
+      - name: 30대 동시 입장 실측
+        # 21대 판정이 실패해도 30대 기록은 남긴다. 어느 한쪽의 실패도 작업 실패로 유지한다.
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        run: |
+          entry_code="$(cat "$RUNNER_TEMP/gallerywalk-load-entry-code")"
+          printf '::add-mask::%s\n' "$entry_code"
+          node --conditions=@gallery/source tools/load/admission.mjs --clients 30 --duration-seconds 10 --entry-code "$entry_code" --execute
+      - name: 부하 기록 올리기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admission-load
+          path: .local/perf/admission-load.jsonl
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+      - name: 이 작업이 만든 개발 서버 종료
+        if: always()
+        run: |
+          if [ -f .local/load/server.pid ]; then
+            kill -TERM "$(cat .local/load/server.pid)" 2>/dev/null || true
+          fi

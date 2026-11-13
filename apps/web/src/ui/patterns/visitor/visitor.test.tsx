@@ -136,6 +136,29 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
     expect(nextBtn?.textContent).toBe(copy.viewer.nextArtwork);
   });
 
+  it('WalkNav: 출구처럼 다음이 없는 자리는 `다음 작품으로`를 숨기고 이전만 둔다(V-57)', () => {
+    render(<WalkNav current={0} total={0} onPrev={() => {}} onNext={() => {}} nextHidden />);
+    expect(container.querySelector('[data-testid="next"]')).toBeNull();
+    expect(container.querySelector('[data-testid="prev"]')).not.toBeNull();
+  });
+
+  it('EntryPoster: 제목은 전시 이름 그대로(이름판 규칙의 "전시관"을 덧붙이지 않음, V-57)', () => {
+    render(
+      <EntryPoster
+        title="합성 근대사 전시"
+        nickname=""
+        onNicknameChange={() => {}}
+        character="student-m"
+        onCharacterChange={() => {}}
+        onEnter={() => {}}
+      />,
+    );
+    expect(container.querySelector('h1')?.textContent).toBe('합성 근대사 전시');
+    expect(container.querySelector('[data-testid="entry-poster"]')?.getAttribute('aria-label')).toBe(
+      '합성 근대사 전시',
+    );
+  });
+
   it('NearArtworkCard: 대표작 배지·제목·작가·짧은 설명을 그리고 크게 보기 클릭 시 onZoom을 호출한다', () => {
     const onZoom = vi.fn();
     render(

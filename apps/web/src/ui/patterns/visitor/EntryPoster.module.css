@@ -50,12 +50,12 @@
   align-items: center;
 }
 
-/* 액자 위 작은 그림 조명 */
+/* 액자를 거는 막대: 액자 테 색(놋쇠는 주요 단추에만, V-57) */
 .lamp {
   width: 40%;
   height: 3px;
   margin-bottom: var(--s-3);
-  background-color: var(--brass-border);
+  background-color: var(--frame-outer);
 }
 
 .frame {
@@ -66,13 +66,14 @@
   box-shadow: var(--shadow-frame);
 }
 
+/* 썸네일은 원래 비율 그대로 매트에 꽉 채운다. 그림의 투명한 자리도 매트 색이라 짙은 띠가 생기지 않는다(V-57) */
 .art {
   display: block;
   height: 104px;
   width: auto;
   max-width: 100%;
   object-fit: cover;
-  background-color: var(--mat-dark);
+  background-color: var(--mat-light);
 }
 
 .hungMain .art {
@@ -102,7 +103,7 @@
   font-size: var(--fs-2);
   font-weight: 600;
   line-height: var(--lh-body);
-  color: var(--accent);
+  color: var(--plate-ink-sub);
 }
 
 .meta + .title {
@@ -252,12 +253,13 @@
 }
 
 .charBtn:hover {
-  border-color: var(--brass-border);
+  border-color: var(--plate-ink-sub);
 }
 
-.charBtnSelected {
-  background-color: var(--accent-soft);
-  border-color: var(--accent);
+/* 고른 캐릭터: 상아 테두리. 놋쇠는 체크 표시 하나(V-57) */
+.charBtnSelected,
+.charBtnSelected:hover {
+  border-color: var(--plate-ink);
   color: var(--plate-ink);
 }
 
@@ -265,10 +267,6 @@
   flex-shrink: 0;
   width: 24px;
   height: 30px;
-}
-
-.charBtnSelected .figure {
-  color: var(--accent);
 }
 
 .charImg {
@@ -404,10 +402,11 @@
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
   }
 
+  /* 벽 높이는 오른쪽 입력 칸 높이를 따른다(1280×720에서도 아래 처리방침 링크까지 한 화면, V-57) */
   .wall {
-    min-height: 560px;
+    min-height: 0;
     align-items: center;
-    padding: var(--s-12) var(--s-8);
+    padding: var(--s-10) var(--s-8);
     border-bottom: 0;
     border-right: 1px solid var(--plate-edge);
   }
@@ -427,6 +426,30 @@
   .body {
     justify-content: center;
     padding: var(--s-10);
+  }
+}
+
+/* 낮은 데스크톱 화면(1280×720 등): 여백과 제목을 줄여 한 화면에 */
+@media (min-width: 1024px) and (max-height: 800px) {
+  .body {
+    gap: var(--s-4);
+    padding: var(--s-8) var(--s-8);
+  }
+
+  .form {
+    gap: var(--s-4);
+  }
+
+  .title {
+    font-size: var(--fs-6);
+  }
+
+  .hungMain .art {
+    height: 200px;
+  }
+
+  .hungPoster .art {
+    max-height: 360px;
   }
 }
 

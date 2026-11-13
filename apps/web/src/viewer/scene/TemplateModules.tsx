@@ -230,8 +230,20 @@ const collect = (
       const slot = surfaceSlotOf(material.name);
       const tint = slot ? look.surfaces[slot] : undefined;
       if (tint) material.color.set(tint);
+      // 안내판 판 면(설비 glb, V-57): 남색 대신 숯색. 어두운 방에서도 판으로 읽히게 같은 색을 스스로 낸다(빛을 더하지 않음)
+      if (material.name.startsWith('M_SignFace')) {
+        material.color.set(look.signFace);
+        material.emissive.set(look.signFace);
+      }
       if (material.aoMap) toBakedLight(material, look);
       else withDim(material);
+      // 면 마감(바닥 반사 낮추기): 구운 조각이면 구운 빛의 환경맵 세기에 곱한다. 같은 재질을 여러 메시가 써도 같은 값(덮어씀)
+      const finish = slot ? look.finish[slot] : undefined;
+      if (finish) {
+        material.roughness = finish.roughness;
+        material.envMapIntensity =
+          (material.lightMap ? look.baked.environmentScale : 1) * finish.environmentScale;
+      }
       if (material.name.startsWith('M_Paving')) withPavingJoints(material);
       if (/^M_(Stone|Ashlar)/.test(material.name)) withStoneGrain(material);
     }

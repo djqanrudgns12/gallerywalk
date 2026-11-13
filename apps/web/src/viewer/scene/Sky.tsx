@@ -1,3 +1,4 @@
+import { templateLooks } from '@gallery/core/templates';
 import type { Exterior } from '@gallery/core/types';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
@@ -27,7 +28,8 @@ export interface SkyLook {
   readonly ground: string;
 }
 
-export const DAY_SKY: SkyLook = { zenith: '#8fb4d6', horizon: '#eef1ee', ground: '#6f8452' };
+/** 템플릿 `look.outdoor.sky`(해 질 녘, V-57)가 없을 때의 기본 */
+export const DEFAULT_SKY: SkyLook = templateLooks['modern-history'].outdoor.sky;
 
 const SKY_RADIUS = 48;
 const GROUND_RADIUS = 90;
@@ -75,7 +77,7 @@ const lawnTexture = (base: string): CanvasTexture => {
   return t;
 };
 
-export const Sky = ({ exterior, look = DAY_SKY }: { exterior: Exterior; look?: SkyLook }) => {
+export const Sky = ({ exterior, look = DEFAULT_SKY }: { exterior: Exterior; look?: SkyLook }) => {
   const sky = useRef<Mesh>(null);
   const parts = useMemo(() => {
     const geometry = skyGeometry(look);

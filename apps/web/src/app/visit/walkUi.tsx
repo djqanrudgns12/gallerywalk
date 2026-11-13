@@ -400,17 +400,29 @@ const Exit = ({
     layout.stops.findIndex(x => x.kind === 'artwork'),
   );
   return (
-    <section className={`${s.plate} ${s.exit}`} data-testid="exit-panel" aria-label={copy.viewer.exitThanks}>
-      <p className={s.exitTitle}>{copy.viewer.exitThanks}</p>
+    <section
+      className={`${s.plate} ${s.exit}`}
+      data-testid="exit-panel"
+      aria-label={copy.viewer.exitPanelTitle}
+    >
+      {/* 제목은 3D 출구 사인("관람해 주셔서 고마워요")과 다른 말(V-57) */}
+      <p className={s.exitTitle}>{copy.viewer.exitPanelTitle}</p>
       <p className={s.exitSub}>{fill(copy.viewer.exitCount, { n: artworkCount })}</p>
+      {/* 주요 단추 하나 + 나머지는 글자 단추. 휴대폰은 세로로 쌓는다 */}
       <div className={s.exitActions}>
-        <button type="button" className={s.exitPrimary} onClick={() => api?.goTo(first)}>
+        <button
+          type="button"
+          className={s.exitPrimary}
+          data-variant="primary"
+          onClick={() => api?.goTo(first)}
+        >
           {copy.viewer.restart}
         </button>
         {onCollection && (
           <button
             type="button"
-            className={s.exitSecondary}
+            className={s.exitText}
+            data-variant="text"
             onClick={onCollection}
             data-testid="exit-collection"
           >
@@ -418,7 +430,7 @@ const Exit = ({
           </button>
         )}
         {onHome && (
-          <button type="button" className={s.exitSecondary} onClick={onHome}>
+          <button type="button" className={s.exitText} data-variant="text" onClick={onHome}>
             {copy.closed.home}
           </button>
         )}
@@ -477,13 +489,16 @@ const Stick = () => {
   );
 };
 
-/** 오른쪽, 이동 단추 위: 뛰기(켜고 끄기)·점프. 크게 보는 중에는 숨김 */
+/**
+ * 오른쪽, 이동 단추 위: 뛰기(켜고 끄기)·점프. 크게 보는 중과 정지 지점에 서 있는 동안(작품 앞·출구)에는 숨김 —
+ * 작품 앞 아래쪽에 같은 무게의 상자가 몰리지 않게(V-57). 조이스틱으로 걷기 시작하면(free) 다시 보인다
+ */
 const Moves = () => {
   const api = useWalk(st => st.api);
   const running = useWalk(st => st.runToggle);
   const locked = useWalk(st => st.runLocked);
-  const zoomed = useWalk(st => st.mode === 'zoom');
-  if (zoomed) return null;
+  const still = useWalk(st => st.mode === 'zoom' || st.mode === 'view');
+  if (still) return null;
   return (
     <div className={s.moves} data-testid="move-buttons">
       <MoveButtons
@@ -539,6 +554,8 @@ const Nav = ({ layout }: { layout: Layout }) => {
         onNext={() => api?.next()}
         prevDisabled={index <= 0}
         nextDisabled={index >= count - 1}
+        // 출구에는 다음 작품이 없다 — 흐린 단추를 두지 않는다(V-57)
+        nextHidden={stop?.kind === 'exit'}
       />
     </div>
   );
@@ -628,8 +645,12 @@ const Zoom = ({
   const card = cards?.get(a.id);
   const track = tracks?.get(a.id);
   const pagesOf = pages?.get(a.id);
+  // 그림 쪽·글 카드는 HTML로 다시 그리므로 뒤의 3D 액자가 비치면 "액자 위 액자"가 된다(V-57) — 카메라가 다가가는
+  // 동안(`--t-zoom`) 숯색 덮개로 천천히 가린다. 누르기는 그대로 캔버스로(빈 곳 누르면 닫기, PRD G-03)
+  const covered = card?.kind === 'TEXT' || (!card && pagesOf !== undefined);
   return (
     <div ref={zoomLayout} className={s.zoomLayout}>
+      {covered ? <div className={s.zoomBackdrop} data-testid="zoom-backdrop" aria-hidden="true" /> : null}
       <button
         type="button"
         className={`${s.plate} ${s.zoomClose}`}

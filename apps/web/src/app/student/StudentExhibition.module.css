@@ -55,6 +55,11 @@
   gap: var(--s-3);
 }
 
+/* 동의 시트가 덮는 동안 뒤 포스터를 더 가라앉힌다 — 시트가 포스터 2단 경계 위의 "카드 위 카드"로 보이지 않게(V-57) */
+.covered > .posterInner {
+  opacity: 0.2;
+}
+
 .leaving {
   pointer-events: none;
   animation: posterOut var(--t-enter) var(--ease-out) forwards;

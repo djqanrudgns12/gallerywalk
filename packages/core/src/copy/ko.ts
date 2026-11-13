@@ -86,6 +86,8 @@ export const copy = {
     updatedAction: '새로 보기',
     waitAMoment: '잠시만 기다려 주세요',
     exitThanks: '관람해 주셔서 고마워요',
+    /** 출구 안내판 제목(V-57): 3D 출구 사인의 감사 문구와 겹치지 않게 다른 말 */
+    exitPanelTitle: '전시를 다 둘러봤어요',
     /** 3D 안 사인(V-03): 홀 천장 사인 아래 줄 · 출구 사인 이름 */
     signHall: '어서 오세요',
     signExit: '출구',
@@ -94,7 +96,7 @@ export const copy = {
     /** 미술관 정면 이름판(ADR-057): 전시명이 이미 '전시관·미술관·박물관·전시회'로 끝나면 전시명 그대로 */
     facadeSign: '{title} 전시관',
     /** 전시명이 이 말로 끝나면 이름판에 전시명 그대로 */
-    facadeSuffixes: ['전시관', '미술관', '박물관', '전시회', '갤러리'] as readonly string[],
+    facadeSuffixes: ['전시관', '미술관', '박물관', '전시회', '전시', '갤러리'] as readonly string[],
     stopExterior: '{title} 앞',
     /** 자유 관람(ADR-057, R-7 제안) */
     liveCount: '함께 관람 {n}명',

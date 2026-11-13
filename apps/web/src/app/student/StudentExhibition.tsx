@@ -248,7 +248,9 @@ const PosterLayer = ({ store, view, leaving, covered, inApp }: PosterLayerProps)
 
   return (
     <div
-      className={leaving ? `${s.posterLayer} ${s.leaving}` : s.posterLayer}
+      className={
+        leaving ? `${s.posterLayer} ${s.leaving}` : covered ? `${s.posterLayer} ${s.covered}` : s.posterLayer
+      }
       inert={leaving || covered}
       onAnimationEnd={onAnimationEnd}
     >
@@ -276,7 +278,8 @@ const PosterLayer = ({ store, view, leaving, covered, inApp }: PosterLayerProps)
           enterDisabled={!progress.ready || leaving}
           showInAppBrowserHint={inApp}
         />
-        <PrivacyLink newTab />
+        {/* 동의 시트가 덮는 동안은 시트 안의 링크 하나만(두 번 보이지 않게, V-57) */}
+        {covered ? null : <PrivacyLink newTab />}
       </div>
     </div>
   );

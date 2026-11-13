@@ -1,8 +1,10 @@
 /*
  * 크게 보기 캡션(R-7b, F8 V-55) — 어두운 전시관 안내판: 숯색 판 하나 · 1px 테 · 놋쇠는 `반응 남기기` 하나.
  * 위계는 활자 크기로(큰 세리프 제목 → 작은 작가 이름 → 짧은 설명 한 줄). 색·간격·모서리·글꼴은 토큰·테마 변수만.
+ * 제목과 단추는 한 줄(왼쪽 글 · 오른쪽 단추)에 두어 판 높이를 줄인다(V-57). 펼친 설명만 아래 줄 전체.
  */
 .container {
+  position: relative;
   width: 100%;
   max-width: var(--caption-max-w);
   display: flex;
@@ -43,13 +45,16 @@
   color: var(--plate-ink);
   border: 1px solid var(--plate-edge);
   border-radius: var(--r-card);
-  padding: var(--s-5) var(--s-6) var(--s-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
 }
 
 .text {
+  grid-column: 1;
+  grid-row: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -89,7 +94,7 @@
 .title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--fs-6);
+  font-size: var(--fs-5);
   font-weight: 700;
   line-height: var(--lh-tight);
   color: var(--plate-ink);
@@ -112,6 +117,8 @@
 
 /* 펼친 긴 설명: 판 안의 판 대신 위 1px 선 하나로 나눈다 */
 .expandedDesc {
+  grid-column: 1;
+  grid-row: 2;
   max-height: 32vh;
   max-height: 32dvh;
   overflow-y: auto;
@@ -128,8 +135,11 @@
   white-space: pre-wrap;
 }
 
-/* `더 보기` · `반응 남기기`는 늘 한 줄 */
+/* `더 보기` · `반응 남기기`는 늘 한 줄, 제목 오른쪽 아래 — 설명을 펼쳐도(판이 위로 자람) 자리가 흔들리지 않는다 */
 .actions {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -153,7 +163,6 @@
 }
 
 .toggleBtn {
-  margin-inline-end: auto;
   padding: 0 var(--s-4);
   background-color: transparent;
   color: var(--plate-ink);
@@ -167,6 +176,11 @@
   color: var(--accent-ink);
   border: 1px solid var(--accent);
   font-weight: 700;
+}
+
+/* 설명을 펼친 동안만 두 줄에 걸친다(빈 둘째 줄의 간격이 생기지 않게) */
+.card:has(.expandedDesc) .actions {
+  grid-row: 1 / span 2;
 }
 
 /* 보내지 못한 반응이 남았을 때 반응 단추의 작은 점(V-21) — 놋쇠 단추 위라 글자색으로 찍는다 */
@@ -195,12 +209,12 @@
 
 @media (max-width: 540px) {
   .card {
-    padding: var(--s-4) var(--s-4) var(--s-3);
-    gap: var(--s-3);
+    padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+    gap: var(--s-2) var(--s-3);
   }
 
   .title {
-    font-size: var(--fs-5);
+    font-size: var(--fs-4);
   }
 
   .caption,
@@ -209,7 +223,6 @@
   }
 
   .reactBtn {
-    flex: 1;
     padding: 0 var(--s-4);
   }
 }
@@ -317,11 +330,43 @@
     padding: 0 var(--s-4);
   }
 
-  /* 펼친 동안 손잡이 줄은 카드 위에 붙은 얇은 줄 — 판을 겹쳐 그리지 않는다 */
+  /* 펼친 동안 `접기` 손잡이는 판 안 오른쪽 위(V-57) — 판 위에 따로 줄을 두지 않는다 */
   .container[data-folded='0'] .foldRow {
-    padding-inline-start: var(--s-1);
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 1;
+    width: auto;
+    padding: 0 var(--s-1) 0 0;
     background-color: transparent;
     border-color: transparent;
+  }
+
+  .container[data-folded='0'] .foldBtn {
+    flex: none;
+    min-width: var(--touch-min);
+    padding: 0 var(--s-2);
+  }
+
+  /* 손잡이 자리만큼 글을 비우고, 단추 줄은 아래 줄 전체 */
+  .container[data-folded='0'] .text {
+    grid-column: 1 / -1;
+    padding-inline-end: calc(var(--touch-min) + var(--s-6));
+  }
+
+  .container[data-folded='0'] .expandedDesc {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  /* 단추 줄은 글(과 펼친 설명) 다음 줄에 저절로 놓인다 */
+  .container[data-folded='0'] .actions {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .container[data-folded='0'] .reactBtn {
+    flex: 1;
   }
 
   .container[data-folded='1'] .card {

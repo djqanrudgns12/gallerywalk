@@ -66,6 +66,34 @@ describe('여러 쪽 크게 보기', () => {
     window.removeEventListener('keydown', walkKeys);
   });
 
+  it('쪽 상자의 안쪽 여백(밝은 매트 자리)을 뺀 크기로 쪽을 계산한다(V-57 크게 보기 매트 한 겹)', () => {
+    const real = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation(el => {
+      const st = real(el);
+      return new Proxy(st, {
+        get: (target, key) =>
+          typeof key === 'string' && key.startsWith('padding')
+            ? '16px'
+            : (Reflect.get(target, key) as unknown),
+      });
+    });
+    const asked: { w: number; h: number }[] = [];
+    const host = document.createElement('div');
+    root = createRoot(host);
+    act(() =>
+      root!.render(
+        <PageZoom
+          pagesFor={vp => {
+            asked.push(vp);
+            return [page(0)];
+          }}
+        />,
+      ),
+    );
+    expect(asked[0]).toEqual({ w: 320 - 32, h: 420 - 32 });
+    vi.restoreAllMocks();
+  });
+
   it('마지막 쪽에서 `›`(오른쪽 키)를 누르면 다음 작품으로(onPastEnd), 없으면 잠김(PRD G-03)', () => {
     const pastEnd = vi.fn();
     const host = document.createElement('div');

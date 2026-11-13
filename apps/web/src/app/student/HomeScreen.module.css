@@ -1,7 +1,8 @@
 /*
  * 첫 화면 — 시안 A "어두운 전시관 안내 체계"(F8 V-52).
- * 꽉 찬 숯색 바탕, 판·테 없이 여백과 큰 활자로 위계를 만든다. 강조(놋쇠)는 앱 이름과 채운 칸 밑줄뿐.
- * 휴대폰은 위(이름·제목)와 아래(숫자 칸·링크)를 화면 양끝에, 넓은 화면은 가운데 한 줄 기둥.
+ * 꽉 찬 숯색 바탕, 판·테 없이 여백과 큰 활자로 위계를 만든다. 강조(놋쇠)는 앱 이름과 지금 칠 칸 밑줄뿐.
+ * 제목·설명 바로 아래에 숫자 칸(휴대폰도 사이를 비우지 않는다, V-57). 넓은 화면은 가운데 한 줄 기둥.
+ * 숫자 칸은 밑줄 한 겹만 — 바깥 테두리를 두지 않고 초점은 밑줄 색으로만 보인다(V-57).
  * 색·간격·모서리·글꼴은 토큰·테마 변수만.
  */
 .page {
@@ -22,7 +23,7 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--s-12);
 }
 
@@ -72,26 +73,33 @@
 }
 
 .cell {
-  min-height: 64px;
+  min-height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-bottom: 2px solid var(--plate-edge);
   font-family: var(--font-display);
-  font-size: var(--fs-7);
+  font-size: calc(var(--fs-7) * 1.2);
   font-weight: 700;
   line-height: 1;
   color: var(--plate-ink);
+  font-variant-numeric: tabular-nums;
   transition: border-color var(--t-hover) var(--ease-out);
 }
 
-.cell[data-filled='1'] {
-  border-bottom-color: var(--accent);
+/* 초점이 있는 동안 밑줄이 한 단계 밝아진다 */
+.cells:focus-within .cell {
+  border-bottom-color: var(--plate-ink-sub);
 }
 
-/* 지금 칠 칸: 상아색 밑줄 + 깜빡이는 막대 */
-.cellActive {
+.cell[data-filled='1'],
+.cells:focus-within .cell[data-filled='1'] {
   border-bottom-color: var(--plate-ink);
+}
+
+/* 지금 칠 칸: 놋쇠 밑줄 + 깜빡이는 막대(초점 표시는 이 밑줄 색 하나) */
+.cells:focus-within .cellActive {
+  border-bottom-color: var(--accent);
 }
 
 .cellActive[data-filled='0']::after {
@@ -126,12 +134,6 @@
   cursor: text;
 }
 
-.cells:has(.input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: var(--s-2);
-  border-radius: var(--r-plate);
-}
-
 .links {
   display: flex;
   align-items: center;
@@ -141,6 +143,7 @@
 }
 
 .teacher {
+  min-width: var(--touch-min);
   min-height: var(--touch-min);
   padding: 0;
   background: none;
@@ -188,8 +191,8 @@
   }
 
   .cell {
-    min-height: 56px;
-    font-size: var(--fs-6);
+    min-height: 64px;
+    font-size: var(--fs-7);
   }
 }
 

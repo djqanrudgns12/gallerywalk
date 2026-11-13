@@ -123,20 +123,25 @@
   color: var(--status-warn);
 }
 
+/* 체크 줄 전체가 누르는 자리(44px 이상, V-57) */
 .agree {
   margin-top: var(--s-4);
+  box-sizing: border-box;
+  width: 100%;
   min-height: var(--touch-min);
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: var(--s-3);
+  padding-block: var(--s-1);
   font-size: var(--fs-3);
   font-weight: 700;
   cursor: pointer;
 }
 
 .check {
-  width: 22px;
-  height: 22px;
+  flex: none;
+  width: var(--s-6);
+  height: var(--s-6);
   margin: 0;
   accent-color: var(--accent);
   cursor: pointer;

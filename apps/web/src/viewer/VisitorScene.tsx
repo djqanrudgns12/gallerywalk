@@ -9,6 +9,7 @@ import { useArtworkHover } from './scene/useArtworkHover.ts';
 import { ArtworkFrame } from './scene/ArtworkFrame.tsx';
 import { ArtworkLabels, type LabelItem } from './scene/ArtworkLabels.tsx';
 import { ExteriorContact } from './scene/ExteriorContact.tsx';
+import { labelAwayOf } from './scene/labelAway.ts';
 import { FacadeSign } from './scene/FacadeSign.tsx';
 import { FixtureModels } from './scene/FixtureModels.tsx';
 import type { DimHolder } from './scene/materials.ts';
@@ -195,6 +196,7 @@ export const VisitorScene = ({
           artworkId: l.artworkId,
           pos: l.pos,
           normal: l.normal,
+          away: labelAwayOf(l.pos, a.center, l.normal, a.mount === 'EASEL'),
           title: a.title,
           author: a.author,
           note: a.plateNote ?? '',
@@ -216,8 +218,8 @@ export const VisitorScene = ({
   return (
     <>
       <Stage look={look} indoor={0} />
-      <Sky exterior={layout.exterior} />
-      <ExteriorContact layout={layout} />
+      <Sky exterior={layout.exterior} look={look.outdoor.sky} />
+      <ExteriorContact layout={layout} glow={look.outdoor.entranceGlow} />
       {modules && <TemplateModules modules={modules} placements={placements} />}
       {extra?.(modules)}
       <FixtureModels fixtures={layout.fixtures} models={fixtureModels} />
@@ -235,6 +237,7 @@ export const VisitorScene = ({
             pool={look.pool}
             boost={boosts[a.id]}
             onHover={onHover}
+            look={look}
           />
         ))}
       {controller ? (
@@ -265,7 +268,7 @@ export const VisitorScene = ({
         hovered={hovered}
         tier={tier}
         reducedMotion={reducedMotion ?? false}
-        color={look.pool.color}
+        color={look.dust}
       />
       <Vignette strength={vignetteOf(tier)} />
       {peers && (

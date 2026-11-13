@@ -3,7 +3,6 @@ import { copy, fill } from '@gallery/core/copy';
 import { type JSX, useId, useRef } from 'react';
 import { Icon } from '../../Icon.tsx';
 import { radioKeyStep } from '../radioKeys.ts';
-import { formatFacadeTitle } from './LoadingMuseum.tsx';
 import s from './EntryPoster.module.css';
 
 export type StudentCharacterId = 'student-m' | 'student-f';
@@ -127,7 +126,9 @@ export const EntryPoster = ({
   const charLabelId = useId();
   const charRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const maxChars = config().NICKNAME_MAX_CHARS;
-  const displayTitle = formatFacadeTitle(title);
+  // 포스터 제목은 전시 이름 그대로. "{전시명} 전시관"은 3D 정면 이름판 규칙(ADR-057)이라 여기서 덧붙이면
+  // "○○ 전시 전시관"처럼 겹친다(V-57)
+  const displayTitle = title.trim();
 
   const studentOptions: readonly { id: StudentCharacterId; label: string }[] = [
     { id: 'student-m', label: copy.poster.studentMale },

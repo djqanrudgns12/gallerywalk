@@ -63,7 +63,28 @@ export function planLoad(options) {
     clients: options.clients,
     durationSeconds: options.durationSeconds,
     stages: ['HTTP 전시 조회', 'HTTP 방문자 등록', '웹소켓 hello·위치·관람객 확인', '첫 관 미디어 받기'],
+    criteria: loadCriteria(options.clients),
     note: 'dry-run은 HTTP·웹소켓·파일 쓰기를 하지 않습니다. 실측은 합성 전시와 --execute가 필요합니다.',
+  };
+}
+
+function loadCriteria(clients) {
+  return {
+    protocol: {
+      completed: clients,
+      together: clients,
+      errors: 0,
+      note: '모든 기기의 HTTP 입장·첫 관 미디어 받기·웹소켓 연결과 상호 위치 수신이 성공해야 합니다.',
+    },
+    timeoutsMs: {
+      http: config().API_TIMEOUT_MS,
+      websocketHello: config().LIVE_HELLO_TIMEOUT_MS,
+    },
+    schoolTarget: {
+      source: 'PRD §10.1·§15.5 / PLAN §14.5',
+      status: '미측정',
+      note: '학교 와이파이에서 21대가 동시에 입장해 첫 관람까지 4초 이내. 별도 실기기 확인이 필요합니다.',
+    },
   };
 }
 
@@ -317,6 +338,7 @@ export async function executeLoad(options) {
       completed,
       together,
       passed: completed === options.clients && together === options.clients,
+      criteria: loadCriteria(options.clients),
       stages: summarize(samples),
       websocket: {
         connected: clients.filter(client => client.welcomed).length,

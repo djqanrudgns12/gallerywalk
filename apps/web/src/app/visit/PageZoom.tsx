@@ -33,8 +33,11 @@ export const PageZoom = ({
     const el = box.current;
     if (!el) return;
     const run = (): void => {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
+      // 상자 안쪽 여백은 쪽 둘레의 밝은 매트 자리(V-57) — 쪽은 그만큼 뺀 크기에 맞춘다
+      const st = window.getComputedStyle(el);
+      const pad = (v: string): number => Number.parseFloat(v) || 0;
+      const w = el.clientWidth - pad(st.paddingLeft) - pad(st.paddingRight);
+      const h = el.clientHeight - pad(st.paddingTop) - pad(st.paddingBottom);
       if (w > 0 && h > 0) setPages(pagesFor({ w, h }, window.devicePixelRatio || 1));
     };
     run();

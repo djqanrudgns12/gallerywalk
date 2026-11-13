@@ -223,6 +223,9 @@ for (const size of SIZES) {
         await expect(page.getByTestId('zoom-card')).toBeVisible();
       }
       await settle(page);
+      // 캡처는 HTML 쪽 그림이 붙은 뒤(전환 도중이 아니게) — 3D는 위 settle이 멈춘 것을 본다
+      if (artwork!.kind === 'IMAGE' || artwork!.kind === 'PDF')
+        await expect(page.getByTestId('page-zoom').locator('img').first()).toBeVisible();
       await capture(page, `${size.name}-07-zoom`);
       // 크게 보기 닫기는 화면 오른쪽 위(PRD 9.2)
       await page.getByTestId('zoom-close').click();
@@ -249,7 +252,13 @@ for (const size of SIZES) {
       for (let index = firstArtwork + 1; index <= exitIndex; index++) await walkTo(page, index);
       const exit = page.getByTestId('exit-panel');
       await expect(exit).toBeVisible();
-      await expect(exit).toContainText(copy.viewer.exitThanks);
+      // 출구 안내판 제목은 3D 출구 사인의 감사 문구와 다른 말(V-57). 감사 문구는 3D 사인(PRD 5.5)이 맡는다
+      await expect(exit).toContainText(copy.viewer.exitPanelTitle);
+      await expect(exit).not.toContainText(copy.viewer.exitThanks);
+      // 출구에는 다음 작품이 없다 — `다음 작품으로`를 숨긴다(V-57)
+      await expect(
+        page.getByTestId('walk-nav').getByRole('button', { name: copy.viewer.nextArtwork }),
+      ).toHaveCount(0);
       await expect(exit).toContainText(fill(copy.viewer.exitCount, { n: view.artworks.length }));
       await expect(exit.getByRole('button', { name: copy.viewer.restart })).toBeVisible();
       await settle(page);

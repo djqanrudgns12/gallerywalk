@@ -1,3 +1,4 @@
+import { config } from '@gallery/core/config';
 import { useEffect, useMemo } from 'react';
 import {
   CanvasTexture,
@@ -14,12 +15,15 @@ import { bakedLight } from './materials.ts';
  * 작품 명판(PLAN §4.5 `labels`, 미술관 느낌 — ADR-057): 액자 옆 벽(이젤은 받침 아래)의 작은 판에 제목·작가.
  * 보이는 명판 전부를 한 캔버스(아틀라스)에 그리고 벽에 붙은 네모를 인스턴스로 — 그리기 호출 1회.
  * 빛은 구운 실내와 어울리게 장면 어둡게(`sceneDim`)·구운 빛 색만 곱한다(실시간 빛 없음).
+ * 벽 명판은 액자에서 벽을 따라 `LABEL_FRAME_GAP_M`만큼 더 떨어뜨려 그린다(떠 있는 액자 앞면이 가리지 않게, V-57).
  */
 
 export interface LabelItem {
   readonly artworkId: string;
   readonly pos: readonly [number, number, number];
   readonly normal: readonly [number, number];
+  /** 벽을 따라 액자에서 멀어지는 단위 방향(x, z). 이젤 명판처럼 옮기지 않을 것은 [0, 0] */
+  readonly away: readonly [number, number];
   readonly title: string;
   readonly author: string;
   /** 셋째 줄(이어서 보기·쪽 수, V-23). 빈 글이면 그리지 않음 */
@@ -66,7 +70,9 @@ const drawPlate = (ctx: CanvasRenderingContext2D, i: number, item: LabelItem): v
 
 export const ArtworkLabels = ({ items }: { items: readonly LabelItem[] }) => {
   const shown = items.slice(0, MAX);
-  const key = shown.map(i => `${i.artworkId}:${i.title}:${i.author}:${i.note ?? ''}`).join('|');
+  const key = shown
+    .map(i => `${i.artworkId}:${i.title}:${i.author}:${i.note ?? ''}:${i.away[0]},${i.away[1]}`)
+    .join('|');
   const parts = useMemo(() => {
     const rows = Math.ceil(MAX / COLS);
     const canvas = document.createElement('canvas');
@@ -85,9 +91,14 @@ export const ArtworkLabels = ({ items }: { items: readonly LabelItem[] }) => {
     const center = new Float32Array(MAX * 3);
     const normal = new Float32Array(MAX * 2);
     const slot = new Float32Array(MAX);
+    const gap = config().LABEL_FRAME_GAP_M;
     shown.forEach((item, i) => {
       center.set(
-        [item.pos[0] + item.normal[0] * LIFT, item.pos[1], item.pos[2] + item.normal[1] * LIFT],
+        [
+          item.pos[0] + item.normal[0] * LIFT + item.away[0] * gap,
+          item.pos[1],
+          item.pos[2] + item.normal[1] * LIFT + item.away[1] * gap,
+        ],
         i * 3,
       );
       normal.set([item.normal[0], item.normal[1]], i * 2);

@@ -12,6 +12,8 @@ export interface WalkNavProps {
   onNext: () => void;
   prevDisabled?: boolean | undefined;
   nextDisabled?: boolean | undefined;
+  /** 다음이 없는 자리(출구)에서는 `다음 작품으로`를 그리지 않는다(V-57) */
+  nextHidden?: boolean | undefined;
   onMap?: (() => void) | undefined;
   onSoundToggle?: (() => void) | undefined;
   soundOn?: boolean | undefined;
@@ -26,6 +28,7 @@ export const WalkNav = ({
   onNext,
   prevDisabled = false,
   nextDisabled = false,
+  nextHidden = false,
   onMap,
   onSoundToggle,
   soundOn = false,
@@ -85,17 +88,19 @@ export const WalkNav = ({
           <Icon name="chevron-left" size={20} />
         </button>
 
-        <button
-          type="button"
-          className={s.nextBtn}
-          onClick={onNext}
-          disabled={nextDisabled}
-          data-testid="next"
-        >
-          <span>{copy.viewer.nextArtwork}</span>
-          {total > 0 ? <span className={s.count}>{pageText}</span> : null}
-          <Icon name="chevron-right" size={18} />
-        </button>
+        {nextHidden ? null : (
+          <button
+            type="button"
+            className={s.nextBtn}
+            onClick={onNext}
+            disabled={nextDisabled}
+            data-testid="next"
+          >
+            <span>{copy.viewer.nextArtwork}</span>
+            {total > 0 ? <span className={s.count}>{pageText}</span> : null}
+            <Icon name="chevron-right" size={18} />
+          </button>
+        )}
       </div>
     </nav>
   );

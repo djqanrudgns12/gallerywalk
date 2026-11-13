@@ -33,7 +33,7 @@ export interface MicroMotionProps {
   readonly hovered: () => string | null;
   readonly tier: Tier;
   readonly reducedMotion: boolean;
-  /** 먼지 빛 색(템플릿 빛 웅덩이 색) */
+  /** 먼지 빛 색(템플릿 `look.dust`, 상아 한 색) */
   readonly color: string;
 }
 

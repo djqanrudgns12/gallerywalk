@@ -166,11 +166,35 @@
   border: 1px solid var(--plate-edge);
 }
 
-/* 휴대폰: 출구 안내는 위 줄·소리 단추 아래에(아래쪽의 조이스틱·뛰기·점프와 겹치지 않게) — 기본 규칙 뒤에 둔다 */
+/* 출구의 보조 단추는 테 없는 글자 단추(V-57) — 주요 단추 하나만 판 모양 */
+.exitText {
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  padding: 0 var(--s-3);
+  background: none;
+  color: var(--plate-ink);
+  border: 0;
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+/* 휴대폰: 출구 안내는 위 줄·소리 단추 아래에(아래쪽의 조이스틱·뛰기·점프와 겹치지 않게) — 기본 규칙 뒤에 둔다.
+   단추는 세로로: 주요 단추 한 줄 전체 폭, 그 아래 글자 단추들(V-57) */
 @media (max-width: 600px) {
   .exit {
     top: calc(var(--s-3) + 2 * var(--touch-min) + var(--s-2) + var(--s-3) + env(safe-area-inset-top));
     bottom: auto;
+  }
+
+  .exitActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--s-1);
   }
 }
 
@@ -233,6 +257,13 @@
   width: min(calc(100vw - 2 * var(--s-3)), 560px);
 }
 
+/* 데스크톱: 작품 이름 줄은 아래 가운데 이동 단추 바로 위 — 액자 아래쪽을 덮지 않게 낮춘다(V-57) */
+@media (min-width: 901px) {
+  .card {
+    bottom: calc(var(--s-3) + var(--touch-min) + var(--s-2) + var(--s-2) + env(safe-area-inset-bottom));
+  }
+}
+
 .zoomLayout {
   --zoom-content-top: calc(var(--s-16) + var(--s-2) + env(safe-area-inset-top));
   --zoom-caption-bottom: calc(var(--s-4) + env(safe-area-inset-bottom));
@@ -246,6 +277,28 @@
 
 .zoomLayout > * {
   pointer-events: auto;
+}
+
+/* 그림 쪽·글 카드 뒤의 3D 장면을 가리는 숯색 덮개(V-57). 카메라가 다가가는 시간(--t-zoom)에 걸쳐 짙어진다.
+   누르기는 막지 않는다(빈 곳 누르기·아래로 쓸기 닫기는 캔버스가 받는다) */
+.zoomLayout > .zoomBackdrop {
+  position: absolute;
+  inset: 0;
+  background-color: var(--surface-wall);
+  pointer-events: none;
+  animation: zoomCover var(--t-zoom) var(--ease-out) both;
+}
+
+@keyframes zoomCover {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zoomLayout > .zoomBackdrop {
+    animation: none;
+  }
 }
 
 .zoomCaption {
@@ -617,7 +670,9 @@
   touch-action: pan-y;
 }
 
+/* 쪽 상자의 안쪽 여백 = 쪽 둘레의 밝은 매트 한 겹(V-57). 쪽 크기는 여백을 뺀 크기로 계산한다(PageZoom) */
 .pageZoomBox {
+  --zoom-mat: var(--s-4);
   position: relative;
   flex: 1;
   min-height: 0;
@@ -625,13 +680,21 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  padding: var(--zoom-mat);
 }
 
+/* 그림의 투명한 자리도 매트 색(어두운 덧판이 생기지 않게) */
 .pageZoomPage {
   position: relative;
   flex: none;
-  background: var(--plate-bg);
-  box-shadow: var(--shadow-plate);
+  background: var(--mat-light);
+  box-shadow: 0 0 0 var(--zoom-mat) var(--mat-light);
+}
+
+@media (max-width: 540px) {
+  .pageZoomBox {
+    --zoom-mat: var(--s-3);
+  }
 }
 
 .pageZoomPiece {

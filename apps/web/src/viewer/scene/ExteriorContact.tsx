@@ -1,19 +1,28 @@
 import { config } from '@gallery/core/config';
-import { templateGeometry } from '@gallery/core/templates';
+import { type TemplateLook, templateGeometry } from '@gallery/core/templates';
 import type { Layout } from '@gallery/core/types';
 import { useEffect, useMemo } from 'react';
-import { InstancedMesh, Matrix4, PlaneGeometry, Quaternion, Vector3 } from 'three';
-import { blobShadowMaterial, contactShadowMaterial, sceneDim } from './materials.ts';
+import { InstancedMesh, Matrix4, type MeshBasicMaterial, PlaneGeometry, Quaternion, Vector3 } from 'three';
+import { blobShadowMaterial, contactShadowMaterial, lightPoolMaterial, sceneDim } from './materials.ts';
 
 /**
  * 외관 접촉 그늘(실시간 그림자 없이, AGENTS.md §4): 건물이 광장에 떠 보이지 않게 맞닿는 곳에 흐린 그늘을 깐다(Antigravity 비평 2026-11-12).
  * - 띠(흐린 네모, 그리기 1회): 정면 날개 벽 밑, 계단 디딤판마다 안쪽 모서리(위 단 챌판이 닿는 곳), 계단 맨 아래와 광장이 닿는 곳,
  *   정문 열림 위·양옆(세운 띠 — 문 열림 치수는 Blender 현관 조각과 같은 규칙: 문 폭·높이 − 문틀).
  * - 둥근 그늘(그리기 1회): 현관 기둥 밑.
+ * - 정문 안쪽 빛(그리기 1회, V-57): 문 열림 안쪽에 세운 판과 문 앞 현관 바닥에 깐 판 — 빛 웅덩이와 같은 가산 판이라 실시간
+ *   조명이 아니다. 해 질 녘 광장에서 입구 안쪽이 따뜻하게 밝아 보여 시선을 끈다. 세운 판은 광장 쪽만 보인다(뒷면 그리지 않음).
  * 자리는 배치 엔진 외관(`layout.exterior`)과 템플릿 기하(계단 단·기둥)에서 계산한다. Blender 굽기에 접촉 그림자를 넣으면 지운다.
  */
 
-export const ExteriorContact = ({ layout }: { layout: Layout }) => {
+export const ExteriorContact = ({
+  layout,
+  glow,
+}: {
+  layout: Layout;
+  /** 정문 안쪽 빛(템플릿 `look.outdoor.entranceGlow`). 없으면 그리지 않는다 */
+  glow?: TemplateLook['outdoor']['entranceGlow'] | undefined;
+}) => {
   const parts = useMemo(() => {
     const x = layout.exterior;
     if (!x) return null;
@@ -83,8 +92,35 @@ export const ExteriorContact = ({ layout }: { layout: Layout }) => {
     blobMesh.instanceMatrix.needsUpdate = true;
     blobMesh.computeBoundingSphere();
     blobMesh.renderOrder = 1;
-    return { flat, stripMat, stripMesh, blobMat, blobMesh };
-  }, [layout]);
+
+    // 정문 안쪽 빛: [문 안쪽에 세운 판, 문 앞 현관 바닥 판]
+    let glowMat: MeshBasicMaterial | null = null;
+    let glowMesh: InstancedMesh | null = null;
+    if (glow) {
+      glowMat = lightPoolMaterial(sceneDim, { ...glow, scale: 1, lift: 0 });
+      glowMesh = new InstancedMesh(flat, glowMat, 2);
+      glowMesh.setMatrixAt(
+        0,
+        m.compose(
+          new Vector3(0, clearH / 2, zf + glow.insideM),
+          upright,
+          new Vector3(clearW * glow.spread, 1, clearH * glow.spread),
+        ),
+      );
+      glowMesh.setMatrixAt(
+        1,
+        m.compose(
+          new Vector3(0, lift * 2, zf - glow.spillM / 2),
+          q,
+          new Vector3(clearW * glow.spread, 1, glow.spillM),
+        ),
+      );
+      glowMesh.instanceMatrix.needsUpdate = true;
+      glowMesh.computeBoundingSphere();
+      glowMesh.renderOrder = 2;
+    }
+    return { flat, stripMat, stripMesh, blobMat, blobMesh, glowMat, glowMesh };
+  }, [layout, glow]);
 
   useEffect(
     () => () => {
@@ -94,6 +130,8 @@ export const ExteriorContact = ({ layout }: { layout: Layout }) => {
       parts.blobMat.dispose();
       parts.stripMesh.dispose();
       parts.blobMesh.dispose();
+      parts.glowMat?.dispose();
+      parts.glowMesh?.dispose();
     },
     [parts],
   );
@@ -103,6 +141,7 @@ export const ExteriorContact = ({ layout }: { layout: Layout }) => {
     <group>
       <primitive object={parts.stripMesh} />
       <primitive object={parts.blobMesh} />
+      {parts.glowMesh && <primitive object={parts.glowMesh} />}
     </group>
   );
 };

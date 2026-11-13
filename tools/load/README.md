@@ -7,7 +7,7 @@ node --conditions=@gallery/source tools/load/admission.mjs --clients 21
 node --conditions=@gallery/source tools/load/admission.mjs --clients 30
 ```
 
-실측은 사용자가 고른 **합성 그림이 있는 개발 전시**에만 한다. 이번 F9에서는 실행하지 않는다. 아래 `123456`은 예시이며 실제 합성 전시 입장 코드로 바꾼다. 21대와 30대는 차례로 실행한다.
+로컬 실측은 사용자가 고른 **합성 그림이 있는 개발 전시**에만 한다. 맥미니에서는 이번 작업의 실제 부하를 실행하지 않는다. 아래 `123456`은 예시이며 실제 합성 전시 입장 코드로 바꾼다. 21대와 30대는 차례로 실행한다.
 
 ```bash
 /Users/bodyking/.local/bin/resource-guard run --profile test --wait-seconds 560 -- node --conditions=@gallery/source tools/load/admission.mjs --clients 21 --entry-code 123456 --execute
@@ -17,7 +17,16 @@ node --conditions=@gallery/source tools/load/admission.mjs --clients 30
 
 기록은 `.local/perf/admission-load.jsonl`이다. HTTP 조회·등록·미디어와 소켓 연결의 p50·p95·오류율·본문 바이트, 함께 관람 수와 수신 방송 수를 남긴다. 토큰·별명·입장 코드·원본 응답은 쓰지 않는다. 요청 실패도 지연 분포에 포함한다. `passed:false`면 종료값 1이다.
 
+기록과 dry-run 계획의 `criteria`에는 **요청한 전원 입장·상호 위치 수신, 오류 0**과 기존 `API_TIMEOUT_MS`·`LIVE_HELLO_TIMEOUT_MS`를 표시한다. 새 지연 합격선을 만들지 않는다. PRD §10.1·§15.5의 **학교 와이파이에서 21대 동시 입장 후 첫 관람까지 4초 이내**는 `schoolTarget.status: "미측정"`으로 함께 남긴다.
+
 이 도구의 성공은 서버 프로토콜 부하를 확인한다. 공유 학교 와이파이·CDN·태블릿 21대의 그리기·입장 후 4초는 사용자 실측(P7-3·U-05·U-16)으로 따로 확인한다. 빈 CDN·데운 CDN 측정도 미실행이다.
+
+GitHub Actions의 `e2e` 수동 실행에서 `only: load`를 고르면 부하 작업만, `all`을 고르면 개발·운영 빌드 e2e와 부하 작업을 각각 별도 호스트 러너에서 실행한다. 실행은 통합 담당 Claude가 한다.
+
+- `macos-15`·Node `.nvmrc` 환경에서 `npm ci` → 개발 서버 4521 실행·건강 확인 → 기존 시드 도구로 합성 그림 21점 전시 열기 → 21대·30대 각각 10초 위치 전송 순서다. 21대 판정이 실패해도 30대를 실행하며 작업 실패는 유지한다.
+- DB·미디어·임시는 `.local/load/`에 격리한다. 교사 토큰·PIN은 저장하지 않는다. 입장 코드는 권한 `0600`의 러너 임시 파일로만 넘기고 명령 출력에서 가린다. 서버 접근 기록·표준 출력은 `/dev/null`로 보내 경로의 입장 코드도 남기지 않는다.
+- `admission-load` 아티팩트에는 `.local/perf/admission-load.jsonl`만 담는다(숨김 경로 포함, 14일). 각 실행은 민감값 없는 JSON 한 줄을 덧붙이며, 정상적으로 두 측정이 끝나면 두 줄이 남는다. 실패해도 작성된 기록은 올린다.
+- 러너에는 `resource-guard`가 없어 이 작업에만 `RESOURCE_GUARD_ACTIVE=1`을 준다. 로컬 실측은 실제 `resource-guard` 안에서 실행해야 한다. 운영 기기·운영 비밀값·공개 주소를 쓰지 않는다.
 
 관련 시험:
 

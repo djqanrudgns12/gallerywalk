@@ -1,13 +1,15 @@
-/* 가까운 작품 카드(F8 V-55) — 숯색 판 · 1px 테. 주요 강조는 이동 단추 하나에 둔다. */
+/*
+ * 가까운 작품 이름 줄(F8 V-55 → V-57) — 판·테 없이 글자만: 큰 세리프 제목 · 작은 작가 · `크게 보기` 글자 단추.
+ * 작품 앞 아래쪽에 같은 무게의 상자가 몰리지 않게 한다. 주요 강조(놋쇠)는 이동 단추 하나에 둔다.
+ */
 .card {
   /* 안쪽 여백을 폭에 넣는다 — 없으면 100%에 여백이 더해져 좁은 화면 밖으로 넘친다 */
   box-sizing: border-box;
   width: min(520px, 100%);
-  background-color: var(--plate-bg);
+  background: none;
   color: var(--plate-ink);
-  border: 1px solid var(--plate-edge);
-  border-radius: var(--r-card);
-  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-5);
+  border: 0;
+  padding: 0 var(--s-1) 0 var(--s-2);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -96,11 +98,13 @@
   flex-shrink: 0;
   min-width: var(--touch-min);
   min-height: var(--touch-min);
-  padding: 0 var(--s-4);
-  background-color: var(--plate-bg);
+  padding: 0 var(--s-2);
+  background: none;
   color: var(--plate-ink);
-  border: 1px solid var(--plate-edge);
+  border: 0;
   border-radius: var(--r-plate);
+  text-decoration: underline;
+  text-underline-offset: 4px;
   font-family: var(--font-ui);
   font-size: var(--fs-2);
   font-weight: 700;
@@ -117,9 +121,14 @@
   outline-offset: 2px;
 }
 
+@media (hover: hover) {
+  .zoomBtn:hover {
+    text-decoration-thickness: 2px;
+  }
+}
+
 @media (max-width: 540px) {
   .card {
-    padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
     gap: var(--s-2);
   }
 
@@ -132,7 +141,6 @@
   }
 
   .zoomBtn {
-    padding: 0 var(--s-3);
-    font-size: var(--fs-1);
+    font-size: var(--fs-2);
   }
 }

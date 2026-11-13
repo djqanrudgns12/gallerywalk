@@ -147,6 +147,9 @@ describe('학생 전시 화면', () => {
       fill(copy.consent.deletes, { date: formatDay(EXPIRES_AT), days: config().EXHIBITION_TTL_DAYS }),
     );
     expect(dialog?.textContent).toContain(copy.consent.noRealInfo);
+    // 처리방침 링크는 시트 안 하나만(뒤 포스터의 링크는 시트가 덮는 동안 숨김, V-57)
+    expect(document.querySelectorAll('[data-testid="privacy-link"]')).toHaveLength(1);
+    expect(dialog?.querySelector('[data-testid="privacy-link"]')).not.toBeNull();
     expect(t.m.q<HTMLInputElement>('[role="dialog"] input[type="text"]')?.value).toBe('하늘고래');
     const start = buttonByText(dialog!, copy.consent.start);
     expect(start?.disabled).toBe(true);

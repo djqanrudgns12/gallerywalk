@@ -3,6 +3,9 @@ import {
   CanvasTexture,
   Color,
   CustomBlending,
+  DataTexture,
+  LinearFilter,
+  LinearMipmapLinearFilter,
   type Material,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -101,18 +104,25 @@ export const withBakedLight = <T extends Material>(material: T, holder: DimHolde
   return material;
 };
 
+/** 작품 면 밝기(템플릿 `look.art`): 가운데 · 가장자리 */
+export interface ArtLight {
+  readonly center: number;
+  readonly edge: number;
+}
+
 /**
- * 작품 면: 조명 계산 없이 그림 색 × 위쪽이 조금 밝은 세로 기울기(빛 웅덩이와 맞춤).
- * `ImageBitmap`을 쓰는 실제 상주 관리자(P4-2)는 UV를 뒤집어 맞춘다 — 여기 시험용 캔버스 텍스처는 three 기본 뒤집기.
+ * 작품 면: 조명 계산·톤 매핑 없이 그림 색 × 가운데가 가장 밝고 가장자리로 조금 낮아지는 밝기(빛 웅덩이 중심과 맞춤).
+ * 톤 매핑을 거치면 흰 바탕이 회갈색으로 죽고(V-57), 크게 보기 HTML 층의 같은 그림과 색이 달라진다.
+ * 밝기는 가운데 대칭이라 UV 뒤집기(`ImageBitmap` 상주 관리, P4-2)와 상관없다.
  * 투명한 곳(PNG 그림의 빈 자리)은 바로 뒤(4mm)의 매트가 비친다 — 불투명으로 그리면 검게 나왔다(P4 시드에서 발견).
  * 미리 곱한 알파(`ImageBitmap`)는 `ONE, ONE_MINUS_SRC_ALPHA`로 섞어 가장자리를 두 번 곱하지 않는다.
  */
-export const artMaterial = (map: Texture, holder: DimHolder): MeshBasicMaterial => {
+export const artMaterial = (map: Texture, holder: DimHolder, light: ArtLight): MeshBasicMaterial => {
   map.colorSpace = SRGBColorSpace;
   const premultiplied = map.premultiplyAlpha;
   const material = new MeshBasicMaterial({
     map,
-    toneMapped: true,
+    toneMapped: false,
     transparent: true,
     ...(premultiplied
       ? {
@@ -124,13 +134,25 @@ export const artMaterial = (map: Texture, holder: DimHolder): MeshBasicMaterial 
         }
       : {}),
   });
-  // 위가 조금 밝은 결(빛이 위에서). ImageBitmap 텍스처는 UV를 뒤집어 쓰므로(repeat.y < 0) 그때는 1 − v
-  const flipped = map.repeat.y < 0;
-  const v = flipped ? '(1.0 - vMapUv.y)' : 'vMapUv.y';
-  injectDim(material, holder, 'art', `gl_FragColor.rgb *= mix(0.9, 1.04, ${v});`);
-  // 뒤집기에 따라 셰이더 글이 다르므로 프로그램도 나눈다
-  material.customProgramCacheKey = () => `gw-dim-art-${flipped ? 'flip' : 'std'}`;
+  // 가운데에서 잰 거리(네 모서리 = 1)로 가장자리 밝기까지. 판 크기와 상관없이 같은 셰이더(값은 uniform)
+  injectDim(
+    material,
+    holder,
+    'art',
+    `{ vec2 gwD = (vMapUv - 0.5) * 2.0; gl_FragColor.rgb *= mix(uArtCenter, uArtEdge, clamp(dot(gwD, gwD) * 0.5, 0.0, 1.0)); }`,
+    { uArtCenter: { value: light.center }, uArtEdge: { value: light.edge } },
+  );
   return material;
+};
+
+/**
+ * 매트 면: 조명 계산·톤 매핑 없이 매트 색 × `light`(템플릿 `look.frame.matLight`). 어두운 방의 반구광으로 그리면
+ * 상아 매트가 검게 죽어 액자 안에 검은 판이 또 있는 것처럼 보였다(V-57). 작품 면보다 한 단계 낮게 둔다.
+ */
+export const matMaterial = (color: string, light: number, holder: DimHolder): MeshBasicMaterial => {
+  const material = new MeshBasicMaterial({ color, toneMapped: false });
+  material.color.multiplyScalar(light);
+  return withDim(material, holder);
 };
 
 export const standard = (
@@ -149,7 +171,7 @@ export interface PoolStyle {
 export const DEFAULT_POOL: PoolStyle = { color: '#ffe2b8', opacity: 0.32, scale: 1.6, lift: 0.15 };
 
 /**
- * 캔버스로 그린 부드러운 타원 빛(빛 웅덩이). 가산 혼합.
+ * 부드러운 둥근 빛(빛 웅덩이). 가산 혼합.
  * `boost`(작품마다 하나)는 마우스 올림·크게 보기·빛 흔들림 배율(V-40, `MicroMotion`) — 값만 바꾸고 셰이더는 그대로.
  */
 export const lightPoolMaterial = (
@@ -168,6 +190,23 @@ export const lightPoolMaterial = (
   });
   injectDim(material, holder, 'pool', 'gl_FragColor.rgb *= uBoost;', { uBoost: boost });
   return material;
+};
+
+/** 빛 웅덩이 밝기 단계(가운데 0 → 가장자리 1): 거리 · 밝기 */
+const POOL_STOPS: readonly (readonly [number, number])[] = [
+  [0, 1],
+  [0.35, 0.78],
+  [0.7, 0.25],
+  [1, 0],
+];
+
+const poolFalloff = (r: number): number => {
+  for (let i = 1; i < POOL_STOPS.length; i++) {
+    const [r1, v1] = POOL_STOPS[i]!;
+    const [r0, v0] = POOL_STOPS[i - 1]!;
+    if (r <= r1) return v0 + ((v1 - v0) * (r - r0)) / (r1 - r0);
+  }
+  return 0;
 };
 
 /**
@@ -225,25 +264,33 @@ export const contactShadowMaterial = (holder: DimHolder): MeshBasicMaterial =>
     holder,
   );
 
-let radialCache: CanvasTexture | null = null;
-const radialTexture = (): CanvasTexture => {
+let radialCache: DataTexture | null = null;
+/**
+ * 빛 웅덩이 모양: 가운데가 가장 밝고 둘레로 부드럽게 사라지는 원(작품 가운데가 빛 중심, V-57).
+ * 캔버스 그라데이션 대신 계산한 회색 값(세 채널 같음, 알파 1)으로 만든다 — 캔버스의 미리 곱한 알파를 되돌릴 때와
+ * 그라데이션 떨림에서 채널마다 다른 오차가 생겨, 밝은 웅덩이 안에 분홍·초록·파랑 점이 보였다(V-57).
+ * 가산 혼합(SRC_ALPHA, ONE)에서 알파는 재질 `opacity`라 밝기는 전과 같다: 색 × 값 × 세기.
+ */
+const radialTexture = (): DataTexture => {
   if (radialCache) return radialCache;
   const size = 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    // 위에서 비추는 스포트가 벽에 남기는 모양: 위쪽이 조금 더 밝고 가장자리가 부드럽게 사라지는 타원
-    const g = ctx.createRadialGradient(size / 2, size * 0.4, 0, size / 2, size * 0.46, size / 2);
-    g.addColorStop(0, 'rgba(255,255,255,1)');
-    g.addColorStop(0.35, 'rgba(255,255,255,0.78)');
-    g.addColorStop(0.7, 'rgba(255,255,255,0.25)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, size, size);
-  }
-  radialCache = new CanvasTexture(canvas);
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const r = Math.hypot(x + 0.5 - size / 2, y + 0.5 - size / 2) / (size / 2);
+      const v = Math.round(poolFalloff(Math.min(1, r)) * 255);
+      const i = (y * size + x) * 4;
+      data[i] = v;
+      data[i + 1] = v;
+      data[i + 2] = v;
+      data[i + 3] = 255;
+    }
+  const tex = new DataTexture(data, size, size);
+  tex.magFilter = LinearFilter;
+  tex.minFilter = LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+  tex.needsUpdate = true;
+  radialCache = tex;
   return radialCache;
 };
 
