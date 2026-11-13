@@ -339,7 +339,9 @@ export const ReactionSheet = (p: ReactionSheetProps): JSX.Element => {
                     aria-label={fill(copy.reaction.scoreCell, { label, n, max: SCORE_CELLS.length })}
                     data-filled={value[key] !== null && n <= (value[key] ?? 0) ? true : undefined}
                     onClick={() => pickScore(key, n)}
-                  />
+                  >
+                    {n}
+                  </button>
                 ))}
               </span>
             </div>

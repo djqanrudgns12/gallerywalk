@@ -6,6 +6,8 @@ import s from './TopBar.module.css';
 export interface TopBarProps {
   title: string;
   place?: string | undefined;
+  /** 작품 앞에서 현재 전시실 아래 보일 순번 */
+  progress?: string | undefined;
   /** 함께 관람 인원 수. 0이면 인원 표시를 두지 않는다(V-54), 1 이상이면 copy.viewer.liveCount */
   liveCount?: number | undefined;
   onCollection?: (() => void) | undefined;
@@ -17,6 +19,7 @@ export interface TopBarProps {
 export const TopBar = ({
   title,
   place,
+  progress,
   liveCount = 0,
   onCollection,
   actions,
@@ -28,27 +31,26 @@ export const TopBar = ({
 
   return (
     <header className={className ? `${s.topBar} ${className}` : s.topBar} aria-label={title}>
-      <div className={s.roomPlate}>
-        <span className={s.accentBar} aria-hidden="true" />
-        <span className={s.title}>{title}</span>
-        {place ? (
-          <>
-            <span className={s.sep} aria-hidden="true" />
+      <div className={s.leftGroup}>
+        <div className={s.roomPlate}>
+          {place ? (
             <span className={s.place} data-testid="place">
               {place}
             </span>
-          </>
-        ) : null}
-      </div>
-
-      <div className={s.rightGroup}>
+          ) : (
+            <span className={s.title}>{title}</span>
+          )}
+          {progress ? <span className={s.progress}>{progress}</span> : null}
+        </div>
         {hasPeers ? (
           <div className={s.liveCounter} data-testid="live-count" role="status" aria-label={liveLabel}>
             <span className={s.dotOnline} aria-hidden="true" />
             <span className={s.liveText}>{liveLabel}</span>
           </div>
         ) : null}
+      </div>
 
+      <div className={s.rightGroup}>
         {onCollection ? (
           <button
             type="button"

@@ -2,7 +2,7 @@ import { config } from '@gallery/core/config';
 import { copy, fill } from '@gallery/core/copy';
 import type { Layout } from '@gallery/core/types';
 import type { PeerView } from '../../viewer/live/peerBuffer.ts';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
 import {
   DocentBubble,
@@ -212,6 +212,7 @@ export const WalkOverlay = ({
       {!zoomed && (
         <Top
           title={title}
+          layout={layout}
           liveCount={liveCount}
           onCollection={onCollection}
           actions={
@@ -320,16 +321,20 @@ const isMoving = (st: ReturnType<typeof useWalk.getState>): boolean => {
  */
 const Top = ({
   title,
+  layout,
   liveCount,
   onCollection,
   actions,
 }: {
   title: string;
+  layout: Layout;
   liveCount: number;
   onCollection?: (() => void) | undefined;
   actions?: ReactNode;
 }) => {
   const place = useWalk(st => st.place);
+  const stopIndex = useWalk(st => st.stopIndex);
+  const mode = useWalk(st => st.mode);
   const moving = useWalk(isMoving);
   const [idle, setIdle] = useState(false);
   const [touchedAt, setTouchedAt] = useState(0);
@@ -350,6 +355,11 @@ const Top = ({
   }, [moving, touchedAt]);
   const o = config().TOP_BAR_OPACITY;
   const dim = moving ? 'moving' : idle ? 'idle' : 'none';
+  const stop = layout.stops[stopIndex];
+  const progress =
+    (mode === 'view' || mode === 'guiding') && stop?.index && stop.count
+      ? fill(copy.viewer.pageOf, { page: stop.index, total: stop.count })
+      : undefined;
   return (
     <div
       className={s.top}
@@ -360,6 +370,7 @@ const Top = ({
       <TopBar
         title={title}
         place={place}
+        progress={progress}
         liveCount={liveCount}
         onCollection={onCollection}
         actions={actions}
@@ -504,7 +515,7 @@ const Docent = () => {
 };
 
 /**
- * 오른쪽 아래: 지도·이전·"다음 작품으로 i/n"(R-7b `WalkNav`). 크게 보는 중에는 숨김.
+ * 아래 가운데(휴대폰은 오른쪽): 이전·"다음 작품으로 i/n"(R-7b `WalkNav`). 크게 보는 중에는 숨김.
  * 숫자는 PRD 9.1대로 그 관 안의 작품 순번(정지 지점의 `index/count`) — 광장·소개·출구에서는 숫자 없이
  */
 const Nav = ({ layout }: { layout: Layout }) => {
@@ -565,6 +576,8 @@ const Zoom = ({
 }) => {
   const zoomId = useWalk(st => st.zoomId);
   const api = useWalk(st => st.api);
+  const zoomLayout = useRef<HTMLDivElement>(null);
+  const captionBox = useRef<HTMLDivElement>(null);
   const [pageInfo, setPageInfo] = useState<{ page: number; total: number } | null>(null);
   const onPage = useCallback(
     (page: number, total: number) => setPageInfo(total > 1 ? { page, total } : null),
@@ -578,12 +591,45 @@ const Zoom = ({
     [nextArt],
   );
   const a = artworks.find(x => x.id === zoomId);
+  const artworkId = a?.id;
+  const captionHidden = artworkId !== undefined && reactions?.openFor === artworkId;
+  // DOM 크기만 전달한다. 관람 상태·Canvas의 invalidate를 건드리지 않아 정지 중인 3D를 깨우지 않는다.
+  useLayoutEffect(() => {
+    const layoutBox = zoomLayout.current;
+    const caption = captionBox.current;
+    if (!layoutBox || !caption) return;
+    let observedSummary: HTMLElement | null = null;
+    const measure = (): void => {
+      const summary = caption.querySelector<HTMLElement>('[data-caption-summary]');
+      if (summary !== observedSummary) {
+        if (observedSummary) observer.unobserve(observedSummary);
+        if (summary) observer.observe(summary);
+        observedSummary = summary;
+      }
+      const rect = caption.getBoundingClientRect();
+      const width = caption.hidden ? 0 : rect.width;
+      const height = caption.hidden ? 0 : rect.height;
+      const summaryHeight = caption.hidden ? 0 : (summary?.getBoundingClientRect().height ?? 0);
+      layoutBox.style.setProperty('--zoom-caption-width', `${width}px`);
+      layoutBox.style.setProperty('--zoom-caption-height', `${height}px`);
+      layoutBox.style.setProperty('--zoom-reactions-height', `${summaryHeight}px`);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(caption);
+    measure();
+    return () => {
+      observer.disconnect();
+      layoutBox.style.removeProperty('--zoom-caption-width');
+      layoutBox.style.removeProperty('--zoom-caption-height');
+      layoutBox.style.removeProperty('--zoom-reactions-height');
+    };
+  }, [artworkId, captionHidden]);
   if (!a) return null;
   const card = cards?.get(a.id);
   const track = tracks?.get(a.id);
   const pagesOf = pages?.get(a.id);
   return (
-    <>
+    <div ref={zoomLayout} className={s.zoomLayout}>
       <button
         type="button"
         className={`${s.plate} ${s.zoomClose}`}
@@ -597,7 +643,7 @@ const Zoom = ({
       {card?.kind === 'TEXT' && <TextZoom key={a.id} text={card} onPage={onPage} onPastEnd={pastEnd} />}
       {card?.kind === 'AUDIO' && track && <AudioZoom key={a.id} text={card} track={track} />}
       {!card && pagesOf && <PageZoom key={a.id} pagesFor={pagesOf} onPage={onPage} onPastEnd={pastEnd} />}
-      <div className={s.zoomCaption} hidden={reactions?.openFor === a.id}>
+      <div ref={captionBox} className={s.zoomCaption} hidden={captionHidden}>
         <ZoomCaption
           title={a.title}
           author={a.author}
@@ -612,7 +658,7 @@ const Zoom = ({
         />
         {reactions?.below?.(a.id)}
       </div>
-    </>
+    </div>
   );
 };
 

@@ -1,4 +1,4 @@
-/* 가까운 작품 카드(F8 V-55) — 크게 보기 캡션과 같은 안내판: 숯색 판 · 1px 테 · 놋쇠는 `크게 보기` 하나 */
+/* 가까운 작품 카드(F8 V-55) — 숯색 판 · 1px 테. 주요 강조는 이동 단추 하나에 둔다. */
 .card {
   /* 안쪽 여백을 폭에 넣는다 — 없으면 100%에 여백이 더해져 좁은 화면 밖으로 넘친다 */
   box-sizing: border-box;
@@ -51,6 +51,7 @@
 }
 
 .titleRow {
+  min-width: 0;
   display: flex;
   align-items: baseline;
   gap: var(--s-2);
@@ -58,8 +59,15 @@
 }
 
 .title {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
   font-family: var(--font-display);
-  font-size: var(--fs-5);
+  font-size: var(--fs-4);
   font-weight: 700;
   line-height: var(--lh-tight);
   color: var(--plate-ink);
@@ -67,6 +75,9 @@
 }
 
 .author {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font-size: var(--fs-2);
   font-weight: 500;
   color: var(--plate-ink-sub);
@@ -86,9 +97,9 @@
   min-width: var(--touch-min);
   min-height: var(--touch-min);
   padding: 0 var(--s-4);
-  background-color: var(--accent);
-  color: var(--accent-ink);
-  border: 1px solid var(--accent);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
   border-radius: var(--r-plate);
   font-family: var(--font-ui);
   font-size: var(--fs-2);

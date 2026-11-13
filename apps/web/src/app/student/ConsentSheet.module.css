@@ -43,11 +43,7 @@
 
 .points {
   margin: var(--s-4) 0 0;
-  padding: var(--s-4) var(--s-4) var(--s-4) var(--s-8);
-  background-color: var(--surface-wall);
-  border: 1px solid var(--plate-edge);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--r-plate);
+  padding: 0 0 0 var(--s-5);
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
@@ -81,9 +77,9 @@
 .input {
   width: 100%;
   min-height: 48px;
-  padding: 0 64px 0 var(--s-4);
+  padding: 0 var(--s-16) 0 var(--s-4);
   background-color: var(--plate-bg-elevated);
-  border: 1.5px solid var(--accent);
+  border: 1px solid var(--plate-edge);
   border-radius: var(--r-plate);
   font-family: var(--font-ui);
   font-size: var(--fs-3);
@@ -105,7 +101,7 @@
   right: var(--s-3);
   font-size: var(--fs-1);
   font-weight: 600;
-  color: var(--accent);
+  color: var(--plate-ink-sub);
 }
 
 .error,
@@ -174,9 +170,9 @@
 }
 
 .secondary {
-  background-color: var(--plate-bg-elevated);
-  color: var(--accent);
-  border: 1px solid var(--accent);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
   font-size: var(--fs-3);
 }
 

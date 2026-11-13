@@ -135,6 +135,11 @@ describe('ReactionSheet(모양)', () => {
       `button[aria-label^="${copy.reaction.scoreFact}"]`,
     );
     expect(fact).toHaveLength(3);
+    expect(Array.from(fact, b => b.textContent)).toEqual(['1', '2', '3']);
+    const delivery = container.querySelectorAll<HTMLButtonElement>(
+      `button[aria-label^="${copy.reaction.scoreDelivery}"]`,
+    );
+    expect(Array.from(delivery, b => b.textContent)).toEqual(['1', '2', '3']);
     expect(Array.from(fact, b => b.dataset['filled'] ?? null)).toEqual(['true', 'true', null]);
     expect(fact[1]?.getAttribute('aria-label')).toBe(
       fill(copy.reaction.scoreCell, { label: copy.reaction.scoreFact, n: 2, max: 3 }),

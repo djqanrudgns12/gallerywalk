@@ -161,7 +161,6 @@
 
 .nickRow:focus-within {
   border-bottom-color: var(--accent);
-  box-shadow: 0 1px 0 var(--accent);
 }
 
 .nicknameInput {

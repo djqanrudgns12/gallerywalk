@@ -180,6 +180,15 @@
   bottom: calc(var(--s-3) + env(safe-area-inset-bottom));
 }
 
+/* 데스크톱 이동 안내는 아래 가운데. 휴대폰은 조이스틱을 피해 오른쪽 자리를 유지한다. */
+@media (min-width: 901px) {
+  .bottomRight {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+}
+
 .moves {
   position: absolute;
   right: calc(var(--s-3) + env(safe-area-inset-right));
@@ -224,14 +233,55 @@
   width: min(calc(100vw - 2 * var(--s-3)), 560px);
 }
 
+.zoomLayout {
+  --zoom-content-top: calc(var(--s-16) + var(--s-2) + env(safe-area-inset-top));
+  --zoom-caption-bottom: calc(var(--s-4) + env(safe-area-inset-bottom));
+  --zoom-content-bottom: calc(var(--zoom-caption-height, 0px) + var(--zoom-caption-bottom) + var(--s-3));
+  --zoom-content-right: calc(var(--s-3) + env(safe-area-inset-right));
+  --zoom-caption-max-height: calc(100dvh - var(--zoom-content-top) - var(--zoom-caption-bottom));
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.zoomLayout > * {
+  pointer-events: auto;
+}
+
 .zoomCaption {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--s-4) + env(safe-area-inset-bottom));
+  bottom: var(--zoom-caption-bottom);
   transform: translateX(-50%);
   width: min(calc(100vw - 2 * var(--s-3)), var(--caption-max-w));
+  max-height: var(--zoom-caption-max-height);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
   /* 캡션 카드는 다가가기가 시작되고 0.25초 늦게 아래에서 올라온다(PRD 8.2) */
   animation: captionUp var(--t-sheet) var(--ease-out) var(--t-zoom-caption-delay) both;
+}
+
+/* 캡션 본문은 늘 남기고, 추가 메모가 늘어난 높이만 공개 반응 안에서 줄인다. */
+.zoomCaption > :first-child {
+  flex-shrink: 0;
+  max-height: var(--zoom-caption-max-height);
+  overflow-y: auto;
+}
+
+/* 요약 줄·반응 판의 여백·테·메모 구분 간격은 남겨 두고 긴 작품 정보만 따로 제한한다. */
+.zoomCaption:has([data-caption-summary]) > :first-child {
+  max-height: max(
+    var(--touch-min),
+    calc(
+      var(--zoom-caption-max-height) - var(--zoom-reactions-height, 0px) - 2 * var(--s-1) - 2 * var(--s-2) -
+        2px
+    )
+  );
+}
+
+.zoomCaption[hidden] {
+  display: none;
 }
 
 @keyframes captionUp {
@@ -253,10 +303,16 @@
 
 /* 휴대폰 가로: 캡션은 오른쪽 좁은 패널(PRD 9.5) */
 @media (orientation: landscape) and (max-height: 500px) {
+  .zoomLayout {
+    --zoom-caption-bottom: calc(var(--s-3) + env(safe-area-inset-bottom));
+    --zoom-content-bottom: var(--zoom-caption-bottom);
+    --zoom-content-right: calc(var(--zoom-caption-width, 0px) + 2 * var(--s-3) + env(safe-area-inset-right));
+  }
+
   .zoomCaption {
     left: auto;
     right: calc(var(--s-3) + env(safe-area-inset-right));
-    bottom: calc(var(--s-3) + env(safe-area-inset-bottom));
+    bottom: var(--zoom-caption-bottom);
     width: min(38vw, 340px);
     transform: none;
     animation: none;
@@ -377,10 +433,12 @@
 /* 크게 보기 — 글 작품 HTML 카드(P4-4, PRD 6.8). 글자 크기는 화면이 정해 `font-size`로 넣는다(em 기준) */
 .textZoom {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: calc(var(--s-16) + var(--s-2) + env(safe-area-inset-top));
-  bottom: calc(2 * var(--s-16) + var(--s-10) + env(safe-area-inset-bottom));
+  left: calc(var(--s-3) + env(safe-area-inset-left));
+  right: var(--zoom-content-right);
+  margin-inline: auto;
+  max-width: calc(100% - var(--s-3) - env(safe-area-inset-left) - var(--zoom-content-right));
+  top: var(--zoom-content-top);
+  bottom: var(--zoom-content-bottom);
   display: flex;
   flex-direction: column;
   padding: 1.2em 1.5em 0.8em;
@@ -501,10 +559,16 @@
 /* 크게 보기 — 소리 작품 명판 */
 .audioZoom {
   position: absolute;
-  left: 50%;
-  top: 38%;
-  transform: translate(-50%, -50%);
+  left: calc(var(--s-3) + env(safe-area-inset-left));
+  right: var(--zoom-content-right);
+  top: var(--zoom-content-top);
+  bottom: var(--zoom-content-bottom);
+  margin: auto;
   width: min(calc(100vw - 2 * var(--s-3)), 420px);
+  max-width: calc(100% - var(--s-3) - env(safe-area-inset-left) - var(--zoom-content-right));
+  height: fit-content;
+  max-height: calc(100% - var(--zoom-content-top) - var(--zoom-content-bottom));
+  overflow-y: auto;
   padding: var(--s-5);
   display: flex;
   flex-direction: column;
@@ -518,6 +582,9 @@
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border-color: var(--plate-edge);
 }
 
 /* 동작 줄이기의 카메라 바꾸기 덮개(§6.14): 짙은 덮개가 잠깐 걷힌다. 눌러도 지나간다 */
@@ -541,9 +608,9 @@
   position: absolute;
   box-sizing: border-box;
   left: calc(var(--s-3) + env(safe-area-inset-left));
-  right: calc(var(--s-3) + env(safe-area-inset-right));
-  top: calc(var(--s-16) + var(--s-2) + env(safe-area-inset-top));
-  bottom: calc(2 * var(--s-16) + var(--s-10) + env(safe-area-inset-bottom));
+  right: var(--zoom-content-right);
+  top: var(--zoom-content-top);
+  bottom: var(--zoom-content-bottom);
   display: flex;
   flex-direction: column;
   gap: var(--s-2);

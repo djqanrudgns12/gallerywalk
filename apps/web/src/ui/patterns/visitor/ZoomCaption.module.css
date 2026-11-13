@@ -173,9 +173,9 @@
 .pendingDot {
   display: inline-block;
   flex: none;
-  inline-size: 8px;
-  block-size: 8px;
-  border-radius: 50%;
+  inline-size: var(--s-2);
+  block-size: var(--s-2);
+  border-radius: var(--r-pill);
   background-color: var(--accent-ink);
 }
 

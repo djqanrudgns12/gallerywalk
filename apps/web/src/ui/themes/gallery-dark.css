@@ -77,8 +77,8 @@
   --r-plate: 2px;
   --r-card: 2px;
   --r-sheet: 6px;
-  --shadow-plate: 0 0 0 1px rgba(0, 0, 0, 0.35);
-  --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.4);
+  --shadow-plate: none;
+  --shadow-card: none;
   --shadow-frame: 0 2px 8px rgba(0, 0, 0, 0.5);
   --shadow-sheet: 0 -1px 0 #3a342d;
 }

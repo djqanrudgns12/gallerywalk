@@ -7,12 +7,21 @@
   font-family: var(--font-ui);
 }
 
-.roomPlate {
+.leftGroup {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-3);
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.roomPlate {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  box-sizing: border-box;
   min-height: var(--touch-min);
-  padding: 0 var(--s-4);
+  padding: var(--s-1) var(--s-4);
   background-color: var(--plate-bg);
   color: var(--plate-ink);
   border: 1px solid var(--plate-edge);
@@ -21,37 +30,24 @@
   min-width: 0;
 }
 
-.accentBar {
-  width: 3px;
-  height: 18px;
-  background-color: var(--accent);
-  flex-shrink: 0;
-}
-
-.title {
+.title,
+.place {
+  min-width: 0;
+  max-width: 100%;
   font-family: var(--font-display);
   font-size: var(--fs-3);
   font-weight: 700;
+  line-height: var(--lh-tight);
   color: var(--plate-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.sep {
-  width: 1px;
-  height: 14px;
-  background-color: var(--plate-edge);
-  flex-shrink: 0;
-}
-
-.place {
-  font-size: var(--fs-2);
-  font-weight: 600;
+.progress {
+  font-size: var(--fs-1);
   color: var(--plate-ink-sub);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
 
 .rightGroup {
@@ -101,7 +97,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--s-2);
   min-width: var(--touch-min);
   min-height: var(--touch-min);
   padding: 0 var(--s-3);
@@ -118,8 +114,7 @@
 
 @media (max-width: 900px) {
   .roomPlate {
-    padding: 0 var(--s-3);
-    gap: var(--s-2);
+    padding-inline: var(--s-3);
   }
 }
 
@@ -128,32 +123,30 @@
     gap: var(--s-2);
   }
 
-  .roomPlate {
-    padding: 0 var(--s-3);
+  .leftGroup {
     flex: 1;
-    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-1);
   }
 
-  /* 좁으면 자리 표시가 먼저 줄고, 이름도 넘치면 말줄임(글자 가운데서 잘리지 않게) */
-  .title {
-    font-size: var(--fs-2);
-    flex-shrink: 1;
-    min-width: 0;
-  }
-
-  .sep {
-    height: 11px;
-  }
-
-  .place {
-    font-size: var(--fs-1);
-    min-width: 0;
-    flex-shrink: 4;
+  .roomPlate {
+    max-width: 100%;
   }
 
   .liveCounter {
+    min-height: 0;
+    max-width: 100%;
     padding: 0 var(--s-2);
+    background: transparent;
+    border: 0;
+    box-shadow: none;
     font-size: var(--fs-1);
+  }
+
+  .liveText {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .collectionLabel {

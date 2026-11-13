@@ -1,5 +1,7 @@
 /* 공개 반응 표시(G-07, PLAN §7.3) — 캡션 카드 아래 얇은 한 줄. 색·간격·모서리·글꼴은 토큰·테마 변수만. */
 .wrap {
+  min-height: 0;
+  flex: 0 1 auto;
   width: 100%;
   max-width: var(--caption-max-w);
   box-sizing: border-box;
@@ -16,6 +18,7 @@
 }
 
 .line {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -66,18 +69,26 @@
 }
 
 .memoBox {
+  min-height: 0;
+  max-height: calc(3 * var(--s-16));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--s-2);
   padding-bottom: var(--s-2);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--plate-edge);
 }
 
 .memoBox .more {
   margin-left: 0;
+  flex-shrink: 0;
 }
 
 .memos {
+  flex-shrink: 0;
   margin: 0;
   padding: 0;
   list-style: none;

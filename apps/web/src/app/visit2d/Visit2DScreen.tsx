@@ -414,7 +414,7 @@ export const Visit2DScreen = ({
       </main>
 
       {art ? (
-        <div className={s.caption}>
+        <div className={s.caption} hidden={reactingId !== null} inert={reactingId !== null}>
           {introHere ? (
             <section
               className={`${s.plate} ${s.roomIntro}`}

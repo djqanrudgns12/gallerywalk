@@ -321,7 +321,7 @@
 
 .cells {
   display: inline-flex;
-  gap: 6px;
+  gap: var(--s-2);
 }
 
 .cell {
@@ -329,14 +329,18 @@
   height: var(--touch-min);
   padding: 0;
   background-color: var(--plate-bg-elevated);
+  color: var(--plate-ink);
   border: 1px solid var(--plate-edge);
   border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
   cursor: pointer;
   transition: background-color var(--t-hover) var(--ease-out);
 }
 
 .cell[data-filled='true'] {
   background-color: var(--accent);
+  color: var(--accent-ink);
   border-color: var(--accent);
 }
 

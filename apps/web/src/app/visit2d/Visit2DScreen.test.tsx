@@ -1,9 +1,10 @@
+import { config } from '@gallery/core/config';
 import { copy, fill } from '@gallery/core/copy';
 import { type ExhibitionView, mediaPath } from '@gallery/core/types';
 import { act, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { makeReactionServices } from '../../dev/reactionFixtures.ts';
+import { makeReactionServices, registerOnServer } from '../../dev/reactionFixtures.ts';
 import { testArtworkId, testAssetId, testExhibitionView, testRoomId, uuid } from '../../dev/testView.ts';
 import { memoryOutboxStorage } from '../reactions/outbox.ts';
 import { installReactionRuntime } from '../reactions/reactionRuntime.ts';
@@ -387,6 +388,66 @@ describe('2D 대체 화면 둘레', () => {
     click(byText(banner, copy.viewer.updatedAction));
     expect(onApplyUpdate).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['consent', 'sheet'] as const)(
+    '반응 %s 동안 캡션·공개 반응을 숨기고 비활성화하며, 닫으면 펼침 상태와 초점을 되돌린다',
+    async step => {
+      const ctx = makeReactionServices();
+      const rt = installReactionRuntime(ctx.services, { storage: memoryOutboxStorage(), triggers: false });
+      try {
+        const base = view();
+        const v: ExhibitionView = {
+          ...base,
+          exhibition: {
+            ...base.exhibition,
+            reactions: { ...base.exhibition.reactions, memoVisibility: 'SELECTED' },
+          },
+          reactions: [
+            {
+              artworkId: base.artworks[0]!.id,
+              stickers: {},
+              score: null,
+              memos: [{ nickname: '가상 관람자', memo: '가상 감상 글' }],
+            },
+          ],
+        };
+        if (step === 'sheet') {
+          registerOnServer(ctx, v.exhibition.id, '가상 관람자', config().CONSENT_VERSION);
+        }
+        const m = mount({
+          view: v,
+          wrap: n => <ServicesContext value={ctx.services}>{n}</ServicesContext>,
+        });
+        const caption = m.q('[data-testid="zoom-caption"]')!;
+        const publicReactions = m.q('[data-testid="public-reactions"]')!;
+        const memosToggle = m.q('[data-testid="public-memos-toggle"]')!;
+        click(memosToggle);
+        expect(memosToggle.getAttribute('aria-expanded')).toBe('true');
+        const opener = m.q<HTMLButtonElement>('[data-testid="zoom-react"]')!;
+        act(() => opener.focus());
+        click(opener);
+        await act(async () => {
+          await Promise.resolve();
+        });
+        const layer = m.q(`[data-testid="reaction-${step}"]`)!;
+        expect(layer).not.toBeNull();
+        expect(caption.closest('[hidden]')).not.toBeNull();
+        expect(caption.closest('[inert]')).not.toBeNull();
+        expect(publicReactions.closest('[hidden]')).not.toBeNull();
+        expect(publicReactions.closest('[inert]')).not.toBeNull();
+        if (step === 'consent') click(byText(layer, copy.consent.back));
+        else click(m.q('[data-testid="reaction-close"]'));
+        expect(m.q('[data-testid="zoom-caption"]')).toBe(caption);
+        expect(caption.closest('[hidden], [inert]')).toBeNull();
+        expect(publicReactions.closest('[hidden], [inert]')).toBeNull();
+        expect(memosToggle.getAttribute('aria-expanded')).toBe('true');
+        expect(publicReactions.textContent).toContain('가상 감상 글');
+        expect(document.activeElement).toBe(opener);
+      } finally {
+        rt.dispose();
+      }
+    },
+  );
 
   it('반응: 학생 경로(서비스가 있음)에서 켰으면 반응 남기기 → 반응 덮개, 덮개가 열린 동안 키로 넘기지 않음', async () => {
     expect(mount().q('[data-testid="zoom-react"]')).toBeNull(); // 서비스 없음(개발 화면)

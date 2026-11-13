@@ -48,7 +48,7 @@ export const PublicReactions = ({
       aria-label={copy.reaction.publicLabel}
       data-testid="public-reactions"
     >
-      <div className={s.line}>
+      <div className={s.line} data-caption-summary>
         {shown.map(st => {
           const icon = STICKER_ICONS[st];
           const label = copy.reaction.stickers[st];

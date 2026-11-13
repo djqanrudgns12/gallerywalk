@@ -464,6 +464,10 @@
   max-width: var(--caption-max-w);
 }
 
+.caption[hidden] {
+  display: none;
+}
+
 .caption > .showCaption {
   width: auto;
 }
@@ -522,6 +526,7 @@
 
 .tab {
   flex: 0 0 auto;
+  min-inline-size: var(--touch-min);
   min-height: var(--touch-min);
   margin-bottom: -1px;
   padding: 0 var(--s-1);
