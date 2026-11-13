@@ -63,7 +63,14 @@ export class AudioEngine {
    * 실패한 요소가 있어도 컨텍스트가 돌면 true — 그 요소는 다음 누름에서 다시 시도한다.
    */
   async unlock(): Promise<boolean> {
-    if (!this.ctx) this.build();
+    if (!this.ctx) {
+      // 소리 장치가 없는 기기(AudioContext 없음)에서는 던지지 않고 실패로 알린다 — 입장 누름이 막히지 않게
+      try {
+        this.build();
+      } catch {
+        return false;
+      }
+    }
     const ctx = this.ctx!;
     setPlaybackSession();
     try {

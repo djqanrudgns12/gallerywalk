@@ -67,6 +67,14 @@ const audible = (id: string) =>
   engine.snapshot().slots.filter(s => s.id === id && s.gain > HEARD && !s.paused).length;
 
 describe('AudioEngine', () => {
+  it('AudioContext가 없는 기기에서는 잠금 풀기가 던지지 않고 false로 끝나며, 다음 누름에서 다시 시도한다', async () => {
+    vi.stubGlobal('AudioContext', undefined);
+    expect(await engine.unlock()).toBe(false);
+    expect(engine.snapshot().unlocked).toBe(false);
+    vi.stubGlobal('AudioContext', FakeContext);
+    expect(await engine.unlock()).toBe(true);
+  });
+
   it('전시실을 나가 곡이 멈춘 뒤 같은 전시실로 돌아오면 다시 들린다', async () => {
     await engine.unlock();
     engine.playRoom(A);
