@@ -131,6 +131,8 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: 'es2022',
     assetsDir: 'assets/g',
+    // 글꼴은 작아도 `data:`로 넣지 않는다 — 운영 CSP `font-src 'self'`가 막아 그 글자 조각이 빠진다(ADR-069)
+    assetsInlineLimit: (filePath: string) => (/\.(woff2?|ttf|otf)$/.test(filePath) ? false : undefined),
     rolldownOptions: {
       input:
         mode === 'devices'

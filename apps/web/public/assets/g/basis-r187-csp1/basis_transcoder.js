@@ -1334,9 +1334,47 @@ var BASIS = (() => {
           }
         }
       }
-      let [args, invokerFnBody] = createJsInvoker(argTypes, isClassMethodFunc, returns, isAsync);
-      args.push(invokerFnBody);
-      var invokerFn = newFunc(Function, args)(...closureArgs);
+      // gallerywalk 고침(ADR-069): 운영 CSP가 문자열 실행을 막으므로 createJsInvoker가 만들던 함수와 같은 일을 클로저로 한다
+      // (Emscripten DYNAMIC_EXECUTION=0 경로와 같다). closureArgs는 쓰지 않는다.
+      void closureArgs;
+      var expectedArgCount = argCount - 2;
+      var invokerFn = function (...callArgs) {
+        if (callArgs.length !== expectedArgCount) {
+          throwBindingError(
+            'function ' +
+              humanName +
+              ' called with ' +
+              callArgs.length +
+              ' arguments, expected ' +
+              expectedArgCount,
+          );
+        }
+        var destructors = needsDestructorStack ? [] : null;
+        var thisWired;
+        var wired = [];
+        if (isClassMethodFunc) {
+          thisWired = argTypes[1]['toWireType'](destructors, this);
+        }
+        for (var i = 0; i < expectedArgCount; ++i) {
+          wired.push(argTypes[i + 2]['toWireType'](destructors, callArgs[i]));
+        }
+        var rv = isClassMethodFunc
+          ? cppInvokerFunc(cppTargetFunc, thisWired, ...wired)
+          : cppInvokerFunc(cppTargetFunc, ...wired);
+        if (needsDestructorStack) {
+          runDestructors(destructors);
+        } else {
+          for (var i = isClassMethodFunc ? 1 : 2; i < argTypes.length; ++i) {
+            var param = i === 1 ? thisWired : wired[i - 2];
+            if (argTypes[i].destructorFunction !== null) {
+              argTypes[i].destructorFunction(param);
+            }
+          }
+        }
+        if (returns) {
+          return argTypes[0]['fromWireType'](rv);
+        }
+      };
       return createNamedFunction(humanName, invokerFn);
     }
     var __embind_register_class_constructor = (
@@ -2133,31 +2171,20 @@ var BASIS = (() => {
       var types = emval_lookupTypes(argCount, argTypes);
       var retType = types.shift();
       argCount--;
-      var functionBody = `return function (obj, func, destructorsRef, args) {\n`;
-      var offset = 0;
-      var argsList = [];
-      if (kind === 0) {
-        argsList.push('obj');
-      }
-      var params = ['retType'];
-      var args = [retType];
-      for (var i = 0; i < argCount; ++i) {
-        argsList.push('arg' + i);
-        params.push('argType' + i);
-        args.push(types[i]);
-        functionBody += `  var arg${i} = argType${i}.readValueFromPointer(args${offset ? '+' + offset : ''});\n`;
-        offset += types[i]['argPackAdvance'];
-      }
-      var invoker = kind === 1 ? 'new func' : 'func.call';
-      functionBody += `  var rv = ${invoker}(${argsList.join(', ')});\n`;
-      if (!retType.isVoid) {
-        params.push('emval_returnValue');
-        args.push(emval_returnValue);
-        functionBody += '  return emval_returnValue(retType, destructorsRef, rv);\n';
-      }
-      functionBody += '};\n';
-      params.push(functionBody);
-      var invokerFunction = newFunc(Function, params)(...args);
+      // gallerywalk 고침(ADR-069): 문자열로 만들던 호출 함수를 클로저로(운영 CSP)
+      var invokerFunction = function (obj, func, destructorsRef, args) {
+        var offset = 0;
+        var values = [];
+        for (var i = 0; i < argCount; ++i) {
+          values.push(types[i].readValueFromPointer(args + offset));
+          offset += types[i]['argPackAdvance'];
+        }
+        var rv =
+          kind === 0 ? func.call(obj, ...values) : kind === 1 ? new func(...values) : func.call(...values);
+        if (!retType.isVoid) {
+          return emval_returnValue(retType, destructorsRef, rv);
+        }
+      };
       var functionName = `methodCaller<(${types.map(t => t.name).join(', ')}) => ${retType.name}>`;
       return emval_addMethodCaller(createNamedFunction(functionName, invokerFunction));
     };

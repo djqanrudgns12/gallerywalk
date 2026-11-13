@@ -747,3 +747,16 @@
 - **결정**: 수동 배포(`gw.sh deploy`)와 자동 배포 모두에서 평일 08~16시(KST) 금지창을 없앤다. 맥미니 바쁨 판정(`--now`로 건너뜀)과 CI `verify` 성공 조건은 그대로다.
 - **이유**: 사용자 지시 "개발 중이라 상관없다, 아무 때나 배포할 수 있게". 실제 수업을 시작하면 다시 정한다(그때는 금지창 대신 "수업 중 표시"를 따로 두는 방안을 검토).
 - **바뀐 것**: `ops/macmini/scripts/{deploy,auto-deploy}.sh`의 시간 판정 삭제(함수 `gw_is_school_hours`는 `gw.sh status` 표시용으로 남김), `ops-policy.test.ts` 3개 시험을 새 결정에 맞춤, AGENTS.md §2의 "평일 08~16시 배포 금지" 줄 삭제, runbook ① 고침.
+
+## ADR-069 · 운영 CSP 안에서 KTX2 변환기·글꼴이 돌게 (2026-11-13)
+
+- **문제**: 운영에서 캐릭터가 Tripo 리깅 모델이 아니라 임시 모형(`CharacterFigure`)으로 나왔다(사용자 화면 사진). 운영 CSP `script-src 'self' 'wasm-unsafe-eval'`이 문자열 실행을 막는다. 그런데 three가 함께 주는 Basis 변환기(Emscripten embind)는 `craftInvokerFunction`과 `__emval_get_method_caller`에서 `new Function`으로 함수를 만든다. 그래서 변환기가 시작하지 못했고, KTX2 그림이 끝없이 기다려 glb `loadAsync`가 끝나지 않았다. 템플릿 조각 glb도 같은 KTX2를 쓴다. 개발 서버와 e2e에는 이 CSP가 없어 출시 때부터 드러나지 않았다. 같은 까닭으로 빌드가 `data:`로 넣은 작은 글꼴 조각도 `font-src 'self'`에 막혔다.
+- **결정**: CSP는 넓히지 않는다. `'unsafe-eval'`과 `data:` 글꼴은 허용하지 않는다(자동 권한 검사도 CSP 완화를 막았다).
+  - 자체 배포 변환기의 두 곳을 같은 일을 하는 클로저로 바꾼다. Emscripten `DYNAMIC_EXECUTION=0` 경로와 같은 방식이다. 1년 immutable 캐시 때문에 폴더 이름을 `basis-r187-csp1`로 바꾼다.
+  - 시험 `viewer/scene/transcoder.test.ts`가 변환기 파일에 문자열 실행이 없는지 지킨다.
+  - 빌드는 글꼴을 `data:`로 넣지 않는다(`assetsInlineLimit`).
+- **확인**: 운영과 같은 CSP를 거는 임시 정적 서버에서 비교했다.
+  - 고치기 전: `EvalError`, glb를 읽지 못함
+  - `'unsafe-eval'`을 더했을 때: 성공
+  - 고친 변환기 + 원래 CSP: 성공(동작 4개, 질감 1024×1024 압축, mipmap 11단계)
+- **남은 것**: 운영 빌드 e2e(`tests/e2e/prod.spec.ts`, 실제 서버 CSP)를 정기적으로 돌려 이런 운영 전용 실패를 잡는다. three를 올릴 때는 변환기를 다시 복사하고 같은 고침을 다시 적용한다(시험이 실패해 알려 준다).

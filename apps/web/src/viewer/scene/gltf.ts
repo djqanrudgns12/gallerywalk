@@ -4,7 +4,7 @@ import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
 /** Basis 변환기는 three 판을 붙인 경로로 자체 배포한다(외부 출처 없음, ADR-014). */
-const TRANSCODER_PATH = '/assets/g/basis-r187/';
+export const TRANSCODER_PATH = '/assets/g/basis-r187-csp1/';
 
 const loaders = new WeakMap<WebGLRenderer, GLTFLoader>();
 
