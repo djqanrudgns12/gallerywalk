@@ -154,6 +154,26 @@ test('requestfinished 뒤 응답 메타데이터가 없으면 네트워크 종�
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const context = new EventEmitter();
   const meter = measureReceivedBytes(context);
+  const req = { ...request({ worker: true }), response: () => new Promise(() => {}) };
+  context.emit('request', req);
+  context.emit('requestfinished', req);
+  const stopping = meter.stop();
+  t.mock.timers.tick(3_750);
+  await new Promise(resolve => setImmediate(resolve));
+  t.mock.timers.tick(11_250);
+  const result = await stopping;
+  assert.deepEqual(result.errors, ['종료된 HTTP 요청의 응답 메타데이터 확인 실패']);
+  assert.equal(result.diagnostics[0].kind, 'asset');
+  assert.equal(result.diagnostics[0].worker, true);
+  assert.equal(result.diagnostics[0].phase, 'response');
+  assert.equal(typeof result.diagnostics[0].finishedMs, 'number');
+  assert.equal(result.networkRequests, 0);
+});
+
+test('SW 주 스크립트가 응답 정보 없이 끝나면 오류 대신 미리 받은 같은 응답으로 셀 수 있게 남긴다', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const context = new EventEmitter();
+  const meter = measureReceivedBytes(context);
   const req = {
     ...request({ worker: true }),
     url: () => 'http://127.0.0.1:4521/sw.js',
@@ -166,10 +186,38 @@ test('requestfinished 뒤 응답 메타데이터가 없으면 네트워크 종�
   await new Promise(resolve => setImmediate(resolve));
   t.mock.timers.tick(11_250);
   const result = await stopping;
-  assert.deepEqual(result.errors, ['종료된 HTTP 요청의 응답 메타데이터 확인 실패']);
-  assert.equal(result.diagnostics[0].kind, 'worker-script');
-  assert.equal(result.diagnostics[0].worker, true);
-  assert.equal(result.diagnostics[0].phase, 'response');
-  assert.equal(typeof result.diagnostics[0].finishedMs, 'number');
-  assert.equal(result.networkRequests, 0);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.workerScriptUnmeasured, 1);
+  // 시험 쪽 대체(prod.spec workerScriptFallbackBytes)가 켜지도록 주 스크립트는 센 것으로 치지 않는다
+  assert.equal(result.workerScriptRequests, 0);
+  assert.equal(result.diagnostics[0].phase, 'fallback');
+});
+
+test('원본 응답 머리가 끝내 오지 않으면 응답이 가진 머리의 Content-Length로 센다', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const context = new EventEmitter();
+  const meter = measureReceivedBytes(context);
+  const req = {
+    ...request({ worker: true }),
+    sizes: () => new Promise(() => {}),
+    response: async () => ({
+      fromServiceWorker: () => false,
+      status: () => 200,
+      statusText: () => 'OK',
+      headersArray: () => new Promise(() => {}),
+      headers: () => ({ 'content-length': '31952', 'content-encoding': 'br' }),
+    }),
+  };
+  context.emit('request', req);
+  context.emit('requestfinished', req);
+  const stopping = meter.stop();
+  // 크기(7.5초)·원본 머리(3.75초) 대기가 차례로 끝나도록 잘게 넘긴다(전체 종료 대기 15초 안)
+  for (let i = 0; i < 14; i++) {
+    await new Promise(resolve => setImmediate(resolve));
+    t.mock.timers.tick(1_000);
+  }
+  const result = await stopping;
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.bodyBytes, 31952);
+  assert.equal(result.sizeFallbacks, 1);
 });

@@ -104,9 +104,8 @@ export const loadCharacterGlb = (url: string, gl: WebGLRenderer): Promise<Loaded
   const hit = cache.get(url);
   if (hit) return hit;
   const p = (async () => {
-    // 없으면 조용히 임시 모형으로(개발 중·변환 전)
-    const head = await fetch(url, { method: 'HEAD' }).catch(() => null);
-    if (!head || !head.ok) return null;
+    // 없거나 못 읽으면 조용히 임시 모형으로(개발 중·변환 전). 미리 HEAD로 묻지 않는다 — 요청이 하나 늘고,
+    // 운영 빌드 e2e에서 HEAD가 끊기는(ERR_ABORTED) 일이 있었다. 없으면 받기 자체가 실패해 아래에서 null이 된다.
     try {
       const gltf = await gltfLoaderFor(gl).loadAsync(url);
       return { scene: gltf.scene, clips: new Map(gltf.animations.map(a => [a.name, a])) };

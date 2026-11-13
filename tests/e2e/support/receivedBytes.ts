@@ -24,8 +24,11 @@ async function responseSize(request: Request, response: Response) {
   const size = await bounded(request.sizes(), config().API_TIMEOUT_MS / 2);
   if (size && validSize(size.responseBodySize) && validSize(size.responseHeadersSize))
     return { body: size.responseBodySize, headers: size.responseHeadersSize, fallback: false };
-  const headers = await bounded(response.headersArray(), config().API_TIMEOUT_MS / 4);
-  if (!headers) throw new Error('응답 머리 확인 시간 초과');
+  // SW 설치 중 미리 저장 같은 SW 대상 요청은 원본 머리(extra-info)가 끝내 오지 않기도 한다. 그때는 응답이 이미 가진
+  // 머리로 센다(같은 Content-Length, 실제 전송 길이 근거는 그대로 요구).
+  const headers =
+    (await bounded(response.headersArray(), config().API_TIMEOUT_MS / 4)) ??
+    Object.entries(response.headers()).map(([name, value]) => ({ name, value }));
   const lengths = headers.filter(h => h.name.toLowerCase() === 'content-length');
   const length = lengths.length === 1 ? lengths[0]!.value : '';
   if (!/^\d+$/.test(length) || !validSize(Number(length))) throw new Error('전송 크기 근거 없음');
@@ -83,6 +86,8 @@ export function measureReceivedBytes(context: BrowserContext) {
     networkRequests: 0,
     workerRequests: 0,
     workerScriptRequests: 0,
+    /** 응답 정보 없이 끝난 SW 주 스크립트 수(시험이 미리 받은 같은 응답 크기로 센다) */
+    workerScriptUnmeasured: 0,
     forwardedResponses: 0,
     failedRequests: 0,
     sizeFallbacks: 0,
@@ -153,6 +158,13 @@ export function measureReceivedBytes(context: BrowserContext) {
       if (request.serviceWorker()) result.workerRequests++;
       if (new URL(request.url()).pathname === '/sw.js') result.workerScriptRequests++;
     } catch {
+      // SW 주 스크립트는 Chromium이 응답 없이 끝내기도 한다. 시험이 미리 같은 응답을 받아 크기를 알고 있으므로
+      // (prod.spec의 workerScriptFallbackBytes) 오류 대신 그 대체로 센다 — workerScriptRequests를 올리지 않는다.
+      if (!closed && item.diagnostic.kind === 'worker-script' && item.diagnostic.phase === 'response') {
+        result.workerScriptUnmeasured++;
+        result.diagnostics.push({ ...item.diagnostic, phase: 'fallback' });
+        return;
+      }
       // URL·본문·인증 머리는 기록하지 않는다.
       if (!closed) {
         result.errors.push(
