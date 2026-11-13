@@ -99,16 +99,11 @@ async function addCoveredAudio(
       },
       { timeout: READY_MS },
     )
+    // 처리가 끝난 작품은 서버가 바로 공개한다(upload/index.ts·records.ts) — 따로 공개 요청을 보내지 않는다
     .toMatchObject({
-      status: 'HIDDEN',
+      status: 'PUBLISHED',
       audio: { cover: { variants: [{ name: 'cover', ext: 'webp' }] } },
     });
-  const published = await request('/api/teacher/artworks/batch', z.object({ changed: z.literal(1) }), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'PUBLISH', ids: [id] }),
-  });
-  expect(published.changed).toBe(1);
   return id;
 }
 
