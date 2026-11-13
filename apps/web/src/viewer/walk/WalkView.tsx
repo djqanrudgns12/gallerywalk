@@ -39,6 +39,7 @@ export interface WalkViewProps {
   readonly crowd?: (() => readonly P2[]) | undefined;
   /** 포스터 뒤에서 미리 준비하는 중: 첫 인사(손 흔들기)를 들어온 뒤로 미룬다 */
   readonly paused?: boolean | undefined;
+  readonly onCharacterReady?: ((id: CharacterId) => void) | undefined;
   /** 그린 프레임마다 내 자리·걸음 상태(함께 관람 보내기 — 받는 쪽이 `LIVE_POSE_HZ`로 줄임) */
   readonly onPose?: ((pose: Pose) => void) | undefined;
   /**
@@ -75,6 +76,7 @@ export const WalkView = ({
   onRegion,
   crowd,
   paused,
+  onCharacterReady,
   onPose,
   start,
   reducedMotion,
@@ -590,5 +592,5 @@ export const WalkView = ({
     st.wasActive = active;
   });
 
-  return <Character ref={figure} character={character} />;
+  return <Character ref={figure} character={character} onReady={onCharacterReady} />;
 };

@@ -289,7 +289,10 @@ const Model = forwardRef<CharacterHandle, { loaded: Loaded; character: Character
 );
 Model.displayName = 'CharacterModel';
 
-export const Character = forwardRef<CharacterHandle, { character: CharacterId }>(({ character }, ref) => {
+export const Character = forwardRef<
+  CharacterHandle,
+  { character: CharacterId; onReady?: ((id: CharacterId) => void) | undefined }
+>(({ character, onReady }, ref) => {
   const gl = useThree(s => s.gl);
   const invalidate = useThree(s => s.invalidate);
   // 받은 캐릭터와 그 종류를 함께 둔다: 포스터에서 고르기를 바꾸면 새 것을 받을 때까지 옛 모습을 두고, 오면 새로 붙인다
@@ -306,6 +309,9 @@ export const Character = forwardRef<CharacterHandle, { character: CharacterId }>
       alive = false;
     };
   }, [character, gl, invalidate]);
+  useEffect(() => {
+    if (got?.id === character) onReady?.(character);
+  }, [got, character, onReady]);
   if (got?.loaded) return <Model key={got.id} ref={ref} loaded={got.loaded} character={got.id} />;
   return <CharacterFigure ref={ref} character={got?.id ?? character} />;
 });
