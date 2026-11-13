@@ -90,12 +90,14 @@ describe('운영 스크립트', () => {
   });
 
   it('배포는 시간 제한이 없다 — 평일 수업 시간에도 바쁨·비밀값 관문까지 간다(2026-11-13 사용자 결정)', () => {
-    const r = sh([join(scripts, 'deploy.sh'), '--sha', SHA], { GW_TEST_KST_DOW_HOUR: '2:10' });
+    // 시험 기계의 실제 부하에 흔들리지 않게 한가한 맥미니를 흉내 낸다(CI 기계가 바쁘면 75가 나왔다)
+    const idle = { GW_TEST_LOAD: '0', GW_TEST_NCPU: '4', GW_TEST_PRESSURE: '1' };
+    const r = sh([join(scripts, 'deploy.sh'), '--sha', SHA], { ...idle, GW_TEST_KST_DOW_HOUR: '2:10' });
     // 시간 관문이 없으므로 다음 관문(비밀값 파일 없음)에서 멈춘다
     expect(r.status).toBe(1);
     expect(r.stderr).not.toContain('수업 시간');
     expect(r.stderr).toContain('app.env');
-    expect(sh([join(scripts, 'deploy.sh'), '--force', '--sha', SHA]).status).toBe(1);
+    expect(sh([join(scripts, 'deploy.sh'), '--force', '--sha', SHA], idle).status).toBe(1);
   });
 
   it('배포는 맥미니가 바쁘면 75로 미룬다', () => {
