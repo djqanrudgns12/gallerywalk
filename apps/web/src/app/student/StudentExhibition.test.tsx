@@ -322,6 +322,23 @@ describe('학생 전시 화면', () => {
       expect(fails).toEqual([[CODE, { kind: 'fail', reason: 'ready_timeout' }]]);
     });
 
+    it('다 받고 그래픽 준비만 남았으면 상한이 지나도 가벼운 화면으로 보내지 않고, 준비되면 3D로', async () => {
+      overrideConfig({ VISIT_READY_TIMEOUT_MS: 40 });
+      const t = await open();
+      act(() => visit.props?.onProgress?.({ ready: false, progress: 0.9, preparing: true }));
+      await flush(8);
+      await new Promise(r => setTimeout(r, 80));
+      await flush();
+      expect(enterButton()?.disabled).toBe(true);
+      expect(t.m.q('[data-testid="enter-note"]')).toBeNull();
+      reportReady(true, 1);
+      await flushUntil(() => enterButton()?.disabled === false);
+      click(enterButton());
+      expect(t.m.q('[data-testid="visit-screen"]')?.getAttribute('data-entered')).toBe('1');
+      const diag = vi.mocked(t.services.api.student.diag);
+      expect(diag.mock.calls.filter(([, body]) => body.kind === 'fail')).toEqual([]);
+    });
+
     it('상한 안에 준비되면 안내 없이 3D로', async () => {
       overrideConfig({ VISIT_READY_TIMEOUT_MS: 40 });
       const t = await open();

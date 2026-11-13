@@ -101,6 +101,8 @@ export const StudentExhibition = ({ code }: { readonly code: string }) => {
   );
   // 입장 단추: 3D 첫 자리 준비 + 포스터 동안 미리 불러오기(P4-8). 시간 상한이 지나면 미리 불러오기는 기다리지 않는다
   const [scene, setScene] = useState<VisitProgress>({ ready: false, progress: 0 });
+  const sceneRef = useRef(scene);
+  sceneRef.current = scene;
   const [patience, setPatience] = useState(false);
   const preload = usePosterPreload(view, services.media);
   useEffect(() => {
@@ -113,7 +115,8 @@ export const StudentExhibition = ({ code }: { readonly code: string }) => {
     const st = store.getState();
     if (st.mode !== '3d' || st.progress.ready) return;
     const timer = window.setTimeout(() => {
-      if (store.getState().progress.ready) return;
+      // 다 받고 그래픽 준비만 남았으면 기다린다(상한은 받기가 멈춘 학교망을 위한 것, G-24)
+      if (store.getState().progress.ready || sceneRef.current.preparing) return;
       setPatience(true);
       store.getState().markSlow();
     }, config().VISIT_READY_TIMEOUT_MS);

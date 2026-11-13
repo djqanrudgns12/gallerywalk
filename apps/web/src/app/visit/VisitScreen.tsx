@@ -266,6 +266,7 @@ export const VisitScreen = ({
   }, [tierNow]);
   const [ready, setReady] = useState(false);
   const onReady = useCallback((ready: boolean) => setReady(ready), []);
+  const [loaded, setLoaded] = useState(false);
   // 컨텍스트 손실(§6.12): 기본 동작을 막고 "잠시만 기다려 주세요" → 복구되면 캔버스를 새로 붙여 같은 자리에서
   const [epoch, setEpoch] = useState(0);
   const epochRef = useRef(0);
@@ -311,13 +312,13 @@ export const VisitScreen = ({
       onProgress?.({ ready: true, progress: 1 });
       return;
     }
-    onProgress?.({ ready: false, progress: progressRef.current });
+    onProgress?.({ ready: false, progress: progressRef.current, preparing: loaded });
     const t = window.setInterval(() => {
       progressRef.current += (PROGRESS_CAP - progressRef.current) * PROGRESS_EASE;
-      onProgress?.({ ready: false, progress: progressRef.current });
+      onProgress?.({ ready: false, progress: progressRef.current, preparing: loaded });
     }, PROGRESS_TICK_MS);
     return () => window.clearInterval(t);
-  }, [ready, onProgress]);
+  }, [ready, loaded, onProgress]);
 
   return (
     <div
@@ -383,6 +384,7 @@ export const VisitScreen = ({
                   entered={entered}
                   live={liveToken ? live : null}
                   onReady={onReady}
+                  onLoaded={setLoaded}
                   onLoadFail={() => fallBack('load')}
                   onRegion={setRegion}
                   onFallback={() => {
@@ -487,6 +489,7 @@ const VisitContent = ({
   entered,
   live,
   onReady,
+  onLoaded,
   onLoadFail,
   onRegion,
   onFallback,
@@ -501,6 +504,7 @@ const VisitContent = ({
   entered: boolean;
   live: LiveVisit | null;
   onReady: (ready: boolean) => void;
+  onLoaded: (loaded: boolean) => void;
   onLoadFail: () => void;
   onRegion: (region: string) => void;
   onFallback: () => void;
@@ -569,6 +573,7 @@ const VisitContent = ({
       onPose={live?.sendPose}
       onJump={live?.sendJump}
       onReady={onReady}
+      onLoaded={onLoaded}
       onLoadFail={onLoadFail}
       onRegion={onRegion}
       start={start}

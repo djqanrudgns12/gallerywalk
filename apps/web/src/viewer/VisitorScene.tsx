@@ -92,6 +92,8 @@ export interface VisitorSceneProps {
   readonly start?: WalkStart | undefined;
   /** 포스터 뒤 첫 화면의 모델·질감·셰이더·실제 그리기 준비 상태 */
   readonly onReady?: ((ready: boolean) => void) | undefined;
+  /** 모델·질감·카드·캐릭터를 다 받음(그래픽 준비 전) — 준비 시간 상한 판단에 쓴다 */
+  readonly onLoaded?: ((loaded: boolean) => void) | undefined;
   /** 조각 파일을 하나도 받지 못하고 목록을 다 돌았음(멈춤·실패, G-24 HW-01) — 3D를 그릴 수 없다 */
   readonly onLoadFail?: (() => void) | undefined;
   /** 3D 안 사인(V-03): 관 ID → 전시실 이름·소개. 없으면 사인 글을 그리지 않는다 */
@@ -125,6 +127,7 @@ export const VisitorScene = ({
   onPose,
   onJump,
   onReady,
+  onLoaded,
   onLoadFail,
   onRegion,
   start,
@@ -195,6 +198,9 @@ export const VisitorScene = ({
     resident.ready &&
     cardTargets.every(t => cardTex.has(t.id)) &&
     (controller !== undefined || readyCharacter === character);
+  useEffect(() => {
+    onLoaded?.(ready);
+  }, [ready, onLoaded]);
   const shown = useMemo(
     () =>
       textures || cards
