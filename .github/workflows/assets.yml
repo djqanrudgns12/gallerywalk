@@ -24,7 +24,6 @@ jobs:
       BLENDER_SHA256: acc05374485a272342d4b323c15ac01953e7f697da2f1bad8af9c3bf087267a4
       KTX_VERSION: 4.4.2
       KTX_SHA256: 500bd8f9d63358c3f3a0d83b724c8574436a72c37dc0e4bad90ec1ca38032c3c
-      BLENDER_BIN: ${{ runner.temp }}/gallerywalk-blender/Blender.app/Contents/MacOS/Blender
       # 로컬·self-hosted에는 적용되지 않는다. 보호기 실행 표시는 위조하지 않는다.
       ASSETS_GITHUB_HOSTED: '1'
       ASSETS_REBUILD_ALL: '1'
@@ -78,6 +77,9 @@ jobs:
           ditto "$mount_point/Blender.app" "$RUNNER_TEMP/gallerywalk-blender/Blender.app"
           installed_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$RUNNER_TEMP/gallerywalk-blender/Blender.app/Contents/Info.plist")"
           test "$installed_version" = "$BLENDER_VERSION"
+          # 작업 수준 env에서는 runner 문맥을 못 쓰므로 여기서 다음 단계로 넘긴다
+          BLENDER_BIN="$RUNNER_TEMP/gallerywalk-blender/Blender.app/Contents/MacOS/Blender"
+          echo "BLENDER_BIN=$BLENDER_BIN" >> "$GITHUB_ENV"
           # pkg 설치·sudo 없이 푼다. bin과 lib의 상대 경로를 유지한다(ADR-050).
           ktx_root="$RUNNER_TEMP/gallerywalk-ktx"
           pkgutil --expand-full "$RUNNER_TEMP/KTX-Software-$KTX_VERSION-Darwin-arm64.pkg" "$ktx_root"
