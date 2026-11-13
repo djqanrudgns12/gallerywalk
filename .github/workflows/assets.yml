@@ -83,10 +83,16 @@ jobs:
           # pkg 설치·sudo 없이 푼다. bin과 lib의 상대 경로를 유지한다(ADR-050).
           ktx_root="$RUNNER_TEMP/gallerywalk-ktx"
           pkgutil --expand-full "$RUNNER_TEMP/KTX-Software-$KTX_VERSION-Darwin-arm64.pkg" "$ktx_root"
-          ktx_bin="$(find "$ktx_root" -type f -path '*/bin/ktx' -print -quit)"
-          test -n "$ktx_bin"
+          # pkg가 도구(bin)와 라이브러리(lib)를 다른 하위 꾸러미로 풀어 ktx가 @rpath(../lib)의 libktx를 못 찾는다.
+          # 두 하위 꾸러미의 usr/local/{bin,lib}를 한 접두 폴더로 모은다.
+          ktx_prefix="$RUNNER_TEMP/gallerywalk-ktx-prefix"
+          mkdir -p "$ktx_prefix/bin" "$ktx_prefix/lib"
+          find "$ktx_root" -type d -path '*/Payload/usr/local/bin' -exec ditto {} "$ktx_prefix/bin" \;
+          find "$ktx_root" -type d -path '*/Payload/usr/local/lib' -exec ditto {} "$ktx_prefix/lib" \;
+          ktx_bin="$ktx_prefix/bin/ktx"
           test -x "$ktx_bin"
-          dirname "$ktx_bin" >> "$GITHUB_PATH"
+          test -n "$(find "$ktx_prefix/lib" -name 'libktx.4*.dylib' -print -quit)"
+          echo "$ktx_prefix/bin" >> "$GITHUB_PATH"
           {
             "$BLENDER_BIN" --version
             "$ktx_bin" --version
