@@ -164,6 +164,13 @@ def setup_scene():
     scene.unit_settings.system = 'METRIC'
     scene.render.engine = 'CYCLES'
     scene.cycles.seed = 7  # 같은 입력이면 같은 굽기
+    # GitHub 호스트 macOS 러너의 가상 GPU에서는 Cycles Metal 굽기가 끝나지 않는다(실행 43403932448, 첫 판 5시간).
+    # GALLERY_CYCLES_DEVICE=CPU면 GPU를 찾지 않는다. 같은 시드·표본이라 결과 기준은 그대로다.
+    if os.environ.get('GALLERY_CYCLES_DEVICE', '').upper() == 'CPU':
+        scene.cycles.device = 'CPU'
+        print('[build] Cycles 장치: CPU(GALLERY_CYCLES_DEVICE)', flush=True)
+        interior_world()
+        return scene
     try:
         prefs = bpy.context.preferences.addons['cycles'].preferences
         prefs.compute_device_type = 'METAL'

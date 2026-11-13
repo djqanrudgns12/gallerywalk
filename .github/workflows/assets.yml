@@ -14,7 +14,7 @@ concurrency:
 jobs:
   modern-history:
     runs-on: macos-15
-    timeout-minutes: 300
+    timeout-minutes: 355
     defaults:
       run:
         shell: bash
@@ -27,6 +27,8 @@ jobs:
       # 로컬·self-hosted에는 적용되지 않는다. 보호기 실행 표시는 위조하지 않는다.
       ASSETS_GITHUB_HOSTED: '1'
       ASSETS_REBUILD_ALL: '1'
+      # 러너의 가상 GPU에서 Cycles Metal 굽기가 멈춘다. CPU로 굽는다(build.py setup_scene).
+      GALLERY_CYCLES_DEVICE: CPU
     steps:
       - uses: actions/checkout@v4
         with:
