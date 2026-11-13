@@ -94,3 +94,8 @@
     box-shadow: var(--shadow-sheet);
   }
 }
+
+/* 포스터 고르기 칸(V-02): 메뉴 항목이 누른다 */
+.hiddenInput {
+  display: none;
+}

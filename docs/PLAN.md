@@ -563,6 +563,8 @@ PRD 6.7의 읽기 배율 s = (그려지는 크기) ÷ (원본 크기)는 **원�
 
 ### 6.7 카메라 리그 (`camera/CameraRig.ts`, ADR-009)
 
+> 2026-11-13: 학생 관람·미리 보기·투어는 이 리그를 쓰지 않는다(자유 관람 따라가기 `viewer/walk/**`, ADR-057 · 투어 시간표 `viewer/tour/tourCamera.ts`). 이 리그와 GSAP는 개발 화면 `/dev/viewer`(`apps/web/dev/DevController.tsx`, e2e `viewer-dev`)만 쓴다.
+
 - 상태: `idle` · `moving` · `zooming` · `zoomed` · `unzooming` · `touring`. 둘러보기(끌기)는 `idle`의 덧붙임.
 - 명령: `goToStop(i)` · `zoomTo(artworkId)` · `unzoom()` · `flyToArtwork(id, {zoom:true})`(모아 보기) · `goToPart(partId)`(지도) · `look(dx, dy)` · `release()`.
 - 규칙
@@ -1250,6 +1252,8 @@ Blender → glb → gltf-transform: dedup → prune → weld → resize(질감 2
 
 ### 15.1 순서 원칙
 
+> 2026-11-13부터 남은 일의 순서와 실행 규약은 `docs/FINISH_PLAN.md`(V-01~V-45, phase F0~F7)를 따른다. 아래 표의 남은 기록은 그 문서로 옮겼다.
+
 1. 제품을 바꿀 수 있는 위험을 먼저 본다: **3D 품질(에셋·조명)**, iPad 메모리·프레임, iOS 소리, 웹툰·A4 읽기, 한국 회선 첫 화면.
 2. 사용자 손이 필요한 일은 일찍 부탁하고 뒤에서 흐르게 한다(도구 설치·실기기·앞단 결정).
 3. 버리는 코드는 적게: 관문용 `/dev/*` 화면은 되도록 실제 엔진·서버 경로 위에 만든다(운영 빌드에서는 빠짐). 다만 위험 실험을 운영용 추상화에 억지로 맞추지는 않는다 — 실험이 답을 주면 그 결과로 운영 코드를 쓴다(Codex 지적).
@@ -1292,11 +1296,11 @@ PRD 점검(`PRD_REVIEW.md`) · 결정(`decisions.md`) · 계획(이 문서) · �
 |---|---|---|
 | P1-1 | 끝남 | npm workspaces(`@gallery/core`·`server`·`web`), 판 고정·7일 규칙, `config.ts`(§17 키 전부)·`errors.ts`·`copy/ko.ts` 뼈대, Playwright 1.64.1. `git init`만(커밋 없음, U-13) |
 | P1-2 | 끝남 | Antigravity: `tools/check/*.mjs`(화면 문구·색·층·금지 요소·도메인 숫자 경고) + 견본 + `node --test` 9개, `check`에 묶음. Claude 재실행: 시험 9개 통과·위반 0건. 경고 목록으로 배치·쪽 계획기의 튜닝 수치를 `config.ts`·`templates/geometry.ts`로 옮김(남은 경고는 오차값·해시 상수) |
-| P1-3 | 진행 중 | 첫 실제 굽기에서 결함 5개 발견 → ADR-051로 고침(천창 조명틀·공통 노출·잡음 제거·`lightMap`으로 읽기·바깥 모서리 조각 `mh_corner_out`). 다시 굽기 끝(조각 7종, 0.73MB/2.5MB, `verifyOutput` 통과). 이음새 시험 `/dev/seam` + `seamCheck.mjs`(단위 시험 6개 통과) + `tests/e2e/seam.spec.ts` — e2e 통과(2026-11-12, R-3 새 core, 판정은 ADR-058) |
+| P1-3 | 끝남(2026-11-12, 이음새 e2e 통과 — 조각 16종 마무리는 V-38) | 첫 실제 굽기에서 결함 5개 발견 → ADR-051로 고침(천창 조명틀·공통 노출·잡음 제거·`lightMap`으로 읽기·바깥 모서리 조각 `mh_corner_out`). 다시 굽기 끝(조각 7종, 0.73MB/2.5MB, `verifyOutput` 통과). 이음새 시험 `/dev/seam` + `seamCheck.mjs`(단위 시험 6개 통과) + `tests/e2e/seam.spec.ts` — e2e 통과(2026-11-12, R-3 새 core, 판정은 ADR-058) |
 | P1-4 | 끝남 | `/dev/viewer`: 카메라 리그·줌 HTML 층·정지 시 다시 그리기 0·장면 어둡게·빛 웅덩이·접촉 그림자·임시 방. e2e 7개 통과(헤드리스 Chromium, 5개 화면 크기 겹침 캡처 `.local/screens/p1-4/`). 액자를 벽 장식 앞에 거는 `FRAME_HANG_OFFSET_M` 추가(몰딩이 액자를 가리던 결함). 실기기는 G1 |
-| P1-5a | 코드 끝남, 시험 미실행 | Codex: `apps/server/src/media/{image,analyze,heic,audio,index}.ts` + 합성 시험 파일·시험 3묶음. 의존성(sharp 0.35.5·music-metadata 12.3.4·file-type 22.3.0)은 Claude가 넣음. 분석 상수 7개·`WEBP_Q_WALL_LO`를 `config.ts`로 옮김(§17). 기능 시험은 자원 대기 |
+| P1-5a | 끝남(서버 단위 묶음에 들어감, 2026-11-12 전체 단위 1,258 통과. HEIC·AAC는 macOS에서만) | Codex: `apps/server/src/media/{image,analyze,heic,audio,index}.ts` + 합성 시험 파일·시험 3묶음. 의존성(sharp 0.35.5·music-metadata 12.3.4·file-type 22.3.0)은 Claude가 넣음. 분석 상수 7개·`WEBP_Q_WALL_LO`를 `config.ts`로 옮김(§17). 기능 시험은 자원 대기 |
 | P1-5b | 끝남 | `domain/pages` 그림·글 쪽 계획기 + 시험(C3 해상도 무관, ADR-047 휴대폰 세로, 덮기 불변식 속성 시험). "읽히는 가장 작은 배율" 규칙 추가(§5.6) |
-| P1-6 | 코드 끝남, 시험 미실행 | `AudioEngine`(스트리밍 + Gain, 등전력 교차, 낮추기, 잠금 풀기, 복귀) + `/dev/audio` + e2e 작성. e2e는 맥미니 고부하로 `resource-guard`가 9분 보류(반환 75) → 미실행 |
+| P1-6 | 끝남(Chromium e2e `audio-dev` 통과·`AudioEngine` 단위 시험. Safari·실기기는 V-33·U-05) | `AudioEngine`(스트리밍 + Gain, 등전력 교차, 낮추기, 잠금 풀기, 복귀) + `/dev/audio` + e2e 작성. e2e는 맥미니 고부하로 `resource-guard`가 9분 보류(반환 75) → 미실행 |
 | P1-7 | 끝남(U-07 대기) | Antigravity: `ui/tokens.css`·`themes/{modern-history,curator}.css`(대비 7쌍 Claude 재계산 일치) + `.local/art/p1-7/` 시안 3장 × 2크기 + 세리프 비교(실제 글꼴 파일은 내려받기 전이라 미확인, 추천 Hahmlet) |
 | P1-8 | 끝남(초안) | `ops/cloudfront/viewer-request.js` 공용 입구 함수 + Node 시험 5개. 콘솔 반영은 P7-2 |
 | 공용 | — | `domain/layout/framing.ts`(화면 맞춤, 보장 범위 명시·속성 시험), `domain/motion/ease.ts`(감속 곡선·등전력) |
@@ -1324,7 +1328,7 @@ PRD 점검(`PRD_REVIEW.md`) · 결정(`decisions.md`) · 계획(이 문서) · �
 | P2-4 | 끝남 | 줄 간격 추정을 `domain/pages/linePitch.ts`로(ADR-054) + 시험. 쪽 계획기는 P1-5b |
 | P2-5 | 끝남 | Codex: `domain/reactions/{visibility,profanity,profanityList,nickname}.ts` + 시험 19개(가상 목록으로만, 기본 목록 43개). Claude 재실행 통과. 글 정규화는 zod 없는 `domain/text/normalize.ts` 하나로 모음(바깥 입력 스키마·별명·제목 정리가 함께 씀) |
 | P2-6 | 끝남 | Claude 서브에이전트: `domain/retention/RetentionPolicy.ts`·`domain/tour/tourSchedule.ts` + 시험 49개. `MEDIA_STALE_IF_ERROR_SEC` 키 추가 |
-| P2-7 | 코드 끝남, 화면 미확인 | `/dev/viewer`가 `computeLayout` 출력(홀 → 소개 → 작품 → 출구, `?rooms=1~17`)을 조립. 관 사이는 경로점을 따라 걷기(`CameraRig.animateAlong`, §4.8 시선 섞기), 한 칸보다 먼 곳은 어둡게 바꿔 옮김. 지도 좌표 `viewer/map/mapView.ts` + 시험 3개, `?map=1` 겹쳐 보기. e2e는 자원 대기 |
+| P2-7 | 끝남(e2e `viewer-dev` 9건 통과. 100점 "끝까지 걷기" 시험 보강은 V-45) | `/dev/viewer`가 `computeLayout` 출력(홀 → 소개 → 작품 → 출구, `?rooms=1~17`)을 조립. 관 사이는 경로점을 따라 걷기(`CameraRig.animateAlong`, §4.8 시선 섞기), 한 칸보다 먼 곳은 어둡게 바꿔 옮김. 지도 좌표 `viewer/map/mapView.ts` + 시험 3개, `?map=1` 겹쳐 보기. e2e는 자원 대기 |
 
 ### 15.6 P3 서버 (4일, P2와 겹침)
 
@@ -1348,7 +1352,7 @@ PRD 점검(`PRD_REVIEW.md`) · 결정(`decisions.md`) · 계획(이 문서) · �
 | P3-4 | 끝남(2026-11-12) | Codex: `apps/server/src/upload/{index,receive,queue,space,records,process,worker}.ts` — 본문 읽기 전 검사(인증·전시 상태·속도 칸·동시 수신 칸·`Content-Length`·공간 예약 ×3) → busboy 흘려받기(파일 1·필드 1·부분 3, 끊김·120초 무응답 정리) → 매직 바이트 → 내용 해시 중복 → 대기열(1·대기 30) → 처리는 작업마다 자식 프로세스(삭제·종료 때 그룹째 끝냄) → 행 쓰기. 경로: 파일 작품 multipart·포스터·배경음악 PUT/DELETE·PDF 3단계. "지금 삭제"의 업로드 기다리기에 실제 관리자 연결. 서버 시험 393개(새 `test/upload/*`·`test/http/uploads.test.ts`). Claude: 업로드 횟수 칸 `UPLOAD_RATE` 설정·시작 코드 연결, 전체 시험 811개 통과 |
 | P3-6 | 끝남(2026-11-12) | Codex: `apps/server/src/jobs/index.ts` — 보관 정리 60초(`deleteExhibition` 재사용, 실패는 다음 주기)·지운 작품 24시간·붙지 않은 asset 2시간·임시 1시간(받는 중인 파일 보호)·체크포인트, 작업끼리 잠금, 끝내기 때 기다림, 기록은 개수만, 색인 마이그레이션 `0002_cleanup.sql`, `RETENTION_TEST_MINUTES`(운영 거부). Claude: 주기 숫자 5개를 `config.ts`로 |
 | P3-7 | 끝남(2026-11-12) | Claude 서브에이전트: `http/routes/{media,static}.ts` — 작품 미디어(경로 모양 → 전시 상태 10초 캐시 → asset 행·파생 확인 → 경로 규칙, `O_NOFOLLOW`, Range 206/416, 강한 ETag·304, 남은 보관 기간에 맞춘 캐시), 앱 정적 파일(`/assets/g/*` 1년 immutable, HTML·`/sw.js` no-cache, 없는 자산은 404), 없음·지워짐은 모두 404(`no-store`). 시험 34개. Claude: `WEB_DIR` 환경 값 연결(운영은 없으면 시작 거부), 캐릭터 glb를 `/assets/g/chr-1/`로(운영에서 `/characters`가 404 나던 것) |
-| P1-5a | 코드 끝남, 시험 미실행 | 위 P1 표 |
+| P1-5a | 끝남(서버 단위 묶음에 들어감, 2026-11-12 전체 단위 1,258 통과. HEIC·AAC는 macOS에서만) | 위 P1 표 |
 
 ### 15.7 P4 학생 관람 (6일)
 
@@ -1393,7 +1397,7 @@ PRD 점검(`PRD_REVIEW.md`) · 결정(`decisions.md`) · 계획(이 문서) · �
 - **P4-9 끝**(Claude): 60초·복귀 확인, 내용만이면 조용히(텍스처 그대로), 배치 바뀌면 같은 자리에서 이어 가기 또는 띠
 - **P4-12 끝**(Codex, Claude가 엔진 수정 뒤 확인): `tests/e2e/student.spec.ts` 6개 통과
   - 2026-11-12 밤 재확인: 세 크기 흐름(태블릿 — 자동 시험 fps 2D 전환 끈 뒤)·함께 관람·막 내림 통과. DRAFT는 개발 서버의 하루 만들기 상한(30)에 걸려 실패 → 개발 실행기에서만 상한을 올린 뒤 통과(`scripts/dev.mjs`)
-- **P4 넓은 검사(2026-11-12 밤)**: `npm run check` 통과 · 단위 시험 93파일 1109개 통과 · e2e 26개 통과(학생 6·자유 관람 7·관람 뼈대 9·소리 1·배치 해시 1·이음새 1) · 운영 빌드 통과. 미실행: 실기기·Safari(U-05·U-22)
+- **P4 넓은 검사(2026-11-12 밤)**: `npm run check` 통과 · 단위 시험 93파일 1109개 통과 · e2e 26개 통과(학생 6·자유 관람 7·관람 뼈대 9·소리 1·배치 해시 1·이음새 1 — 적힌 내역을 더하면 25, 2026-11-13 확인) · 운영 빌드 통과. 미실행: 실기기·Safari(U-05·U-22)
   - 세 크기 흐름: 코드 → 준비 → 별명·동의 → 안내 걷기 → 크게 보기 → 멈춤 → 출구
   - 별명 없는 입장·함께 관람 2명, 막 내림·준비 중
 - **P4-8 대부분 끝**(Codex)

@@ -8,6 +8,7 @@ import type { DimHolder } from '../../viewer/scene/materials.ts';
 import type { ViewerArtwork } from '../../viewer/scene/types.ts';
 import type { CardText } from '../../viewer/textures/textCard.ts';
 import type { ArtworkTextureSource } from '../../viewer/textures/useResidentTextures.ts';
+import type { SignRoom } from '../../viewer/signs/signs.ts';
 
 /**
  * 학생 관람(P4-2): 서버의 보기 묶음 → 관람 화면 한 벌.
@@ -30,7 +31,18 @@ export interface VisitModel {
   readonly tracks: ReadonlyMap<string, Track>;
   /** 구역(외관·회랑·관 ID) → 위 줄 자리 이름 */
   readonly placeOf: (region: string) => string;
+  /** 3D 사인(V-03): 관 ID → 그 전시실 이름·소개 글 */
+  readonly signRooms: ReadonlyMap<string, SignRoom>;
 }
+
+/** 명판 셋째 줄(PRD 6.4): 긴 세로는 "이어서 보기", PDF는 쪽 수 */
+const plateNoteOf = (a: ExhibitionView['artworks'][number] | undefined): string | undefined => {
+  if (!a) return undefined;
+  if (a.kind === 'PDF' && (a.pages?.length ?? 0) > 1)
+    return fill(copy.viewer.platePages, { n: a.pages?.length ?? 0 });
+  if (a.kind === 'IMAGE' && a.form === 'TALL') return copy.viewer.continueReading;
+  return undefined;
+};
 
 export const visitModelOf = (view: ExhibitionView): VisitModel => {
   const scene = sceneOf(view);
@@ -38,11 +50,15 @@ export const visitModelOf = (view: ExhibitionView): VisitModel => {
   const facade = facadeTitle(title);
   const rooms = new Map(view.rooms.map(r => [r.id, r.title]));
   const parts = new Map(scene.layout.parts.map(p => [p.partId, p]));
+  const byIdView = new Map(view.artworks.map(a => [a.id, a]));
   const artworks: ViewerArtwork[] = scene.artworks.map(a => ({
     id: a.id,
     title: a.title,
     author: a.author,
     caption: a.caption,
+    description: byIdView.get(a.id)?.description ?? null,
+    featured: byIdView.get(a.id)?.featured ?? false,
+    plateNote: plateNoteOf(byIdView.get(a.id)),
     texture: null,
     imageSrc: scene.urlOf(a.id, 'wall') ?? scene.urlOf(a.id, 'thumb'),
     art: a.art,
@@ -93,5 +109,11 @@ export const visitModelOf = (view: ExhibitionView): VisitModel => {
     cards,
     tracks,
     placeOf,
+    signRooms: new Map(
+      scene.layout.parts.flatMap(p => {
+        const r = view.rooms.find(x => x.id === p.roomId);
+        return r ? [[p.partId, { title: r.title, intro: r.intro }] as const] : [];
+      }),
+    ),
   };
 };

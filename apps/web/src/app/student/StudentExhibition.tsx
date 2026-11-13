@@ -23,12 +23,13 @@ import { ConsentSheet } from './ConsentSheet.tsx';
 import { isInAppBrowser } from './inAppBrowser.ts';
 import { prefersReducedMotion } from './motion.ts';
 import { NoticeScreen } from './NoticeScreen.tsx';
-import { formatDay, posterImageUrl, schoolSummary } from './posterView.ts';
+import { formatDay, posterArtworks, posterImageUrl, schoolSummary } from './posterView.ts';
 import { STUDENT_THEME } from './theme.ts';
 import { createVisitorStore, isEntered, isVisiting, type VisitorStore } from './visitorStore.ts';
 import { combineProgress, usePosterPreload } from './posterPreload.ts';
 import { useWakeLock } from './wakeLock.ts';
 import type { VisitProgress } from '../visit/contract.ts';
+import { unlockAudio } from '../visit/roomMusic.ts';
 import s from './StudentExhibition.module.css';
 
 /**
@@ -226,8 +227,11 @@ const PosterLayer = ({ store, view, leaving, covered, inApp }: PosterLayerProps)
   const nickname = useStore(store, st => st.nickname);
   const character = useStore(store, st => st.character);
   const progress = useStore(store, st => st.progress);
-  const { setNickname, setCharacter, requestEnter, finishEntering } = store.getState();
+  const freshStarted = useStore(store, st => st.freshStarted);
+  const { setNickname, setCharacter, requestEnter, finishEntering, startFresh } = store.getState();
   const ex = view.exhibition;
+  // 위 절반의 작품: 포스터 동안 미리 받는 첫 전시실 썸네일(같은 주소라 두 번 받지 않는다)
+  const hung = useMemo(() => posterArtworks(view), [view]);
 
   const onAnimationEnd = (e: AnimationEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) finishEntering();
@@ -245,41 +249,25 @@ const PosterLayer = ({ store, view, leaving, covered, inApp }: PosterLayerProps)
           subtitle={ex.subtitle}
           schoolSummary={schoolSummary(view)}
           posterImageUrl={posterImageUrl(view)}
+          artworks={hung}
           openUntil={formatDay(ex.expiresAt)}
           artworkCount={view.artworks.length}
           nickname={nickname}
           onNicknameChange={setNickname}
+          onFreshStart={startFresh}
+          freshStarted={freshStarted}
           character={character}
           onCharacterChange={setCharacter}
-          onEnter={requestEnter}
+          onEnter={() => {
+            // iOS는 누름 안에서만 소리를 풀 수 있다 — 입장 누름에서 바로(PRD G-06, 기다리지 않음)
+            void unlockAudio();
+            requestEnter();
+          }}
+          prepare={progress.ready ? null : progress.progress}
           enterDisabled={!progress.ready || leaving}
           showInAppBrowserHint={inApp}
         />
-        {progress.ready ? null : <PrepareProgress value={progress.progress} />}
         <PrivacyLink newTab />
-      </div>
-    </div>
-  );
-};
-
-/** "준비하고 있어요" + 가는 진행 막대(PLAN §7.3). `EntryPoster`에 자리가 없어 카드 바로 아래에 둔다 */
-const PrepareProgress = ({ value }: { readonly value: number }) => {
-  const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
-  return (
-    <div className={s.prepare} data-testid="prepare-progress">
-      <div className={s.prepareRow}>
-        <span>{copy.poster.preparing}</span>
-        <span className={s.preparePct}>{`${pct}%`}</span>
-      </div>
-      <div
-        className={s.prepareTrack}
-        role="progressbar"
-        aria-label={copy.poster.preparing}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={pct}
-      >
-        <div className={s.prepareFill} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

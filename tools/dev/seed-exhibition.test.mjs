@@ -4,7 +4,19 @@ import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import sharp from 'sharp';
 import { isWeakPin } from '../../apps/server/src/security/pin.ts';
-import { generateImage, parseOptions, seedExhibition, validateTarget } from './seed-exhibition.mjs';
+import { config } from '../../packages/core/src/config.ts';
+import {
+  A4_SIZE,
+  generateImage,
+  generatePageMedia,
+  generateTone,
+  parseOptions,
+  PDF_PAGE_COUNT,
+  seedExhibition,
+  TONE_SECONDS,
+  validateTarget,
+  WEBTOON_SIZE,
+} from './seed-exhibition.mjs';
 
 const options = { rooms: 2, perRoom: 1, text: 1, title: '합성 시험 전시' };
 const json = (data, status = 200) => Response.json({ data, requestId: 'seed-test' }, { status });
@@ -39,10 +51,26 @@ function fakeServer({ failure, processing = true } = {}) {
       const meta = body instanceof FormData ? JSON.parse(body.get('meta')) : body;
       const art = {
         ...meta,
-        status: meta.kind === 'IMAGE' && processing ? 'PROCESSING' : 'PUBLISHED',
+        // PDF는 쪽을 다 받고 complete할 때까지 처리 중이다(서버 `completePdfArtwork`).
+        status: meta.kind === 'PDF' || (body instanceof FormData && processing) ? 'PROCESSING' : 'PUBLISHED',
         failCode: null,
+        pages: meta.kind === 'PDF' ? new Set() : undefined,
       };
       artworks.push(art);
+      return json(art);
+    }
+    const page = /^\/api\/teacher\/artworks\/([0-9a-f-]{36})\/pages\/(\d+)$/.exec(path);
+    if (page && method === 'PUT') {
+      const art = artworks.find(item => item.id === page[1]);
+      assert.ok(art?.kind === 'PDF' && Number(page[2]) >= 1 && Number(page[2]) <= art.pageCount);
+      art.pages.add(Number(page[2]));
+      return new Response(null, { status: 204 });
+    }
+    const complete = /^\/api\/teacher\/artworks\/([0-9a-f-]{36})\/complete$/.exec(path);
+    if (complete && method === 'POST') {
+      const art = artworks.find(item => item.id === complete[1]);
+      assert.equal(art?.pages.size, art?.pageCount);
+      art.status = 'PUBLISHED';
       return json(art);
     }
     if (path === base && method === 'GET') {
@@ -74,8 +102,16 @@ function fakeServer({ failure, processing = true } = {}) {
 const dependencies = server => ({
   fetchImpl: server.fetchImpl,
   createImage: async () => Buffer.from('합성 그림 시험 대역'),
+  createPageMedia: async () => ({
+    webtoon: Buffer.from('합성 웹툰 대역'),
+    document: Buffer.from('합성 A4 대역'),
+    pdfPages: Array.from({ length: PDF_PAGE_COUNT }, (_, i) => Buffer.from(`합성 쪽 대역 ${i + 1}`)),
+    tone: Buffer.from('합성 소리 대역'),
+  }),
   sleep: async () => {},
 });
+
+const hash = buffer => createHash('sha256').update(buffer).digest('hex');
 
 test('합성 그림은 짧은 변 1600px 이상인 가로·세로·정사각 PNG이고 서로 다르다', async () => {
   const shapes = [];
@@ -90,6 +126,37 @@ test('합성 그림은 짧은 변 1600px 이상인 가로·세로·정사각 PNG
   }
   assert.deepEqual(shapes, [1, -1, 0, 1]);
   assert.equal(hashes.size, 4);
+});
+
+test('쪽 나눔 자료는 웹툰 800×20000·A4 2480×3508·A4 비율 PDF 5쪽 PNG와 짧은 사인파 WAV다', async () => {
+  const media = await generatePageMedia();
+  const webtoon = await sharp(media.webtoon).metadata();
+  assert.deepEqual([webtoon.format, webtoon.width, webtoon.height], ['png', ...WEBTOON_SIZE]);
+  const document = await sharp(media.document).metadata();
+  assert.deepEqual([document.format, document.width, document.height], ['png', ...A4_SIZE]);
+  assert.equal(media.pdfPages.length, 5);
+  for (const page of media.pdfPages) {
+    const metadata = await sharp(page).metadata();
+    assert.equal(metadata.format, 'png');
+    assert.equal(metadata.height, config().PDF_RENDER_PX);
+    assert.ok(Math.abs(metadata.width / metadata.height - A4_SIZE[0] / A4_SIZE[1]) < 0.001);
+  }
+  // 서버는 같은 전시의 같은 파일을 E_DUPLICATE로 거절하므로 일곱 그림이 모두 달라야 한다.
+  assert.equal(new Set([media.webtoon, media.document, ...media.pdfPages].map(hash)).size, 7);
+  assert.equal(hash(await generatePageMedia().then(again => again.document)), hash(media.document));
+
+  const tone = media.tone;
+  assert.equal(tone.toString('ascii', 0, 4), 'RIFF');
+  assert.equal(tone.toString('ascii', 8, 16), 'WAVEfmt ');
+  assert.equal(tone.readUInt32LE(4), tone.length - 8);
+  const [channels, sampleRate, bits] = [tone.readUInt16LE(22), tone.readUInt32LE(24), tone.readUInt16LE(34)];
+  assert.deepEqual([channels, sampleRate, bits], [1, 44_100, 16]);
+  const dataBytes = tone.readUInt32LE(40);
+  assert.equal(dataBytes / (sampleRate * 2), TONE_SECONDS);
+  let peak = 0;
+  for (let at = 44; at < tone.length; at += 2) peak = Math.max(peak, Math.abs(tone.readInt16LE(at)));
+  assert.ok(peak > 0.25 * 32767 && peak <= 0.3 * 32767 + 1);
+  assert.equal(generateTone(1).readUInt32LE(40), 44_100 * 2);
 });
 
 test('대상 주소는 127.0.0.1 개발 포트 4521만 받는다', () => {
@@ -125,6 +192,9 @@ test('명령 옵션을 읽고 잘못된 개수·제목·알 수 없는 옵션을
   assert.equal(parsed.title, '시험');
   assert.equal(parsed.save, false);
   assert.equal(parseOptions(['--save']).save, true);
+  assert.equal(parsed.withPages, false);
+  assert.equal(parseOptions(['--with-pages']).withPages, true);
+  assert.equal(parseOptions(['--per-room', '0', '--text', '0', '--with-pages']).withPages, true);
   assert.equal(parseOptions(['--per-room', '0', '--text', '1']).perRoom, 0);
   for (const argv of [
     ['--rooms', '0'],
@@ -198,6 +268,63 @@ test('전시 → 모든 전시실 → 그림 → 글 → 처리 대기 → 게�
       .slice(1)
       .every(call => call.headers.get('Authorization') === `Bearer ${result.teacherToken}`),
   );
+});
+
+test('--with-pages는 웹툰·A4·PDF 5쪽(쪽 올리기 → 마치기)·소리를 글 다음 자리에 전시실마다 돌아가며 놓는다', async () => {
+  const server = fakeServer();
+  const result = await seedExhibition({ ...options, withPages: true }, dependencies(server));
+  assert.equal(result.artworks, 7);
+  assert.deepEqual(result.kinds, { IMAGE: 4, TEXT: 1, PDF: 1, AUDIO: 1 });
+  const [r0, r1] = server.rooms.map(room => room.id);
+  assert.deepEqual(
+    server.artworks.map(art => [art.roomId, art.order, art.kind]),
+    [
+      [r0, 0, 'IMAGE'],
+      [r1, 0, 'IMAGE'],
+      [r0, 1, 'TEXT'],
+      [r0, 2, 'IMAGE'],
+      [r1, 2, 'IMAGE'],
+      [r0, 3, 'PDF'],
+      [r1, 3, 'AUDIO'],
+    ],
+  );
+  const pdf = server.artworks.find(art => art.kind === 'PDF');
+  assert.equal(pdf.pageCount, PDF_PAGE_COUNT);
+  const base = `/api/teacher/exhibitions/${result.exhibitionId}`;
+  const sequence = server.calls.map(({ method, path }) => `${method} ${path}`);
+  const pdfCalls = sequence.slice(sequence.indexOf(`POST ${base}/artworks`) + 5);
+  assert.deepEqual(pdfCalls.slice(0, 7), [
+    `POST ${base}/artworks`,
+    ...[1, 2, 3, 4, 5].map(idx => `PUT /api/teacher/artworks/${pdf.id}/pages/${idx}`),
+    `POST /api/teacher/artworks/${pdf.id}/complete`,
+  ]);
+  assert.ok(
+    sequence.indexOf(`POST /api/teacher/artworks/${pdf.id}/complete`) < sequence.indexOf(`GET ${base}`),
+  );
+  const pageForms = server.calls.filter(call => call.method === 'PUT');
+  assert.equal(pageForms.length, PDF_PAGE_COUNT);
+  for (const call of pageForms) {
+    assert.deepEqual([...call.body.keys()], ['file']);
+    assert.equal(call.body.get('file').type, 'image/png');
+  }
+  const files = server.calls
+    .filter(call => call.method === 'POST' && call.body instanceof FormData)
+    .map(call => [
+      JSON.parse(call.body.get('meta')).kind,
+      call.body.get('file').type,
+      call.body.get('file').name,
+    ]);
+  assert.deepEqual(files.slice(2), [
+    ['IMAGE', 'image/png', 'synthetic-webtoon.png'],
+    ['IMAGE', 'image/png', 'synthetic-report-a4.png'],
+    ['AUDIO', 'audio/wav', 'synthetic-tone.wav'],
+  ]);
+  const batch = server.calls.find(call => call.path === '/api/teacher/artworks/batch');
+  assert.deepEqual(
+    batch.body.ids,
+    server.artworks.map(art => art.id),
+  );
+  assert.ok(server.artworks.every(art => art.status === 'PUBLISHED'));
 });
 
 test('글만 있는 전시를 만들고 글을 여러 전시실에 고르게 나눈다', async () => {

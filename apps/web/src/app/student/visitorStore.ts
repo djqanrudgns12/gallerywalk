@@ -69,12 +69,19 @@ export interface VisitorState {
   readonly liveToken: string | null;
   /** 3D로 보는가, 2D 대체 화면으로 보는가(한 번 '2d'가 되면 이 전시 동안 그대로) */
   readonly mode: VisitMode;
+  /** `처음 쓰는 친구예요`를 눌렀다(포스터에 "새로 시작해요" 한 줄) */
+  readonly freshStarted: boolean;
 }
 
 export interface VisitorActions {
   load(signal?: AbortSignal): Promise<void>;
   setNickname(nickname: string): void;
   setCharacter(character: StudentCharacterId): void;
+  /**
+   * 포스터의 `처음 쓰는 친구예요`(U-20 나안, 교실 공용 기기): 이 전시의 방문자 기록(토큰·별명)과 마지막 별명을 지우고
+   * 별명 칸을 비운다. 입장할 때 새 방문자 토큰을 만든다(앞 친구의 반응을 이어 쓰지 않게). 캐릭터는 그대로
+   */
+  startFresh(): void;
   setProgress(progress: VisitProgress): void;
   /** 포스터의 입장 단추 */
   requestEnter(): void;
@@ -187,6 +194,7 @@ export const createVisitorStore = (deps: VisitorDeps): VisitorStore =>
       consent: CLOSED_CONSENT,
       liveToken: null,
       mode: '3d',
+      freshStarted: false,
 
       async load(signal) {
         set({ phase: 'loading', failure: null });
@@ -225,6 +233,13 @@ export const createVisitorStore = (deps: VisitorDeps): VisitorStore =>
             ? { nickname }
             : { nickname, consent: { ...get().consent, error: null } },
         );
+      },
+
+      startFresh() {
+        const id = get().view?.exhibition.id;
+        if (id) deps.device.clearVisitor(id);
+        deps.prefs.setLastNickname('');
+        set({ nickname: '', freshStarted: true, consent: { ...get().consent, error: null } });
       },
 
       setCharacter(character) {

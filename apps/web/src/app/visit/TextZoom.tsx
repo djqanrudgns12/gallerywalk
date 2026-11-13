@@ -29,9 +29,12 @@ const fontPx = (): number => {
 export const TextZoom = ({
   text,
   onPage,
+  onPastEnd,
 }: {
   text: CardText;
   onPage?: (page: number, total: number) => void;
+  /** 마지막 쪽에서 `›`(오른쪽 키) — 다음 작품으로(PRD G-03). 없으면 잠김 */
+  onPastEnd?: (() => void) | undefined;
 }) => {
   const px = useMemo(fontPx, []);
   const body = useRef<HTMLDivElement>(null);
@@ -68,10 +71,14 @@ export const TextZoom = ({
   const total = paged?.pages.length ?? 1;
   const go = useCallback(
     (d: 1 | -1) => {
+      if (d === 1 && page >= total - 1) {
+        onPastEnd?.();
+        return;
+      }
       setDir(d);
       setPage(p => Math.max(0, Math.min(total - 1, p + d)));
     },
-    [total],
+    [total, page, onPastEnd],
   );
   useEffect(() => {
     setPage(p => Math.min(p, total - 1));
@@ -149,7 +156,7 @@ export const TextZoom = ({
               type="button"
               className={s.textZoomTurn}
               onClick={() => go(1)}
-              disabled={page >= total - 1}
+              disabled={page >= total - 1 && !onPastEnd}
               aria-label={copy.viewer.next}
             >
               <Icon name="chevron-right" />

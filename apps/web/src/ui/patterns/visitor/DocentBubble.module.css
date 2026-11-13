@@ -1,14 +1,16 @@
+/* 도슨트 알림(F8 V-55) — 말풍선 꼬리·색 칩 없이 같은 안내판: 숯색 판 · 1px 테 · `도슨트`만 작은 놋쇠 글자 */
 .bubble {
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--s-3);
   max-width: min(92vw, 520px);
-  padding: var(--s-2) var(--s-3);
+  min-height: var(--touch-min);
+  padding: var(--s-2) var(--s-4);
   background-color: var(--plate-bg);
   color: var(--plate-ink);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--plate-edge);
   border-radius: var(--r-plate);
-  box-shadow: var(--shadow-card);
   font-family: var(--font-ui);
   font-size: var(--fs-2);
   font-weight: 600;
@@ -19,18 +21,18 @@
 .who {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--s-1);
   flex: none;
-  padding: 2px var(--s-2);
-  background-color: var(--accent-soft);
+  padding-inline-end: var(--s-3);
+  border-inline-end: 1px solid var(--plate-edge);
   color: var(--accent);
-  border-radius: var(--r-plate);
   font-size: var(--fs-1);
   font-weight: 700;
 }
 
 .text {
   min-width: 0;
+  line-height: var(--lh-body);
 }
 
 @keyframes pop {

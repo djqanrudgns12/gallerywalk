@@ -37,11 +37,11 @@ import { buildTestExhibition, type TestExhibition } from './testExhibition.ts';
  * `/dev/walk` — 자유 관람(ADR-057, R-1) 확인 화면. 광장에서 시작해 계단을 올라 전시관에 들어가 걷는다.
  * 확인할 것: 조이스틱·WASD·바닥 누르기로 걷기, 벽 통과 없음, 계단 높이, "다음 작품으로" 안내 걷기와 작품 앞 크게 보기,
  * 작품 누르면 크게 보기, 멈추면 다시 그리기 0(`?hud=1`), 휴대폰·태블릿·데스크톱 반응형.
- * `?rooms=n`(1~17), `?character=student-f` 등, `?stick=1`(데스크톱에서도 조이스틱), `?mood=a|b|c`(실내 분위기 시안).
+ * `?rooms=n`(1~17), `?character=student-f` 등, `?stick=1`(데스크톱에서도 조이스틱), `?mood=a|b|c|d`(실내 분위기 시안).
  * 외관·설비·캐릭터는 R-3·R-4 결과가 오기 전까지 임시 모양이다.
  */
 
-// `?mood=a|b|c`: 실내 분위기 시안(R-9a) 비교 — 없으면 기본
+// `?mood=a|b|c|d`: 실내 분위기 시안(R-9a) 비교 — 없으면 기본
 const moodParam = new URLSearchParams(window.location.search).get('mood');
 const MOOD: MoodId = (MOOD_IDS as readonly string[]).includes(moodParam ?? '')
   ? (moodParam as MoodId)
@@ -100,6 +100,20 @@ const Scene = ({
     },
     [exhibition],
   );
+  // 3D 사인(V-03): 관마다 그 전시실 이름 + 첫 관에만 가상 소개 글
+  const signRooms = useMemo(
+    () =>
+      new Map(
+        layout.parts.map((p, i) => [
+          p.partId,
+          {
+            title: exhibition.roomTitles.get(p.roomId) ?? '',
+            intro: i === 0 ? '개발 화면의 가상 소개 글이에요. 교사가 쓴 전시실 소개가 이 판에 보여요.' : null,
+          },
+        ]),
+      ),
+    [layout, exhibition],
+  );
   const peers = useMemo(
     () =>
       FAKE_PEERS === 0
@@ -127,6 +141,8 @@ const Scene = ({
         tier={TIER}
         placeOf={placeOf}
         peers={peers}
+        signRooms={signRooms}
+        signAreas={ASSETS.signAreas}
         extra={modules =>
           modules && !modules.has(templateGeometry['modern-history'].modules.portico) ? (
             <ExteriorStandIn layout={layout} />

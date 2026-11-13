@@ -11,6 +11,7 @@ import {
 } from '@gallery/core/layout';
 import type { Layout, Stop } from '@gallery/core/types';
 import { yawOf } from './walker.ts';
+import type { WalkMode } from './walkStore.ts';
 
 /**
  * 안내 이동(ADR-057 "다음 작품으로 걸어가기")과 화면에서 누른 곳까지 걷기.
@@ -168,4 +169,19 @@ export const standSpot = (layout: Layout, stop: Stop, aspect: number): StandSpot
   for (let t = 0.25; t < a.maxDistance; t += 0.25) candidates.push([p[0] + fwd[0] * t, p[1] + fwd[1] * t]);
   const at = candidates.find(q => standable(layout.walk, q)) ?? p;
   return { at, yaw, camera };
+};
+
+/**
+ * `다음·이전 작품으로`의 목표(PRD 15.1-2 "연타해도 한 칸씩만"): 안내 걷기 중에 다시 누르면 목표를 바꾸지 않는다
+ * (전에는 누를 때마다 목표가 한 칸씩 쌓여 여러 정지 지점을 건너뛰었다). 끝을 넘으면 null.
+ */
+export const stepTarget = (
+  mode: WalkMode,
+  stopIndex: number,
+  delta: 1 | -1,
+  stopCount: number,
+): number | null => {
+  if (mode === 'guiding') return null;
+  const next = stopIndex + delta;
+  return next < 0 || next >= stopCount ? null : next;
 };

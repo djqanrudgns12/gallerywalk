@@ -377,3 +377,19 @@ describe('visitorStore 2D 대체 화면(P4-10)', () => {
     expect(s().phase).toBe('entering');
   });
 });
+
+describe('처음 쓰는 친구예요(U-20 나안)', () => {
+  it('누르면 이 전시의 방문자 기록(토큰·별명)과 마지막 별명을 지우고 별명 칸을 비운다 — 캐릭터는 그대로', async () => {
+    const t = await atPoster();
+    t.device.setVisitor(EX_ID, { token: 'a'.repeat(43), consentVersion: '2026-11', nickname: '앞 친구' });
+    t.prefs.setLastNickname('앞 친구');
+    t.s().setNickname('앞 친구');
+    t.s().setCharacter('student-f');
+    t.s().startFresh();
+    expect(t.device.visitor(EX_ID)).toBeNull();
+    expect(t.prefs.lastNickname()).toBeNull();
+    expect(t.s().nickname).toBe('');
+    expect(t.s().character).toBe('student-f');
+    expect(t.s().freshStarted).toBe(true);
+  });
+});

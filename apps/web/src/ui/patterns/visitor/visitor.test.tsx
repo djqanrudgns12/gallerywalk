@@ -82,7 +82,8 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
     const header = container.querySelector('header');
     expect(header?.getAttribute('aria-label')).toBe('근대 역사관');
     expect(container.querySelector('[data-testid="place"]')?.textContent).toBe('제1관');
-    expect(container.querySelector('[data-testid="live-count"]')?.textContent).toBe(copy.live.alone);
+    // 혼자일 때는 인원 표시를 두지 않는다(안내판 줄이기, V-54)
+    expect(container.querySelector('[data-testid="live-count"]')).toBeNull();
 
     const colBtn = container.querySelector(
       `button[aria-label="${copy.viewer.collection}"]`,
@@ -117,6 +118,15 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
     });
     expect(onPrev).toHaveBeenCalledTimes(1);
     expect(onNext).toHaveBeenCalledTimes(1);
+  });
+
+  it('ZoomCaption: 보내지 못한 반응이 있으면 반응 단추에 작은 점(이름 있음), 없으면 없음(V-21)', () => {
+    render(<ZoomCaption title="합성 작품" onClose={() => {}} onReact={() => {}} reactPending />);
+    const btn = container.querySelector('[data-testid="zoom-react"]');
+    expect(btn?.getAttribute('data-pending')).toBe('1');
+    expect(btn?.querySelector(`[aria-label="${copy.viewer.reactPending}"]`)).not.toBeNull();
+    render(<ZoomCaption title="합성 작품" onClose={() => {}} onReact={() => {}} />);
+    expect(container.querySelector('[data-testid="zoom-react"]')?.getAttribute('data-pending')).toBeNull();
   });
 
   it('WalkNav: 작품 앞이 아니면(total 0) 숫자를 숨긴다', () => {
@@ -281,10 +291,46 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
     expect(onCharacterChange).toHaveBeenCalledWith('student-f');
 
     const enterBtn = container.querySelector('[data-testid="enter-plaza-btn"]') as HTMLButtonElement | null;
-    expect(enterBtn?.textContent).toContain(copy.poster.enterPlaza);
+    // PRD 6.1·11장: 주요 단추는 `입장하기` 하나
+    expect(enterBtn?.textContent).toBe(copy.poster.enter);
     act(() => {
       enterBtn?.click();
     });
     expect(onEnter).toHaveBeenCalledTimes(1);
+    // 작품도 포스터 그림도 없으면 위 절반은 단색 판, 준비 막대는 값이 없으면 없음
+    expect(container.querySelector('[data-testid="poster-artworks"] img')).toBeNull();
+    expect(container.querySelector('[data-testid="prepare-progress"]')).toBeNull();
+  });
+
+  it('EntryPoster: 위 절반에 조명 아래 걸린 작품(최대 3장)·포스터 그림, 준비 막대는 입장 단추 바로 위', () => {
+    const art = (n: number) => ({ url: `/m/a${n}.webp`, w: 512, h: 341 });
+    const base = {
+      title: '연대기',
+      nickname: '',
+      onNicknameChange: () => {},
+      character: 'student-m' as const,
+      onCharacterChange: () => {},
+      onEnter: () => {},
+    };
+    render(
+      <EntryPoster {...base} artworks={[art(1), art(2), art(3), art(4)]} prepare={0.42} enterDisabled />,
+    );
+    const imgs = [...container.querySelectorAll<HTMLImageElement>('[data-testid="poster-artworks"] img')];
+    expect(imgs.map(i => i.getAttribute('src')).sort()).toEqual(['/m/a1.webp', '/m/a2.webp', '/m/a3.webp']);
+    // 장식 그림: 읽기 도구는 제목(h1)만 읽는다
+    expect(imgs.every(i => i.getAttribute('alt') === '')).toBe(true);
+    const bar = container.querySelector('[data-testid="prepare-progress"] [role="progressbar"]');
+    expect(bar?.getAttribute('aria-label')).toBe(copy.poster.preparing);
+    expect(bar?.getAttribute('aria-valuenow')).toBe('42');
+    // 준비 막대 바로 다음이 입장 단추
+    expect(
+      container
+        .querySelector('[data-testid="prepare-progress"]')
+        ?.nextElementSibling?.getAttribute('data-testid'),
+    ).toBe('enter-plaza-btn');
+
+    render(<EntryPoster {...base} artworks={[art(1)]} posterImageUrl="/m/poster.webp" />);
+    const poster = container.querySelectorAll<HTMLImageElement>('[data-testid="poster-artworks"] img');
+    expect([...poster].map(i => i.getAttribute('src'))).toEqual(['/m/poster.webp']);
   });
 });

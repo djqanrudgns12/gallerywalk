@@ -182,6 +182,16 @@ describe('교사 토큰·방문자·소리·시작 코드', () => {
     expect(again.visitor(ex(1))).toBeNull();
   });
 
+  it('선생님 캐릭터: 기본 teacher-m, 고른 값은 기억하고 틀린 값은 기본으로', () => {
+    const m = memoryStorage();
+    const s = createDeviceStore({ storage: () => m.storage });
+    expect(s.teacherCharacter()).toBe('teacher-m');
+    s.setTeacherCharacter('teacher-f');
+    expect(createDeviceStore({ storage: () => m.storage }).teacherCharacter()).toBe('teacher-f');
+    m.data.set('gw:teacher-character', JSON.stringify('student-m'));
+    expect(s.teacherCharacter()).toBe('teacher-m');
+  });
+
   it('기억한 값이 없으면 소리 켬, 시작 코드 아직', () => {
     const s = createDeviceStore({ storage: () => memoryStorage().storage });
     expect(s.soundOn()).toBe(true);

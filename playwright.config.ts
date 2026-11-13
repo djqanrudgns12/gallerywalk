@@ -13,11 +13,26 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4522',
     trace: 'retain-on-failure',
-    launchOptions: {
-      args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-    },
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+        },
+      },
+    },
+    // Safari 엔진(U-22 승인, V-33): 배치 해시가 Node와 같은지 + 학생 흐름 데스크톱 한 크기만(무거워서 최소로).
+    // `npx playwright test --project=webkit`으로 따로 돌린다
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+      testMatch: ['layout-hash.spec.ts', 'student.spec.ts'],
+      grep: /배치 해시|학생 흐름 · desktop/,
+    },
+  ],
   webServer: [
     {
       command: 'npm run dev -w @gallery/server',

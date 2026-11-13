@@ -18,7 +18,7 @@
     "format": "prettier --write .",
     "check": "prettier --check . && npm run typecheck && npm run check:rules && npm run test:checks",
     "check:rules": "node tools/check/index.mjs",
-    "test:checks": "node --test tools/check/check.test.mjs",
+    "test:checks": "node --test tools/check/check.test.mjs tools/assets/pipeline/seamCheck.test.mjs tools/dev/seed-exhibition.test.mjs",
     "test": "vitest run",
     "test:server": "vitest run --project server",
     "e2e": "playwright test",

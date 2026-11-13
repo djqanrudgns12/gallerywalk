@@ -1,5 +1,5 @@
 import { config } from '@gallery/core/config';
-import { copy, fill } from '@gallery/core/copy';
+import { copy, errorCopy, fill } from '@gallery/core/copy';
 import type { StatusAction } from '../../../ports/index.ts';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -11,9 +11,12 @@ import { TEACHER_PATHS } from '../shared/nav.ts';
 import { Sheet } from '../shared/Sheet.tsx';
 import { Toast } from '../shared/Toast.tsx';
 import c from '../shared/controls.module.css';
+import { TeacherCharacterPicker } from '../home/TeacherCharacterPicker.tsx';
+import { checkPosterFile, POSTER_ACCEPT } from '../upload/posterFile.ts';
 import type { ManageMenuProps } from './contract.ts';
 import s from './ManageMenu.module.css';
 import { PreloadSheet } from './PreloadSheet.tsx';
+import { SettingsSheet } from './SettingsSheet.tsx';
 
 /**
  * `지금 삭제` 단추가 눌리기까지 기다리는 초(PRD G-18 "확인 시트 + 3초 뒤 눌리는 버튼").
@@ -21,11 +24,13 @@ import { PreloadSheet } from './PreloadSheet.tsx';
  */
 export const DELETE_CONFIRM_SEC = config().DELETE_CONFIRM_SEC;
 
-/** 메뉴 안의 덮개 하나: 메뉴 · 수업 전 미리 불러오기 · 링크 새로 만들기 확인 · 지금 삭제 확인 */
-type Overlay = 'none' | 'menu' | 'preload' | 'rotate' | 'delete';
+/** 메뉴 안의 덮개 하나: 메뉴 · 수업 전 미리 불러오기 · 반응·투어 설정 · 선생님 캐릭터 · 링크 새로 만들기 확인 · 지금 삭제 확인 */
+type Overlay = 'none' | 'menu' | 'preload' | 'settings' | 'character' | 'rotate' | 'delete';
 
 /**
  * 전시 관리의 `···` 메뉴(P5-7, PLAN §7.4·§11.1). 자동 투어 · 수업 전 미리 불러오기(시트, P5-10) · QR·주소 다시 보기(열림) ·
+ * 반응·투어 설정(V-17, 연 뒤에도 — 시트 → `patchExhibition`) ·
+ * 포스터 고르기·바꾸기·빼기(V-02, 그림 하나 → 기기 사전 검사 → `uploadPoster`) · 선생님 캐릭터(V-04, 이 기기에 기억) ·
  * 선생님 링크 복사(이 기기가 링크 토큰을 가질 때만, 경고 문구) · 선생님 링크 새로 만들기 · 전시 닫기/다시 열기 ·
  * 지금 삭제(확인 시트 + `DELETE_CONFIRM_SEC`초 뒤 눌리는 단추 → `deleteExhibition` → `onDeleted`).
  */
@@ -43,6 +48,7 @@ export const ManageMenu = ({ exhibition, onChanged, onDeleted, onOpenSheet }: Ma
   // 링크 새로 만들기 뒤 기기 저장이 바뀌므로 다시 읽게 하는 값
   const [sessionRev, setSessionRev] = useState(0);
   const linkToken = useSessionLink(exhibition.id, sessionRev);
+  const posterInput = useRef<HTMLInputElement>(null);
 
   const say = (text: string): void => setToast(prev => ({ id: (prev?.id ?? 0) + 1, text }));
   const closeMenu = (): void => {
@@ -121,6 +127,42 @@ export const ManageMenu = ({ exhibition, onChanged, onDeleted, onOpenSheet }: Ma
     }
   };
 
+  const pickPoster = async (el: HTMLInputElement): Promise<void> => {
+    const file = el.files?.[0] ?? null;
+    el.value = '';
+    if (!file) return;
+    const problem = await checkPosterFile(file, file.name);
+    if (problem !== null) {
+      say(errorCopy[problem]);
+      return;
+    }
+    say(t.posterUploading);
+    try {
+      onChanged(await api.teacher.uploadPoster(exhibition.id, { blob: file, name: file.name }));
+      say(t.posterSaved);
+    } catch (err) {
+      say(errorText(err));
+    }
+  };
+
+  const removePoster = async (): Promise<void> => {
+    closeMenu();
+    try {
+      await api.teacher.removePoster(exhibition.id);
+    } catch (err) {
+      say(errorText(err));
+      return;
+    }
+    // 빼면 전시 행(rev)이 바뀐다 — 새로 받아 넘긴다. 못 받으면 포스터만 비운 채로
+    onChanged(
+      await api.teacher.exhibition(exhibition.id).then(
+        v => v.exhibition,
+        () => ({ ...exhibition, poster: null }),
+      ),
+    );
+    say(t.posterRemoved);
+  };
+
   const remove = async (): Promise<void> => {
     setBusy(true);
     setError(null);
@@ -190,6 +232,54 @@ export const ManageMenu = ({ exhibition, onChanged, onDeleted, onOpenSheet }: Ma
               {t.showQr}
             </button>
           ) : null}
+          <div className={s.sep} role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className={s.item}
+            onClick={() => {
+              setError(null);
+              setOverlay('settings');
+            }}
+            data-testid="menu-settings"
+          >
+            {t.settings}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={s.item}
+            onClick={() => {
+              posterInput.current?.click();
+              closeMenu();
+            }}
+            data-testid="menu-poster"
+          >
+            {exhibition.poster ? t.posterChange : t.posterPick}
+          </button>
+          {exhibition.poster ? (
+            <button
+              type="button"
+              role="menuitem"
+              className={s.item}
+              onClick={() => void removePoster()}
+              data-testid="menu-poster-remove"
+            >
+              {t.posterRemove}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            className={s.item}
+            onClick={() => {
+              setError(null);
+              setOverlay('character');
+            }}
+            data-testid="menu-character"
+          >
+            {copy.teacher.characterButton}
+          </button>
           <div className={s.sep} role="separator" />
           {linkToken !== null ? (
             <button
@@ -262,7 +352,32 @@ export const ManageMenu = ({ exhibition, onChanged, onDeleted, onOpenSheet }: Ma
         </div>
       ) : null}
 
+      <input
+        ref={posterInput}
+        type="file"
+        accept={POSTER_ACCEPT}
+        className={s.hiddenInput}
+        data-testid="poster-input"
+        onChange={e => void pickPoster(e.currentTarget)}
+      />
+
       {overlay === 'preload' ? <PreloadSheet exhibitionId={exhibition.id} onClose={closeMenu} /> : null}
+
+      {overlay === 'settings' ? (
+        <SettingsSheet
+          exhibition={exhibition}
+          onChanged={onChanged}
+          onSaved={message => {
+            closeMenu();
+            say(message);
+          }}
+          onClose={closeMenu}
+        />
+      ) : null}
+
+      {overlay === 'character' ? (
+        <TeacherCharacterPicker onClose={closeMenu} onSaved={() => say(copy.teacher.characterSaved)} />
+      ) : null}
 
       {overlay === 'rotate' ? (
         <Sheet

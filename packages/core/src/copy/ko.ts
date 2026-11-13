@@ -49,9 +49,11 @@ export const copy = {
     openUntil: '{date}까지 열려요',
     inAppBrowserHint: '소리가 안 나면 Safari나 Chrome으로 열어 주세요',
     /** 입장·캐릭터 고르기(ADR-057, R-7 제안) */
-    enterPlaza: '전시관 광장으로 입장하기',
     nicknameLabel: '내 별명',
     nicknameHint: '캐릭터 머리 위 이름표와 감상 메모에 보여요',
+    /** 교실 공용 기기(U-20): 앞 친구의 별명·반응 기록 없이 새로 시작 */
+    freshStart: '처음 쓰는 친구예요',
+    freshStarted: '새 관람객으로 시작해요',
     nicknamePlaceholder: '전시관에서 부를 별명을 적어 주세요',
     characterLabel: '내 캐릭터 고르기',
     characterHint: '전시관을 걸어 다닐 모습을 골라요',
@@ -74,13 +76,20 @@ export const copy = {
     close: '닫기',
     more: '더 보기',
     react: '반응 남기기',
+    /** 반응 단추의 작은 점(보내지 못한 반응이 기기에 남음) */
+    reactPending: '아직 보내지 못한 반응이 있어요',
     pageOf: '{page}/{total}',
     rotateHint: '가로로 돌리면 더 크게 보여요',
     continueReading: '이어서 보기',
+    /** 작품 명판 셋째 줄: 여러 쪽 작품의 쪽 수(V-23) */
+    platePages: '{n}쪽 작품',
     updated: '전시가 새로 바뀌었어요',
     updatedAction: '새로 보기',
     waitAMoment: '잠시만 기다려 주세요',
     exitThanks: '관람해 주셔서 고마워요',
+    /** 3D 안 사인(V-03): 홀 천장 사인 아래 줄 · 출구 사인 이름 */
+    signHall: '어서 오세요',
+    signExit: '출구',
     exitCount: '작품 {n}점',
     restart: '처음부터 다시 보기',
     /** 미술관 정면 이름판(ADR-057): 전시명이 이미 '전시관·미술관·박물관·전시회'로 끝나면 전시명 그대로 */
@@ -168,7 +177,8 @@ export const copy = {
   /** 첫 화면 `/`(PLAN §7.3)과 전시를 불러오는 동안·다시 해 보기(P4-1) */
   entry: {
     appName: '우리들의 아트 갤러리',
-    title: '입장 코드',
+    /** 첫 화면 큰 제목 두 줄(F8 V-52) */
+    headline: ['전시관에', '들어가요'],
     hint: '선생님이 알려 준 숫자 {n}자리를 눌러요',
     codeLabel: '입장 코드 숫자 {n}자리',
     teacher: '선생님이세요?',
@@ -322,6 +332,18 @@ export const copy = {
     nameplateLabel: '전시관 이름표',
     nameplateHint: '학생들에게 선생님 배지와 함께 보여요',
     characterSave: '이 캐릭터로 저장하기',
+    characterSaved: '선생님 캐릭터를 바꿨어요',
+    /** 글 붙여넣기 시트(V-01, G-10): 지금 전시실 끝에 글 작품 하나 */
+    paste: {
+      title: '글 붙여넣기',
+      titleLabel: '제목',
+      bodyLabel: '글',
+      bodyHint: '줄바꿈은 그대로 보여요. 지금 전시실 끝에 글 작품으로 들어가요',
+      titleRequired: '제목을 적어 주세요',
+      bodyRequired: '글을 붙여넣어 주세요',
+      bodyTooLong: '글은 {max}자까지 넣을 수 있어요. 지금 {n}자예요',
+      save: '글 작품 넣기',
+    },
     cancel: '취소',
     /** 전시 상태 점(준비 중·열림·닫힘) */
     exhibitionStatus: { DRAFT: '준비 중', OPEN: '열림', CLOSED: '닫힘' },
@@ -376,8 +398,6 @@ export const copy = {
       startCodeHint: '이 기기에서 처음 전시를 만들 때만 한 번 적어요',
       more: '더 설정하기',
       poster: '포스터 이미지',
-      posterLater:
-        '포스터 이미지는 전시를 만든 뒤 관리 화면에서 고를 수 있어요. 고르지 않으면 전시 이름으로 포스터를 만들어요',
       school: '학교·학급 표시',
       schoolHint: '포스터에 학교와 학급을 함께 보여 줘요',
       schoolName: '학교',
@@ -393,6 +413,14 @@ export const copy = {
       submitting: '만들고 있어요',
       createdToast: '이 전시는 오늘부터 {days}일 동안 열 수 있어요',
       schoolSaveFailed: '전시를 만들었어요. 학교·학급 표시는 저장하지 못했어요',
+      /** 포스터 고르기(V-02, G-09): 전시를 만든 직후 올린다 */
+      posterPick: '포스터 그림 고르기',
+      posterChange: '다른 그림 고르기',
+      posterRemove: '빼기',
+      posterChosen: '고른 그림: {name}',
+      posterHint: '고르지 않으면 전시 이름으로 포스터를 만들어요',
+      posterSaveFailed: '전시를 만들었어요. 포스터 이미지는 올리지 못했어요',
+      extrasSaveFailed: '전시를 만들었어요. 학교·학급 표시와 포스터 이미지는 저장하지 못했어요',
     },
     /** 반응 설정(G-07 표) — 새 전시의 `더 설정하기`와 열기 시트의 `바꾸기` */
     reactionSettings: {
@@ -440,7 +468,6 @@ export const copy = {
       trigger: '전시 메뉴',
       tour: '자동 투어',
       preload: '수업 전 미리 불러오기',
-      soon: '준비 중',
       showQr: 'QR·주소 다시 보기',
       copyLink: '선생님 링크 복사',
       copyLinkWarn: '학생에게 보이지 않게 하세요',
@@ -461,6 +488,17 @@ export const copy = {
       deleteWait: '{n}초 뒤에 누를 수 있어요',
       deleteConfirm: '지금 삭제',
       deleting: '지우고 있어요',
+      /** 포스터(V-02) */
+      posterPick: '포스터 이미지 고르기',
+      posterChange: '포스터 바꾸기',
+      posterRemove: '포스터 빼기',
+      posterUploading: '포스터를 올리고 있어요',
+      posterSaved: '포스터를 바꿨어요',
+      posterRemoved: '포스터를 뺐어요. 전시 이름으로 포스터를 보여 줘요',
+      /** 반응·투어 설정(V-17, G-07 "언제든"·G-16) — 연 뒤에도 바꾼다. `{sec}` = `CHANGE_POLL_SEC` */
+      settings: '반응·투어 설정',
+      settingsSaved: '설정을 저장했어요',
+      settingsSavedOpen: '설정을 저장했어요. 학생 화면에는 {sec}초 안에 바뀌어요',
     },
     /** 수업 전 미리 불러오기 시트(P5-10, PLAN §7.4·§6.13, ADR-049) — 전시 전체를 이 기기에 받아 둔다 */
     preload: {
@@ -540,11 +578,15 @@ export const copy = {
     /** 올리기(P5-3, PLAN §5.2·§5.3). 막힘 문구는 `errorCopy`, 해결법은 `fix` */
     upload: {
       dropTitle: '작품 파일이나 폴더를 여기에 놓아요',
+      /** 휴대폰(V-19, G-10 "휴대폰에서는 파일 선택만"): 끌어 놓기·폴더 안내 대신 */
+      dropTitlePhone: '작품 파일을 골라 올려요',
       dropHint: '폴더째 놓으면 폴더마다 전시실이 생기고, 소리 파일은 배경음악이 돼요',
       dropStrip: '파일이나 폴더를 화면 어디에 놓아도 올라가요',
       dropHere: '놓으면 올려요',
       pickFiles: '파일 고르기',
       pickFolder: '폴더 고르기',
+      /** 놓기 영역 아래 작은 링크(V-01) */
+      pasteText: '글 붙여넣기',
       trayTitle: '올리는 작품',
       trayCount: '올리기 {done}/{total}',
       clear: '끝난 것 지우기',
@@ -556,6 +598,10 @@ export const copy = {
       done: '올렸어요',
       failed: '올리지 못했어요',
       lowRes: '조금 흐리게 보일 수 있어요',
+      /** 올리기 결과 한 줄(V-18, PRD 6.9): 그림을 쪽으로 나눠 보여 줄 때. `{n}` = 쪽 수 */
+      splitTall: '웹툰이라 {n}쪽으로 나눠 보여 줘요',
+      splitPanorama: '파노라마라 {n}쪽으로 나눠 보여 줘요',
+      splitText: '글이 많아 {n}쪽으로 나눠 보여 줘요',
       /** PDF(P5-C): 기기에서 쪽마다 그림을 만든 뒤 올린다 */
       rendering: '쪽 그림 만드는 중 {done}/{total}',
       sendingPages: '올리는 중 {done}/{total}쪽',

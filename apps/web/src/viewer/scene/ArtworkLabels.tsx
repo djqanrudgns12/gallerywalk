@@ -22,6 +22,8 @@ export interface LabelItem {
   readonly normal: readonly [number, number];
   readonly title: string;
   readonly author: string;
+  /** 셋째 줄(이어서 보기·쪽 수, V-23). 빈 글이면 그리지 않음 */
+  readonly note?: string | undefined;
 }
 
 const SLOT_W = 512;
@@ -55,11 +57,16 @@ const drawPlate = (ctx: CanvasRenderingContext2D, i: number, item: LabelItem): v
   ctx.fillStyle = '#564d42';
   ctx.font = `500 34px "Pretendard", "Apple SD Gothic Neo", sans-serif`;
   ctx.fillText(item.author, x + 28, y + 40 + px + 26, SLOT_W - 56);
+  if (item.note) {
+    ctx.fillStyle = '#7a5a2a';
+    ctx.font = `700 30px "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", sans-serif`;
+    ctx.fillText(item.note, x + 28, y + SLOT_H - 58, SLOT_W - 56);
+  }
 };
 
 export const ArtworkLabels = ({ items }: { items: readonly LabelItem[] }) => {
   const shown = items.slice(0, MAX);
-  const key = shown.map(i => `${i.artworkId}:${i.title}:${i.author}`).join('|');
+  const key = shown.map(i => `${i.artworkId}:${i.title}:${i.author}:${i.note ?? ''}`).join('|');
   const parts = useMemo(() => {
     const rows = Math.ceil(MAX / COLS);
     const canvas = document.createElement('canvas');

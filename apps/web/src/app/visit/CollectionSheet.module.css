@@ -1,4 +1,4 @@
-/* 모아 보기 시트(G-04) — 색·간격은 토큰·테마 변수만 */
+/* 모아 보기 시트(G-04, F8 V-55) — 어두운 시트 · 밑줄형 전시실 탭 · 얇은 액자 테 썸네일. 색·간격은 토큰·테마 변수만 */
 .sheet {
   position: absolute;
   inset: 0;
@@ -32,14 +32,15 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--s-3);
-  padding-bottom: var(--s-2);
+  padding-bottom: var(--s-3);
 }
 
 .title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--fs-5);
+  font-size: var(--fs-6);
   font-weight: 700;
+  line-height: var(--lh-tight);
 }
 
 .close {
@@ -49,60 +50,73 @@
   align-items: center;
   gap: var(--s-2);
   padding: 0 var(--s-3);
-  background: var(--plate-bg);
+  background: transparent;
   color: var(--plate-ink);
   border: 1px solid var(--plate-edge);
   border-radius: var(--r-plate);
   font: inherit;
+  font-size: var(--fs-2);
   font-weight: 600;
   cursor: pointer;
 }
 
+/* 전시실 탭: 밑줄형. 아래 1px 선 위에 고른 탭만 놋쇠 밑줄 */
 .tabs {
+  flex: none;
   display: flex;
-  gap: var(--s-2);
+  gap: var(--s-5);
   overflow-x: auto;
-  padding-bottom: var(--s-2);
   scroll-snap-type: x proximity;
   scrollbar-width: none;
+  border-bottom: 1px solid var(--plate-edge);
 }
 
 .tab {
   flex: 0 0 auto;
   min-height: var(--touch-min);
-  padding: 0 var(--s-4);
+  margin-bottom: -1px;
+  padding: 0 var(--s-1);
   scroll-snap-align: start;
-  background: var(--plate-bg);
+  background: none;
   color: var(--plate-ink-sub);
-  border: 1px solid var(--plate-edge);
-  border-radius: var(--r-plate);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
   font: inherit;
+  font-size: var(--fs-3);
   font-weight: 600;
   cursor: pointer;
 }
 
 .tab[aria-selected='true'] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  color: var(--plate-ink);
+  border-bottom-color: var(--accent);
 }
 
 .grid {
   flex: 1;
   min-height: 0;
   margin: 0;
-  padding: var(--s-2) 0 var(--s-4);
+  padding: var(--s-4) 0 var(--s-6);
   list-style: none;
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s-3);
+  column-gap: var(--s-3);
+  row-gap: var(--s-4);
   align-content: start;
 }
 
 @media (min-width: 768px) {
+  .sheet {
+    padding: calc(var(--s-5) + env(safe-area-inset-top)) calc(var(--s-8) + env(safe-area-inset-right))
+      env(safe-area-inset-bottom) calc(var(--s-8) + env(safe-area-inset-left));
+  }
+
   .grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: var(--s-4);
+    row-gap: var(--s-5);
   }
 }
 
@@ -116,7 +130,7 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--s-2);
   padding: 0;
   background: none;
   border: 0;
@@ -126,18 +140,28 @@
   cursor: pointer;
 }
 
-.thumb,
-.paper {
+/* 썸네일 액자: 얇은 나무 테 + 바깥 1px 선(작품이 어두운 벽에 걸린 모양) */
+.frame {
+  display: block;
   width: 100%;
   aspect-ratio: 1;
   box-sizing: border-box;
-  border: 1px solid var(--plate-edge);
-  border-radius: var(--r-plate);
+  border: 3px solid var(--frame-outer);
+  outline: 1px solid var(--plate-edge);
+  background: var(--mat-dark);
+  overflow: hidden;
+}
+
+.thumb,
+.paper {
+  display: block;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .thumb {
   object-fit: cover;
-  background: var(--surface-wall);
 }
 
 .paper {
@@ -163,13 +187,29 @@
 .caption {
   font-size: var(--fs-2);
   line-height: 1.35;
+  color: var(--plate-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.item:focus-visible .thumb,
-.item:focus-visible .paper {
+@media (hover: hover) {
+  .item:hover .frame {
+    outline-color: var(--plate-ink-sub);
+  }
+}
+
+.close:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.item:focus-visible {
+  outline: none;
+}
+
+.item:focus-visible .frame {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

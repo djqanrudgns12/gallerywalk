@@ -9,9 +9,15 @@
   font-family: var(--font-ui);
 }
 
-.stage > div:first-child {
+/* 장면 자리(누르면 멈춤/재생, V-16) */
+.scene {
   position: absolute;
   inset: 0;
+}
+
+/* 재생 중 입력이 없으면 커서와 조작판을 숨긴다(V-16, G-16 "UI 숨김, 커서 숨김") */
+.stage[data-idle='1'] {
+  cursor: none;
 }
 
 .notice {
@@ -112,6 +118,12 @@
   border-radius: var(--r-plate);
   box-shadow: var(--shadow-plate);
   opacity: 0.9;
+  transition: opacity var(--t-sheet) var(--ease-out);
+}
+
+.stage[data-idle='1'] .bar {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .range {

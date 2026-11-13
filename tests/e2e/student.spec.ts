@@ -1,7 +1,8 @@
 import { appendFileSync, mkdirSync } from 'node:fs';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { z } from 'zod';
 import { copy, fill } from '../../packages/core/src/copy/ko.ts';
+import type { ArtworkPublic } from '../../packages/core/src/types/artwork.ts';
 import type { ExhibitionView } from '../../packages/core/src/types/exhibition.ts';
 import {
   closeStudentExhibition,
@@ -69,8 +70,10 @@ test.beforeAll(async () => {
   seed = await seedStudentExhibition();
   view = await readStudentExhibition(seed.entryCode);
   expect(view.rooms).toHaveLength(2);
-  expect(view.artworks.filter(art => art.kind === 'IMAGE')).toHaveLength(6);
-  expect(view.artworks.filter(art => art.kind === 'TEXT')).toHaveLength(1);
+  // 시드가 `--with-pages`로 웹툰·A4(IMAGE)·PDF·소리를 더한다(V-08). 종류별 수는 시드가 만든 수와 같아야 한다.
+  expect(view.artworks).toHaveLength(seed.artworks);
+  for (const kind of ['IMAGE', 'TEXT', 'PDF', 'AUDIO'] as const)
+    expect(view.artworks.filter(art => art.kind === kind)).toHaveLength(seed.kinds[kind]);
 });
 
 const snap = async (page: Page) => {
@@ -188,7 +191,8 @@ for (const size of SIZES) {
       await expect(consent.getByRole('button', { name: copy.consent.start })).toBeEnabled();
       await consent.getByRole('button', { name: copy.consent.start }).click();
       await expectEntered(page);
-      await expect(page.getByTestId('top-bar')).toContainText(copy.live.alone);
+      // 혼자일 때는 인원 표시가 없다(안내판 줄이기, V-54)
+      await expect(page.getByTestId('live-count')).toHaveCount(0);
       await capture(page, `${size.name}-05-plaza`);
 
       const firstArtwork = view.layout.stops.findIndex(stop => stop.kind === 'artwork');
@@ -212,7 +216,8 @@ for (const size of SIZES) {
       await expect(caption).toContainText(artwork!.title);
       await settle(page);
       await capture(page, `${size.name}-07-zoom`);
-      await caption.getByRole('button', { name: copy.viewer.close, exact: true }).click();
+      // 크게 보기 닫기는 화면 오른쪽 위(PRD 9.2)
+      await page.getByTestId('zoom-close').click();
       await expect(caption).toBeHidden();
       await expect(page.getByTestId('walk-perf')).toHaveAttribute('data-mode', 'view');
 
@@ -248,6 +253,119 @@ for (const size of SIZES) {
   });
 }
 
+/** 별명 없이 들어간다(동의 시트 없이 바로 광장 — 아래 '학생 상태' 첫 시험과 같은 길) */
+async function enterWithoutNickname(page: Page): Promise<void> {
+  await page.goto(`/${seed.entryCode}`);
+  await expect(page.getByTestId('enter-plaza-btn')).toBeEnabled({ timeout: READY_TIMEOUT });
+  await page.getByTestId('enter-plaza-btn').click();
+  await expectEntered(page);
+}
+
+/** 시드의 쪽 나눔 작품 하나(웹툰 = 긴 세로, A4 = 글 많은 세로 그림, PDF) */
+function pageArtwork(pick: (art: ArtworkPublic) => boolean): ArtworkPublic {
+  const found = view.artworks.filter(pick);
+  expect(found).toHaveLength(1);
+  return found[0]!;
+}
+const webtoonOf = () => pageArtwork(art => art.kind === 'IMAGE' && art.form === 'TALL' && art.textHeavy);
+const a4Of = () => pageArtwork(art => art.kind === 'IMAGE' && art.form === 'PORTRAIT' && art.textHeavy);
+const pdfOf = () => pageArtwork(art => art.kind === 'PDF' && art.form === 'MULTIPAGE');
+
+/** 모아 보기에서 골라 그 작품 앞으로 걸어가 크게 본다(PRD 15.1 "모아 보기 → 3D 이동 → 줌인") */
+async function zoomFromCollection(page: Page, art: ArtworkPublic): Promise<Locator> {
+  await page.getByTestId('top-bar').getByRole('button', { name: copy.viewer.collection }).click();
+  const sheet = page.getByTestId('collection-sheet');
+  await expect(sheet).toBeVisible();
+  const room = view.rooms.find(candidate => candidate.id === art.roomId);
+  expect(room).toBeDefined();
+  await sheet.getByRole('tab', { name: room!.title, exact: true }).click();
+  await sheet.getByTestId('collection-item').filter({ hasText: art.title }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByTestId('walk-perf')).toHaveAttribute('data-mode', 'zoom', { timeout: WALK_TIMEOUT });
+  await expect(page.getByRole('dialog', { name: art.title, exact: true })).toBeVisible();
+  const zoom = page.getByTestId('page-zoom');
+  // 쪽 계산은 상자 크기를 잰 뒤에 끝난다. 첫 쪽 그림이 붙은 뒤의 쪽 수를 읽는다.
+  await expect(zoom.locator('img').first()).toBeVisible();
+  return zoom;
+}
+
+const pageTotal = async (zoom: Locator): Promise<number> =>
+  CounterSchema.parse(await zoom.getAttribute('data-total'));
+
+/** 여러 쪽: 쪽 표시 1/n → `다음` → 2/n (PRD 15.1-4, 15.3-4) */
+async function expectPaged(zoom: Locator, atLeast: number): Promise<number> {
+  const total = await pageTotal(zoom);
+  expect(total).toBeGreaterThanOrEqual(atLeast);
+  await expect(zoom).toHaveAttribute('data-page', '1');
+  await expect(zoom).toContainText(fill(copy.viewer.pageOf, { page: 1, total }));
+  await zoom.getByRole('button', { name: copy.viewer.next, exact: true }).click();
+  await expect(zoom).toHaveAttribute('data-page', '2');
+  await expect(zoom).toContainText(fill(copy.viewer.pageOf, { page: 2, total }));
+  return total;
+}
+
+/** 한 장: 쪽 수 1, 넘김 단추 없음 */
+async function expectSingle(zoom: Locator): Promise<void> {
+  await expect(zoom).toHaveAttribute('data-total', '1');
+  await expect(zoom.getByRole('button', { name: copy.viewer.next, exact: true })).toHaveCount(0);
+}
+
+async function closeZoom(page: Page, art: ArtworkPublic): Promise<void> {
+  const caption = page.getByRole('dialog', { name: art.title, exact: true });
+  await page.getByTestId('zoom-close').click();
+  await expect(caption).toBeHidden();
+  await expect(page.getByTestId('walk-perf')).toHaveAttribute('data-mode', 'view');
+}
+
+/** V-08: 시드의 웹툰·글 많은 A4·PDF 5쪽을 실제 관람 화면에서 크게 보고 쪽 수를 읽는다 */
+test.describe('쪽 나눔 · phone 390×844', () => {
+  test.use({ viewport: { width: 390, height: 844 }, screen: { width: 390, height: 844 }, hasTouch: true });
+
+  test('PDF·웹툰은 여러 쪽으로 넘기고, 글 많은 A4는 휴대폰 세로에서 한 장(ADR-047)', async ({ page }) => {
+    await enterWithoutNickname(page);
+    const pdf = pdfOf();
+    let zoom = await zoomFromCollection(page, pdf);
+    // PDF는 원본 쪽마다 적어도 한 쪽
+    const pdfTotal = await expectPaged(zoom, pdf.pages?.length ?? Number.POSITIVE_INFINITY);
+    await capture(page, 'phone-12-pdf-pages');
+    await closeZoom(page, pdf);
+
+    const webtoon = webtoonOf();
+    zoom = await zoomFromCollection(page, webtoon);
+    const webtoonTotal = await expectPaged(zoom, 2);
+    await capture(page, 'phone-13-webtoon-pages');
+    await closeZoom(page, webtoon);
+
+    // ADR-047: 휴대폰 세로의 A4는 나눠도 글자가 커지지 않아 짧은 축 맞춤 한 장
+    const a4 = a4Of();
+    zoom = await zoomFromCollection(page, a4);
+    await expectSingle(zoom);
+    await capture(page, 'phone-14-a4-single');
+    await closeZoom(page, a4);
+    console.log('쪽 수 phone', JSON.stringify({ pdf: pdfTotal, webtoon: webtoonTotal, a4: 1 }));
+  });
+});
+
+test.describe('쪽 나눔 · desktop 1440×900', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, hasTouch: false });
+
+  test('글 많은 A4는 데스크톱에서 한 장, 웹툰은 여러 쪽(PRD 15.1-4·5)', async ({ page }) => {
+    await enterWithoutNickname(page);
+    const a4 = a4Of();
+    let zoom = await zoomFromCollection(page, a4);
+    await expectSingle(zoom);
+    await capture(page, 'desktop-12-a4-single');
+    await closeZoom(page, a4);
+
+    const webtoon = webtoonOf();
+    zoom = await zoomFromCollection(page, webtoon);
+    const webtoonTotal = await expectPaged(zoom, 2);
+    await capture(page, 'desktop-13-webtoon-pages');
+    await closeZoom(page, webtoon);
+    console.log('쪽 수 desktop', JSON.stringify({ a4: 1, webtoon: webtoonTotal }));
+  });
+});
+
 test.describe('학생 상태 · desktop 1440×900', () => {
   test.use({ viewport: { width: 1440, height: 900 }, hasTouch: false });
 
@@ -272,7 +390,8 @@ test.describe('학생 상태 · desktop 1440×900', () => {
     await page.getByTestId('enter-plaza-btn').click();
     await expectEntered(page);
     expect(consentSeen).toBe(false);
-    await expect(page.getByTestId('top-bar')).toContainText(copy.live.alone);
+    // 혼자일 때는 인원 표시가 없다(안내판 줄이기, V-54)
+    await expect(page.getByTestId('live-count')).toHaveCount(0);
 
     const peerContext = await browser.newContext({
       baseURL: 'http://127.0.0.1:4522',

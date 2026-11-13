@@ -18,6 +18,8 @@ import type { Focus, Tier } from './textures/residency.ts';
 import type { CardText } from './textures/textCard.ts';
 import { useCardTextures } from './textures/useCardTextures.ts';
 import { type ArtworkTextureSource, useResidentTextures } from './textures/useResidentTextures.ts';
+import { type SignRoom, signItems, type SignKind, type TextArea, visibleSigns } from './signs/signs.ts';
+import { SignTexts } from './signs/SignTexts.tsx';
 import { visibleParts } from './walk/visibleParts.ts';
 import { type WalkStart, WalkView } from './walk/WalkView.tsx';
 import { useWalk } from './walk/walkStore.ts';
@@ -74,6 +76,10 @@ export interface VisitorSceneProps {
   readonly start?: WalkStart | undefined;
   /** 첫 조각 묶음(외관)이 올라와 첫 자리를 그릴 수 있음 — 한 번 */
   readonly onReady?: (() => void) | undefined;
+  /** 3D 안 사인(V-03): 관 ID → 전시실 이름·소개. 없으면 사인 글을 그리지 않는다 */
+  readonly signRooms?: ReadonlyMap<string, SignRoom> | undefined;
+  /** 사인 판의 글자 자리(템플릿 manifest) */
+  readonly signAreas?: Readonly<Partial<Record<SignKind, TextArea>>> | undefined;
   /** 작품을 눌렀을 때(교사 3D 미리 보기 — 걸어가 크게 보기 대신 그 작품 패널, PRD G-13). 없으면 크게 보기 */
   readonly onArtworkTap?: ((artworkId: string) => void) | undefined;
   /** 개발 화면 전용(외관 조각이 없을 때 대신 세울 것 등) — 조각 목록을 받아 그 위에 */
@@ -106,6 +112,8 @@ export const VisitorScene = ({
   controller,
   extra,
   onArtworkTap,
+  signRooms,
+  signAreas,
 }: VisitorSceneProps) => {
   const modules = useTemplateModules(modulesUrl, look);
   const loaded = modules !== null;
@@ -165,13 +173,27 @@ export const VisitorScene = ({
     // `resident`(버전)·`cardTex`가 바뀌면 올라간 텍스처가 바뀐 것
     [artworks, textures, cards, resident, cardTex],
   );
+  const signs = useMemo(
+    () => (signRooms && signAreas ? signItems(layout, signRooms, title, signAreas) : []),
+    [layout, signRooms, title, signAreas],
+  );
+  const shownSigns = useMemo(() => visibleSigns(signs, visible), [signs, visible]);
   const sign = layout.fixtures.find(f => f.kind === 'facadeSign');
   const labels = useMemo<LabelItem[]>(() => {
     const byId = new Map(artworks.map(a => [a.id, a]));
     return layout.labels.flatMap(l => {
       const a = byId.get(l.artworkId);
       if (!a || !visible.has(partOf.get(l.artworkId) ?? '')) return [];
-      return [{ artworkId: l.artworkId, pos: l.pos, normal: l.normal, title: a.title, author: a.author }];
+      return [
+        {
+          artworkId: l.artworkId,
+          pos: l.pos,
+          normal: l.normal,
+          title: a.title,
+          author: a.author,
+          note: a.plateNote ?? '',
+        },
+      ];
     });
   }, [layout, artworks, visible, partOf]);
   const zoom = useWalk(st => st.api?.zoom);
@@ -186,6 +208,7 @@ export const VisitorScene = ({
       {extra?.(modules)}
       <FixtureModels fixtures={layout.fixtures} models={fixtureModels} />
       <ArtworkLabels items={labels} />
+      <SignTexts items={shownSigns} />
       {sign && <FacadeSign fixture={sign} title={title} />}
       {shown
         .filter(a => visible.has(partOf.get(a.id) ?? ''))

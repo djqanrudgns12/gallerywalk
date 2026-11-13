@@ -16,7 +16,7 @@ import {
   followPose,
   type Orbit,
 } from './followCamera.ts';
-import { buildGuideMap, pathBetween, standSpot } from './guide.ts';
+import { buildGuideMap, pathBetween, standSpot, stepTarget } from './guide.ts';
 import { applyAmbience } from '../scene/ambience.ts';
 import { MannerWatch } from './manners.ts';
 import { combinedInput, useWalk } from './walkStore.ts';
@@ -173,11 +173,16 @@ export const WalkView = ({
     const onCancelled = (): void => {
       if (!walker.guiding && useWalk.getState().mode === 'guiding') useWalk.getState().set({ mode: 'free' });
     };
+    const step = (delta: 1 | -1): void => {
+      const w = useWalk.getState();
+      const to = stepTarget(w.mode, w.stopIndex, delta, layout.stops.length);
+      if (to !== null) goTo(to);
+    };
     const raycaster = new Raycaster();
     s.set({
       api: {
-        next: () => goTo(useWalk.getState().stopIndex + 1),
-        prev: () => goTo(useWalk.getState().stopIndex - 1),
+        next: () => step(1),
+        prev: () => step(-1),
         goTo,
         tapAt: (x, y) => {
           if (useWalk.getState().mode === 'zoom') return; // 크게 보는 중에는 바닥 누르기 없음
@@ -315,7 +320,12 @@ export const WalkView = ({
       want.fov = fov;
     };
     if (mode === 'zoom' && zoomArt) {
-      const z = frameCamera(anchorOf(zoomArt), { aspect }, zoomFraming());
+      // 세로 화면은 아래 캡션 카드 자리를 비우고 맞춘다(PRD 9.5 "액자를 위쪽에")
+      const z = frameCamera(
+        anchorOf(zoomArt),
+        aspect < 1 ? { aspect, insetBottom: c.ZOOM_CAPTION_INSET } : { aspect },
+        zoomFraming(),
+      );
       aim(z.position, z.target, z.fov);
     } else if (mode === 'view' && st.view) aim(st.view.position, st.view.target, st.view.fov);
     else {

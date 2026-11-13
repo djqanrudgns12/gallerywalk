@@ -1,7 +1,7 @@
 import { config } from '@gallery/core/config';
 import { copy } from '@gallery/core/copy';
 import type { ExhibitionView } from '@gallery/core/types';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useServices } from '../../services.ts';
 import { VisitScreen } from '../../visit/VisitScreen.tsx';
 import { previewViewOf } from '../tour/previewView.ts';
@@ -17,7 +17,12 @@ export interface PreviewLayerProps {
 
 type State =
   | { readonly kind: 'loading' }
-  | { readonly kind: 'ready'; readonly view: ExhibitionView }
+  | {
+      readonly kind: 'ready';
+      readonly view: ExhibitionView;
+      /** 열린 전시면 함께 관람에 선생님으로(입장 코드). 아니면 혼자 */
+      readonly liveCode: string | null;
+    }
   | { readonly kind: 'empty' }
   | { readonly kind: 'no3d' };
 
@@ -28,7 +33,13 @@ type State =
  * 교사 묶음이 바뀌면 `AUTOSAVE_DELAY_MS` 뒤 다시 받아 고친 것이 보이게 한다(배치가 같으면 그림을 다시 받지 않는다).
  */
 export const PreviewLayer = ({ exhibitionId, revision, onPick, onClose }: PreviewLayerProps) => {
-  const { api } = useServices();
+  const { api, device } = useServices();
+  // 함께 관람(PRD 15.8): 이 기기의 교사 세션 토큰과 고른 선생님 캐릭터
+  const teacherToken = useMemo(
+    () => device.teacherSession(exhibitionId)?.token ?? null,
+    [device, exhibitionId],
+  );
+  const character = useMemo(() => device.teacherCharacter(), [device]);
   const [state, setState] = useState<State>({ kind: 'loading' });
   const first = useRef(true);
   // 안내 한 줄은 처음 누를 때까지만
@@ -47,9 +58,10 @@ export const PreviewLayer = ({ exhibitionId, revision, onPick, onClose }: Previe
       api.teacher.exhibition(exhibitionId, { signal: ac.signal }).then(
         tv => {
           const v = previewViewOf(tv);
+          const liveCode = tv.exhibition.status === 'OPEN' ? tv.exhibition.entryCode : null;
           // 받는 사이 3D를 못 쓰게 됐으면 그대로 둔다
           setState(prev =>
-            prev.kind === 'no3d' ? prev : v ? { kind: 'ready', view: v } : { kind: 'empty' },
+            prev.kind === 'no3d' ? prev : v ? { kind: 'ready', view: v, liveCode } : { kind: 'empty' },
           );
         },
         () => {
@@ -95,9 +107,10 @@ export const PreviewLayer = ({ exhibitionId, revision, onPick, onClose }: Previe
     >
       <VisitScreen
         view={state.view}
-        code=""
-        character="teacher-m"
-        liveToken={null}
+        code={state.liveCode ?? ''}
+        character={character}
+        liveToken={state.liveCode ? teacherToken : null}
+        liveAs="teacher"
         entered
         onHome={onClose}
         onPickArtwork={onPick}

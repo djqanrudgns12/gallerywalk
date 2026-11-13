@@ -1,3 +1,4 @@
+import { copy } from '@gallery/core/copy';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,5 +64,41 @@ describe('여러 쪽 크게 보기', () => {
     expect(walkKeys).not.toHaveBeenCalled();
     expect(seen.at(-1)).toEqual([2, 3]);
     window.removeEventListener('keydown', walkKeys);
+  });
+
+  it('마지막 쪽에서 `›`(오른쪽 키)를 누르면 다음 작품으로(onPastEnd), 없으면 잠김(PRD G-03)', () => {
+    const pastEnd = vi.fn();
+    const host = document.createElement('div');
+    root = createRoot(host);
+    act(() => root!.render(<PageZoom pagesFor={() => [page(0), page(1)]} onPastEnd={pastEnd} />));
+    const next = () => host.querySelector<HTMLButtonElement>(`button[aria-label="${copy.viewer.next}"]`)!;
+    act(() => next().click());
+    expect(host.querySelector('[data-testid="page-zoom"]')?.getAttribute('data-page')).toBe('2');
+    expect(pastEnd).not.toHaveBeenCalled();
+    expect(next().disabled).toBe(false);
+    act(() => next().click());
+    expect(pastEnd).toHaveBeenCalledTimes(1);
+    act(() => root!.render(<PageZoom pagesFor={() => [page(0), page(1)]} />));
+    act(() => next().click());
+    expect(next().disabled).toBe(true);
+  });
+
+  it('두 번 누르면 2배로 커지고 다시 누르면 1배, 휴대폰 세로 한 장 쪽에는 돌리기 안내를 처음 한 번(ADR-047)', () => {
+    const host = document.createElement('div');
+    root = createRoot(host);
+    const one = { ...page(0), plan: { ...page(0).plan, rotateHint: true } };
+    vi.stubGlobal('innerWidth', 390);
+    vi.stubGlobal('innerHeight', 844);
+    act(() => root!.render(<PageZoom pagesFor={() => [one]} />));
+    const sec = host.querySelector('[data-testid="page-zoom"]')!;
+    expect(host.querySelector('[data-rotate-hint="1"]')?.textContent).toBe(copy.viewer.rotateHint);
+    act(() => {
+      sec.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    });
+    expect(sec.getAttribute('data-scale')).toBe('2');
+    act(() => {
+      sec.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    });
+    expect(sec.getAttribute('data-scale')).toBe('1');
   });
 });

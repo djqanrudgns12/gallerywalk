@@ -305,7 +305,10 @@ export const ArtworkCard = ({
         </div>
 
         <div className={s.metaRow}>
-          <span className={s.formSpec}>{`${resolvedFormLabel} · ${resolvedPageLabel}`}</span>
+          <span className={s.formSpec}>
+            {/* 쪽 수 글이 비면(한 장) 형태만 — "가로 · "처럼 가운뎃점이 남지 않게 */}
+            {resolvedPageLabel ? `${resolvedFormLabel} · ${resolvedPageLabel}` : resolvedFormLabel}
+          </span>
 
           <div className={s.badgeGroup}>
             {resolvedWarnLabel ? (

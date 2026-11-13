@@ -251,6 +251,18 @@
   }
 }
 
+/* 휴대폰 가로: 캡션은 오른쪽 좁은 패널(PRD 9.5) */
+@media (orientation: landscape) and (max-height: 500px) {
+  .zoomCaption {
+    left: auto;
+    right: calc(var(--s-3) + env(safe-area-inset-right));
+    bottom: calc(var(--s-3) + env(safe-area-inset-bottom));
+    width: min(38vw, 340px);
+    transform: none;
+    animation: none;
+  }
+}
+
 .hud {
   position: absolute;
   top: calc(var(--s-16) + var(--s-10));
@@ -539,5 +551,59 @@
   border-radius: var(--r-plate);
   font-family: var(--font-ui);
   font-size: var(--fs-2);
+  color: var(--plate-ink-sub);
+}
+
+/* 크게 보기 `닫기`: 화면 오른쪽 위(PRD 9.2) */
+.zoomClose {
+  position: absolute;
+  right: calc(var(--s-3) + env(safe-area-inset-right));
+  top: calc(var(--s-3) + env(safe-area-inset-top));
+  z-index: 5;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  padding: 0 var(--s-4);
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 휴대폰 세로 한 장 쪽의 "가로로 돌리면 더 크게" 안내(ADR-047) */
+.rotateHint {
+  position: absolute;
+  left: 50%;
+  top: var(--s-3);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: var(--s-2) var(--s-4);
+  font-size: var(--fs-2);
+  color: var(--plate-ink);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* 위 오른쪽 아이콘 묶음(지도·소리·미리 보기 닫기, V-54): 모아 보기와 같은 각진 판 */
+.topIcon {
+  inline-size: var(--touch-min);
+  block-size: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-plate);
+  cursor: pointer;
+}
+
+.topIcon[aria-pressed='false'] {
   color: var(--plate-ink-sub);
 }

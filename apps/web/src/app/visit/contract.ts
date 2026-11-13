@@ -23,6 +23,8 @@ export interface VisitScreenProps {
   readonly character: CharacterId;
   /** 함께 관람 첫 메시지에 실을 이 기기 방문자 토큰 원문. null이면 혼자 관람 */
   readonly liveToken: string | null;
+  /** 함께 관람 역할(기본 방문자). 교사 3D 미리 보기는 `teacher`(토큰 = 교사 세션 토큰, PRD 15.8) */
+  readonly liveAs?: 'visitor' | 'teacher' | undefined;
   /** false = 포스터 뒤에서 미리 준비, true = 관람 중 */
   readonly entered: boolean;
   readonly onProgress?: ((p: VisitProgress) => void) | undefined;

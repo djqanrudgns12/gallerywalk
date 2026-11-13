@@ -6,8 +6,8 @@ import type { CollectionRoom } from './collection.ts';
 import s from './CollectionSheet.module.css';
 
 /**
- * 모아 보기(G-04, PLAN §7.3): 전체 화면 시트. 위 전시실 탭(가로로 밀기) + 썸네일 격자(휴대폰 3·태블릿 4·데스크톱 6열).
- * 글·소리 작품은 작은 종이 카드. 누르면 시트를 닫고 그 작품 앞으로 걸어가 바로 크게 본다(부르는 쪽).
+ * 모아 보기(G-04, PLAN §7.3): 전체 화면 시트. 위 전시실 탭(밑줄형, 가로로 밀기) + 썸네일 격자(휴대폰 3·태블릿 4·데스크톱 6열).
+ * 썸네일은 얇은 액자 테 안에 둔다(F8 V-55). 글·소리 작품은 작은 종이 카드. 누르면 시트를 닫고 그 작품 앞으로 걸어가 바로 크게 본다(부르는 쪽).
  */
 export interface CollectionSheetProps {
   readonly rooms: readonly CollectionRoom[];
@@ -96,17 +96,19 @@ export const CollectionSheet = ({
                 onClick={() => onPick(it.artworkId, it.stopIndex)}
                 data-testid="collection-item"
               >
-                {thumb ? (
-                  <img className={s.thumb} src={thumb} alt="" loading="lazy" decoding="async" />
-                ) : (
-                  <span className={s.paper} aria-hidden>
-                    {card?.kind === 'AUDIO' ? (
-                      <Icon name="sound-on" />
-                    ) : (
-                      <span className={s.paperTitle}>{title}</span>
-                    )}
-                  </span>
-                )}
+                <span className={s.frame}>
+                  {thumb ? (
+                    <img className={s.thumb} src={thumb} alt="" loading="lazy" decoding="async" />
+                  ) : (
+                    <span className={s.paper} aria-hidden>
+                      {card?.kind === 'AUDIO' ? (
+                        <Icon name="sound-on" />
+                      ) : (
+                        <span className={s.paperTitle}>{title}</span>
+                      )}
+                    </span>
+                  )}
+                </span>
                 <span className={s.caption}>{title}</span>
               </button>
             </li>

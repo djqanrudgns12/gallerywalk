@@ -37,6 +37,7 @@ const KEY = {
   recent: 'gw:recent-exhibitions',
   sound: 'gw:sound-on',
   startCode: 'gw:start-code-passed',
+  teacherCharacter: 'gw:teacher-character',
   teacher: (exhibitionId: string) => `gw:teacher:${exhibitionId}`,
   visitor: (exhibitionId: string) => `gw:visitor:${exhibitionId}`,
 } as const;
@@ -197,5 +198,8 @@ export const createDeviceStore = (opts: DeviceStoreOptions = {}): DeviceStore =>
 
     startCodePassed: () => readJson(KEY.startCode, z.boolean()) ?? false,
     setStartCodePassed: passed => writeJson(KEY.startCode, passed),
+
+    teacherCharacter: () => readJson(KEY.teacherCharacter, z.enum(['teacher-m', 'teacher-f'])) ?? 'teacher-m',
+    setTeacherCharacter: character => writeJson(KEY.teacherCharacter, character),
   };
 };

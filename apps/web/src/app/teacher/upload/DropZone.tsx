@@ -53,41 +53,85 @@ export const useFilePickers = (onFiles: (files: PickedFile[]) => void): FilePick
   };
 };
 
+/**
+ * 휴대폰으로 보는 기준(V-19, PRD G-10 "휴대폰에서는 파일 선택만"): 손가락이 주 입력이거나 767px 이하(교사 화면 CSS와 같은 경계).
+ * 손가락 기기(태블릿 포함)의 브라우저는 폴더 고르기를 지원하지 않거나 끌어 놓기를 거의 쓰지 않는다.
+ */
+export const PHONE_UPLOAD_QUERY = '(pointer: coarse), (max-width: 767px)';
+
+const phoneNow = (): boolean => {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  try {
+    return window.matchMedia(PHONE_UPLOAD_QUERY).matches;
+  } catch {
+    return false;
+  }
+};
+
+/** 지금 휴대폰 기준인가(화면을 돌리거나 창 크기를 바꾸면 다시) */
+const usePhoneUpload = (): boolean => {
+  const [phone, setPhone] = useState(phoneNow);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia(PHONE_UPLOAD_QUERY);
+    const on = (): void => setPhone(mq.matches);
+    mq.addEventListener?.('change', on);
+    return () => mq.removeEventListener?.('change', on);
+  }, []);
+  return phone;
+};
+
 export interface DropZoneProps {
   /** 작품이 하나도 없으면 큰 놓기 영역, 있으면 얇은 띠 */
   readonly empty: boolean;
   readonly pickers: FilePickers;
+  /** 놓기 영역 아래 작은 `글 붙여넣기` 링크(V-01, G-10) — 없으면 링크도 없다 */
+  readonly onPasteText?: () => void;
 }
 
-export const DropZone = ({ empty, pickers }: DropZoneProps) => {
+export const DropZone = ({ empty, pickers, onPasteText }: DropZoneProps) => {
   const u = copy.teacher.upload;
+  // 휴대폰: 폴더 고르기와 끌어 놓기 안내를 숨기고 파일 고르기만(V-19)
+  const phone = usePhoneUpload();
+  const folder = phone ? null : (
+    <button type="button" className={s.pick} onClick={pickers.pickFolder}>
+      {u.pickFolder}
+    </button>
+  );
+  const paste = onPasteText ? (
+    <button type="button" className={s.pasteLink} onClick={onPasteText} data-testid="paste-open">
+      {u.pasteText}
+    </button>
+  ) : null;
   if (empty)
     return (
-      <section className={s.dropBig} data-testid="drop-big">
-        <p className={s.dropBigTitle}>{u.dropTitle}</p>
-        <div className={s.pickRow}>
-          <button type="button" className={`${s.pick} ${s.pickPrimary}`} onClick={pickers.pickFiles}>
-            {copy.teacher.manage.upload}
-          </button>
-          <button type="button" className={s.pick} onClick={pickers.pickFolder}>
-            {u.pickFolder}
-          </button>
-        </div>
-        <p className={s.dropHint}>{u.dropHint}</p>
-      </section>
+      <>
+        <section className={s.dropBig} data-testid="drop-big">
+          <p className={s.dropBigTitle}>{phone ? u.dropTitlePhone : u.dropTitle}</p>
+          <div className={s.pickRow}>
+            <button type="button" className={`${s.pick} ${s.pickPrimary}`} onClick={pickers.pickFiles}>
+              {copy.teacher.manage.upload}
+            </button>
+            {folder}
+          </div>
+          {phone ? null : <p className={s.dropHint}>{u.dropHint}</p>}
+        </section>
+        {paste}
+      </>
     );
   return (
-    <div className={s.dropStrip} data-testid="drop-strip">
-      <span>{u.dropStrip}</span>
-      <span className={s.pickRow}>
-        <button type="button" className={s.pick} onClick={pickers.pickFiles}>
-          {u.pickFiles}
-        </button>
-        <button type="button" className={s.pick} onClick={pickers.pickFolder}>
-          {u.pickFolder}
-        </button>
-      </span>
-    </div>
+    <>
+      <div className={s.dropStrip} data-testid="drop-strip">
+        {phone ? null : <span>{u.dropStrip}</span>}
+        <span className={s.pickRow}>
+          <button type="button" className={s.pick} onClick={pickers.pickFiles}>
+            {u.pickFiles}
+          </button>
+          {folder}
+        </span>
+      </div>
+      {paste}
+    </>
   );
 };
 

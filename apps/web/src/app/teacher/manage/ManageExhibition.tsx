@@ -20,6 +20,7 @@ import { parseKey, type DropIntent } from './dnd.ts';
 import { ManageDnd } from './ManageDnd.tsx';
 import { ManageMenu } from './ManageMenu.tsx';
 import { OpenSheet } from './OpenSheet.tsx';
+import { PasteSheet } from './PasteSheet.tsx';
 import { ReactionsTab } from './ReactionsTab.tsx';
 import { ChipFace, RoomChips } from './RoomChips.tsx';
 import { RoomSheet } from './RoomSheet.tsx';
@@ -67,8 +68,11 @@ export const ManageExhibition = () => {
   const [previewing, setPreviewing] = useState(false);
   // `···` 메뉴는 자기 덮개(메뉴·확인 시트)를 스스로 연다. 관리 화면의 덮개(패널·시트·열기)를 열면 메뉴를 새로 그려 닫는다
   const [menuEpoch, setMenuEpoch] = useState(0);
+  // 글 붙여넣기 시트(V-01)도 덮개 하나: 열 때 관리 화면 덮개를 닫고, 관리 화면 덮개가 열리면 닫힌다
+  const [pasting, setPasting] = useState(false);
   useEffect(() => {
     if (overlay !== null) setMenuEpoch(n => n + 1);
+    if (overlay !== null) setPasting(false);
   }, [overlay]);
 
   const uploads = useUploads(api.teacher, id);
@@ -386,8 +390,15 @@ export const ManageExhibition = () => {
             <div className={s.main}>
               {tab === 'artworks' ? (
                 <>
-                  <DropZone empty={live.length === 0} pickers={pickers} />
-                  <UploadTray tasks={uploads.tasks} onClear={uploads.clearFinished} />
+                  <DropZone
+                    empty={live.length === 0}
+                    pickers={pickers}
+                    onPasteText={() => {
+                      close();
+                      setPasting(true);
+                    }}
+                  />
+                  <UploadTray tasks={uploads.tasks} onClear={uploads.clearFinished} artworks={live} />
                   {live.length > 0 ? (
                     <ArtworkBoard
                       exhibitionId={id}
@@ -429,6 +440,16 @@ export const ManageExhibition = () => {
 
           {overlay?.kind === 'open' ? (
             <OpenSheet exhibition={ex} publishedCount={published} onChanged={onChanged} onClose={close} />
+          ) : null}
+
+          {pasting ? (
+            <PasteSheet
+              onClose={() => setPasting(false)}
+              onSave={(title, body) => {
+                setPasting(false);
+                void uploads.startText(title, body);
+              }}
+            />
           ) : null}
 
           {previewing ? (

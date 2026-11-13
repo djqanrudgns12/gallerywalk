@@ -38,6 +38,17 @@ describe('planImagePages — A4 글 작품', () => {
     expect(plan.readable).toBe(true);
   });
 
+  it('보통 글자 A4(줄 간격 83px)도 실제 데스크톱 크게 보기 상자(1100×660)에서 한 장 — 확대로 읽는다 (PRD 15.1-5, V-27)', () => {
+    const plain: ImagePageInput = { ...a4Poster(300), linePitchPx: 83 };
+    const plan = planImagePages(plain, { w: 1100, h: 660 });
+    expect(plan.fit).toBe('contain');
+    expect(plan.pages).toHaveLength(1);
+    // 한 장 배율이 읽기 기준에 조금 못 미치므로 readable은 거짓(두 번 누르기·두 손가락 확대가 맡음)
+    expect(plan.readable).toBe(false);
+    // 글이 아주 촘촘하면(줄 간격 55px) 그래도 나눈다
+    expect(planImagePages({ ...plain, linePitchPx: 55 }, { w: 1100, h: 660 }).fit).toBe('split');
+  });
+
   it('고해상도로 올려도 저해상도와 같은 결과다 (C3 회귀)', () => {
     for (const vp of [DESKTOP, TABLET_PORTRAIT, PHONE_PORTRAIT, PHONE_LANDSCAPE]) {
       const hi = planImagePages(a4Poster(300), vp);

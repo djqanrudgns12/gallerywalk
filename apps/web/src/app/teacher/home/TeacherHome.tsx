@@ -13,6 +13,7 @@ import { TEACHER_PATHS } from '../shared/nav.ts';
 import { NumberPad } from '../shared/NumberPad.tsx';
 import { Sheet } from '../shared/Sheet.tsx';
 import c from '../shared/controls.module.css';
+import { TeacherCharacterPicker } from './TeacherCharacterPicker.tsx';
 import s from './TeacherHome.module.css';
 
 /** 카드에 더할 서버 값(상태·포스터 썸네일·지워지는 날). 못 받으면 기기에 기억한 값만 */
@@ -44,7 +45,7 @@ const linkFailText = (err: unknown): string => {
 
 /**
  * 선생님 첫 화면 `/t`(P5-1, PLAN §7.4·§9.4 표). 최근 전시 카드(이 기기에 교사 토큰이 있는 것만, 최대
- * `RECENT_EXHIBITIONS_MAX`, 지난 전시는 기기 저장이 뺌) · `PIN으로 들어가기` · 주요 버튼 `새 전시 만들기`.
+ * `RECENT_EXHIBITIONS_MAX`, 지난 전시는 기기 저장이 뺌) · `선생님 캐릭터`(V-04) · `PIN으로 들어가기` · 주요 버튼 `새 전시 만들기`.
  * `/t#{토큰}`(선생님 링크, ADR-044)은 조각을 곧바로 지운 뒤 토큰으로 전시를 찾아 관리 화면으로 간다.
  */
 export const TeacherHome = () => {
@@ -56,6 +57,7 @@ export const TeacherHome = () => {
   );
   const [extra, setExtra] = useState<Readonly<Record<string, CardExtra>>>({});
   const [pinOpen, setPinOpen] = useState(false);
+  const [characterOpen, setCharacterOpen] = useState(false);
   const [link, setLink] = useState<LinkState>({ kind: 'idle' });
   const linkHandled = useRef<string | null>(null);
 
@@ -182,6 +184,14 @@ export const TeacherHome = () => {
         <div className={s.actions}>
           <button
             type="button"
+            className={c.ghost}
+            onClick={() => setCharacterOpen(true)}
+            data-testid="character-open"
+          >
+            {copy.teacher.characterButton}
+          </button>
+          <button
+            type="button"
             className={c.secondary}
             onClick={() => setPinOpen(true)}
             data-testid="pin-open"
@@ -201,6 +211,7 @@ export const TeacherHome = () => {
       </div>
 
       {pinOpen ? <PinSheet onClose={() => setPinOpen(false)} /> : null}
+      {characterOpen ? <TeacherCharacterPicker onClose={() => setCharacterOpen(false)} /> : null}
     </section>
   );
 };

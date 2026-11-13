@@ -7,6 +7,7 @@ import { PrivacyLink } from '../privacy/PrivacyLink.tsx';
 import { consentAudience, formatDay, type ConsentAudience } from './posterView.ts';
 import type { ConsentState, VisitorStore } from './visitorStore.ts';
 import s from './ConsentSheet.module.css';
+import { unlockAudio } from '../visit/roomMusic.ts';
 
 export interface ConsentSheetProps {
   readonly store: VisitorStore;
@@ -33,9 +34,16 @@ export const ConsentSheet = ({ store, view }: ConsentSheetProps) => {
       consent={consent}
       onNicknameChange={setNickname}
       onCheckedChange={setConsentChecked}
-      onConfirm={() => void confirmConsent()}
+      // 들어가는 누름 안에서 소리 잠금을 푼다(iOS, PRD G-06)
+      onConfirm={() => {
+        void unlockAudio();
+        void confirmConsent();
+      }}
       onBack={closeConsent}
-      onSkip={enterWithoutNickname}
+      onSkip={() => {
+        void unlockAudio();
+        enterWithoutNickname();
+      }}
       testId="consent-sheet"
     />
   );

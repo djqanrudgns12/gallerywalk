@@ -1,4 +1,4 @@
-import { copy, fill } from '@gallery/core/copy';
+import { copy, errorCopy, fill } from '@gallery/core/copy';
 import type { ExhibitionTeacher } from '@gallery/core/types';
 import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -12,7 +12,11 @@ import {
   T_TITLE_A,
   teacherExhibition,
   teacherServices,
+  teacherView,
 } from '../../../dev/teacherShellFixtures.tsx';
+import { pngFile } from '../../../dev/teacherFixtures.ts';
+import { pickFiles } from '../../../dev/teacherDom.tsx';
+import { uuid } from '../../../dev/testView.ts';
 import { DELETE_CONFIRM_SEC, ManageMenu } from './ManageMenu.tsx';
 
 let mounted: ReturnType<typeof mountTeacher> | null = null;
@@ -36,6 +40,7 @@ const Harness = ({
   return (
     <>
       <output data-testid="status">{ex.status}</output>
+      <output data-testid="poster">{ex.poster?.assetId ?? 'none'}</output>
       <ManageMenu exhibition={ex} onChanged={setEx} onDeleted={onDeleted} onOpenSheet={onOpenSheet} />
     </>
   );
@@ -60,6 +65,24 @@ const openMenu = (): void => click(mounted?.q('[data-testid="manage-menu-trigger
 const item = (id: string) => mounted?.q<HTMLButtonElement>(`[data-testid="${id}"]`) ?? null;
 
 describe('`···` 메뉴', () => {
+  it('`반응·투어 설정`은 열린 전시에서도 시트를 열고, 저장하면 바뀐 전시를 넘기고 알린다(V-17)', async () => {
+    const start = teacherExhibition({ status: 'OPEN' });
+    const saved = teacherExhibition({ status: 'CLOSED', rev: start.rev + 1 });
+    const patchExhibition = vi.fn<TeacherApi['patchExhibition']>(async () => saved);
+    mount(fakeTeacher({ patchExhibition }), start);
+    openMenu();
+    expect(item('menu-settings')?.textContent).toBe(copy.teacher.menu.settings);
+    click(item('menu-settings'));
+    expect(mounted?.q('[data-testid="manage-menu"]')).toBeNull();
+    expect(mounted?.q('[data-testid="settings-sheet"]')).not.toBeNull();
+    click(item('settings-save'));
+    await flush();
+    expect(patchExhibition).toHaveBeenCalledWith(T_EX_A, start.rev, { settings: start.settings });
+    expect(mounted?.q('[data-testid="settings-sheet"]')).toBeNull();
+    expect(mounted?.q('[data-testid="status"]')?.textContent).toBe('CLOSED');
+    expect(mounted?.q('[data-testid="teacher-toast"]')).not.toBeNull();
+  });
+
   it('자동 투어로 가고, 미리 불러오기는 열려 있다(시트는 PreloadSheet.test)', () => {
     mount(fakeTeacher());
     openMenu();
@@ -161,4 +184,76 @@ describe('`···` 메뉴', () => {
     expect(t.device.teacherSession(T_EX_A)).toBeNull();
     expect(t.device.recentExhibitions()).toEqual([]);
   });
+  it('포스터 고르기(V-02): 그림 하나를 기기에서 검사한 뒤 `uploadPoster`, 바뀐 전시 행을 넘긴다', async () => {
+    const withPoster = teacherExhibition({ poster: POSTER, rev: 4 });
+    const uploadPoster = vi.fn<TeacherApi['uploadPoster']>(async () => withPoster);
+    mount(fakeTeacher({ uploadPoster }));
+    openMenu();
+    expect(item('menu-poster')?.textContent).toBe(copy.teacher.menu.posterPick);
+    expect(item('menu-poster-remove')).toBeNull();
+    click(item('menu-poster'));
+    const file = pngFile('가상 포스터.png', 1600, 1000);
+    pickFiles(mounted?.q<HTMLInputElement>('[data-testid="poster-input"]') ?? null, [file]);
+    await flush();
+    expect(uploadPoster).toHaveBeenCalledTimes(1);
+    expect(uploadPoster.mock.calls[0]?.[0]).toBe(T_EX_A);
+    expect(uploadPoster.mock.calls[0]?.[1]).toEqual({ blob: file, name: file.name });
+    expect(mounted?.q('[data-testid="poster"]')?.textContent).toBe(POSTER.assetId);
+    expect(document.body.textContent).toContain(copy.teacher.menu.posterSaved);
+    openMenu();
+    expect(item('menu-poster')?.textContent).toBe(copy.teacher.menu.posterChange);
+  });
+
+  it('포스터 고르기: 그림이 아니거나 너무 작으면 보내지 않고 그 이유', async () => {
+    const uploadPoster = vi.fn<TeacherApi['uploadPoster']>();
+    mount(fakeTeacher({ uploadPoster }));
+    openMenu();
+    click(item('menu-poster'));
+    pickFiles(mounted?.q<HTMLInputElement>('[data-testid="poster-input"]') ?? null, [
+      pngFile('작은 포스터.png', 40, 40),
+    ]);
+    await flush();
+    expect(uploadPoster).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(errorCopy.E_FILE_TOO_SMALL);
+  });
+
+  it('포스터 빼기: 포스터가 있을 때만, `removePoster` 뒤 전시를 새로 받아 넘긴다', async () => {
+    const removePoster = vi.fn<TeacherApi['removePoster']>(async () => undefined);
+    const exhibition = vi.fn<TeacherApi['exhibition']>(async () => ({
+      ...teacherView(),
+      exhibition: teacherExhibition({ poster: null, rev: 5 }),
+    }));
+    mount(fakeTeacher({ removePoster, exhibition }), teacherExhibition({ poster: POSTER }));
+    openMenu();
+    click(item('menu-poster-remove'));
+    await flush();
+    expect(removePoster).toHaveBeenCalledWith(T_EX_A);
+    expect(mounted?.q('[data-testid="poster"]')?.textContent).toBe('none');
+    expect(document.body.textContent).toContain(copy.teacher.menu.posterRemoved);
+  });
+
+  it('선생님 캐릭터(V-04): 대화 상자에서 고르면 이 기기에 기억한다', async () => {
+    const t = mount(fakeTeacher());
+    expect(t.device.teacherCharacter()).toBe('teacher-m');
+    openMenu();
+    expect(item('menu-character')?.textContent).toBe(copy.teacher.characterButton);
+    click(item('menu-character'));
+    const dialog = mounted?.q('[data-testid="teacher-character-dialog"]');
+    expect(dialog?.textContent).toContain(copy.teacher.characterTitle);
+    expect(item('char-teacher-m')?.getAttribute('aria-checked')).toBe('true');
+    click(item('char-teacher-f'));
+    click(item('teacher-character-save'));
+    await flush();
+    expect(t.device.teacherCharacter()).toBe('teacher-f');
+    expect(mounted?.q('[data-testid="teacher-character-dialog"]')).toBeNull();
+    expect(document.body.textContent).toContain(copy.teacher.characterSaved);
+    openMenu();
+    click(item('menu-character'));
+    expect(item('char-teacher-f')?.getAttribute('aria-checked')).toBe('true');
+  });
 });
+
+const POSTER: NonNullable<ExhibitionTeacher['poster']> = {
+  assetId: uuid(0xc001),
+  variants: [{ name: 'thumb', ext: 'webp', w: 512, h: 320, bytes: 30_000 }],
+};

@@ -12,6 +12,8 @@ export interface TeacherCharacterDialogProps {
   onCharacterChange: (character: TeacherCharacterId) => void;
   displayName: string;
   onDisplayNameChange: (name: string) => void;
+  /** 이름표 칸을 보일지(기본 보임). 교사 화면은 서버가 늘 "선생님"으로 정하므로 끈다(V-04) */
+  showName?: boolean | undefined;
   characterImage?: Partial<Record<TeacherCharacterId, string>> | undefined;
   onSave: () => void;
   onClose: () => void;
@@ -79,6 +81,7 @@ export const TeacherCharacterDialog = ({
   onCharacterChange,
   displayName,
   onDisplayNameChange,
+  showName = true,
   characterImage,
   onSave,
   onClose,
@@ -173,24 +176,26 @@ export const TeacherCharacterDialog = ({
           })}
         </div>
 
-        <div className={s.labelBox}>
-          <div className={s.labelLeft}>
-            <label className={s.labelTitle} htmlFor={inputId}>
-              {nameplateLabel}
-            </label>
-            <span className={s.labelHint}>{nameplateHint}</span>
+        {showName ? (
+          <div className={s.labelBox}>
+            <div className={s.labelLeft}>
+              <label className={s.labelTitle} htmlFor={inputId}>
+                {nameplateLabel}
+              </label>
+              <span className={s.labelHint}>{nameplateHint}</span>
+            </div>
+            <input
+              id={inputId}
+              className={s.labelInput}
+              type="text"
+              value={displayName}
+              maxLength={config().NICKNAME_MAX_CHARS}
+              placeholder={copy.poster.nicknamePlaceholder}
+              aria-label={nameplateLabel}
+              onChange={e => onDisplayNameChange(e.target.value)}
+            />
           </div>
-          <input
-            id={inputId}
-            className={s.labelInput}
-            type="text"
-            value={displayName}
-            maxLength={config().NICKNAME_MAX_CHARS}
-            placeholder={copy.poster.nicknamePlaceholder}
-            aria-label={nameplateLabel}
-            onChange={e => onDisplayNameChange(e.target.value)}
-          />
-        </div>
+        ) : null}
 
         <footer className={s.footer}>
           <button type="button" className={s.cancelBtn} onClick={onClose}>

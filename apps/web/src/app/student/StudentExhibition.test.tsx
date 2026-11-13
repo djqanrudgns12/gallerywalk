@@ -5,7 +5,7 @@ import { mediaPath } from '@gallery/core/types';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { VisitScreenProps } from '../visit/contract.ts';
-import { formatDay } from './posterView.ts';
+import { formatDay, posterArtworks } from './posterView.ts';
 import { buttonByText, click, flush, KAKAO_UA, makeServices, mountAt, typeInto } from './testDom.tsx';
 import {
   CODE,
@@ -20,6 +20,13 @@ import {
 } from '../../dev/studentFixtures.ts';
 
 const visit = vi.hoisted(() => ({ props: null as VisitScreenProps | null, mounts: 0 }));
+
+// 소리 잠금 풀기(iOS는 누름 안에서만): 입장·시작 누름에서 부르는지 본다
+const unlockAudio = vi.hoisted(() => vi.fn(async () => true));
+vi.mock('../visit/roomMusic.ts', async importOriginal => ({
+  ...(await importOriginal<typeof import('../visit/roomMusic.ts')>()),
+  unlockAudio,
+}));
 
 vi.mock('../visit/VisitScreen.tsx', async () => {
   const { createElement, useEffect } = await import('react');
@@ -98,7 +105,9 @@ describe('학생 전시 화면', () => {
   it('별명이 비면 동의 없이 바로 관람(관람 화면을 다시 만들지 않음)', async () => {
     const t = await open();
     reportReady(true, 1);
+    unlockAudio.mockClear();
     click(enterButton());
+    expect(unlockAudio).toHaveBeenCalledTimes(1);
     expect(t.m.q('[role="dialog"]')).toBeNull();
     expect(t.m.q('[data-testid="visit-screen"]')?.getAttribute('data-entered')).toBe('1');
     expect(visit.props?.liveToken).toBe(t.device.visitor(EX_ID)?.token);
@@ -126,7 +135,9 @@ describe('학생 전시 화면', () => {
     expect(start?.disabled).toBe(true);
     click(t.m.q('[role="dialog"] input[type="checkbox"]'));
     expect(start?.disabled).toBe(false);
+    unlockAudio.mockClear();
     click(start);
+    expect(unlockAudio).toHaveBeenCalledTimes(1);
     await flush();
     expect(t.registerVisitor).toHaveBeenCalledWith(
       { code: CODE, exhibitionId: EX_ID },
@@ -219,6 +230,19 @@ describe('학생 전시 화면', () => {
     const img = t.m.q<HTMLImageElement>('[data-testid="entry-poster"] img');
     expect(img?.getAttribute('src')).toBe(mediaPath(EX_ID, POSTER_ID, { name: 'wall', ext: 'webp' }));
     expect(t.m.text()).toContain('가상초등학교 5학년 2반');
+  });
+
+  it('포스터 그림이 없으면 위 절반에 첫 전시실 작품 썸네일(미리 받는 주소)이 걸린다', async () => {
+    const t = await open();
+    const srcs = [...t.m.container.querySelectorAll('[data-testid="poster-artworks"] img')].map(i =>
+      i.getAttribute('src'),
+    );
+    expect(srcs.sort()).toEqual(
+      posterArtworks(makeView())
+        .map(a => a.url)
+        .sort(),
+    );
+    expect(srcs).toHaveLength(VIEW_ARTWORKS);
   });
 
   it('관람 중 2D로 바꾸라는 알림 → 3D 관람 화면을 내리고 그 자리에 2D 화면(같은 전시)', async () => {

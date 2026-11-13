@@ -1,5 +1,5 @@
 import { config } from '@gallery/core/config';
-import { copy, fill } from '@gallery/core/copy';
+import { copy, errorCopy, fill } from '@gallery/core/copy';
 import { AppError } from '@gallery/core/errors';
 import {
   ExhibitionSettingsSchema,
@@ -18,6 +18,7 @@ import { TEACHER_PATHS, type TeacherNavState } from '../shared/nav.ts';
 import { nothingCollected } from '../shared/reactionSummary.ts';
 import { ReactionSettingsEditor } from '../shared/ReactionSettingsEditor.tsx';
 import { Segmented } from '../shared/Segmented.tsx';
+import { checkPosterFile, POSTER_ACCEPT } from '../upload/posterFile.ts';
 import c from '../shared/controls.module.css';
 import s from './NewExhibition.module.css';
 
@@ -62,7 +63,8 @@ const errorsOf = (err: unknown): FieldErrors => {
  * 통과하지 않았으면 PIN 아래 한 칸을 더 보인다(ADR-048). 만들면 관리 화면 + "30일" 토스트.
  *
  * - 전시 ID는 이 화면에서 한 번 만들어 다시 보내도 같게 둔다(멱등, PLAN §9.2).
- * - 포스터 이미지는 파일 올리기 길(P5-3)이 생긴 뒤 관리 화면에서 고른다(여기서는 안내 한 줄).
+ * - 포스터 이미지(V-02)는 `더 설정하기`에서 하나 고르고(기기 사전 검사), 전시를 만든 직후 올린다. 실패해도 전시는
+ *   만들어진 채로 관리 화면에 가고 토스트 한 줄(관리 `···`에서 다시 고를 수 있다).
  * - 학교·학급은 만들기 본문에 칸이 없어(`CreateExhibitionSchema`) 만든 직후 `patchExhibition`으로 보낸다.
  */
 export const NewExhibition = () => {
@@ -93,6 +95,9 @@ export const NewExhibition = () => {
   const [tourMode, setTourMode] = useState<TourMode>(defaults.tour.timeMode);
   const [seconds, setSeconds] = useState(String(defaults.tour.secondsPerRoom));
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [poster, setPoster] = useState<File | null>(null);
+  const [posterError, setPosterError] = useState<string | null>(null);
+  const posterInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
   const tourMin = cfg.TOUR_MIN_SECONDS_PER_PART;
@@ -141,7 +146,8 @@ export const NewExhibition = () => {
     try {
       const result = await api.teacher.createExhibition(input);
       device.rememberExhibition({ exhibitionId: id, title: input.title, expiresAt: result.expiresAt });
-      let toast = fill(t.createdToast, { days: cfg.EXHIBITION_TTL_DAYS });
+      let schoolFailed = false;
+      let posterFailed = false;
       const school = { schoolName: schoolName.trim(), className: className.trim() };
       if (showSchool && (school.schoolName !== '' || school.className !== '')) {
         try {
@@ -152,9 +158,24 @@ export const NewExhibition = () => {
             className: school.className === '' ? null : school.className,
           });
         } catch {
-          toast = t.schoolSaveFailed;
+          schoolFailed = true;
         }
       }
+      if (poster) {
+        try {
+          await api.teacher.uploadPoster(id, { blob: poster, name: poster.name });
+        } catch {
+          posterFailed = true;
+        }
+      }
+      const toast =
+        schoolFailed && posterFailed
+          ? t.extrasSaveFailed
+          : schoolFailed
+            ? t.schoolSaveFailed
+            : posterFailed
+              ? t.posterSaveFailed
+              : fill(t.createdToast, { days: cfg.EXHIBITION_TTL_DAYS });
       const state: TeacherNavState = { toast };
       navigate(TEACHER_PATHS.manage(id), { state });
     } catch (err) {
@@ -174,6 +195,15 @@ export const NewExhibition = () => {
       delete next.form;
       return next;
     });
+  };
+
+  const pickPoster = async (el: HTMLInputElement): Promise<void> => {
+    const file = el.files?.[0] ?? null;
+    el.value = '';
+    if (!file) return;
+    const problem = await checkPosterFile(file, file.name);
+    setPosterError(problem === null ? null : errorCopy[problem]);
+    setPoster(problem === null ? file : null);
   };
 
   const upcoming = t.upcomingTemplates;
@@ -330,7 +360,46 @@ export const NewExhibition = () => {
             <div id={moreId} className={s.moreBody}>
               <section className={s.group}>
                 <h2 className={s.groupTitle}>{t.poster}</h2>
-                <p className={c.hint}>{t.posterLater}</p>
+                <input
+                  ref={posterInput}
+                  type="file"
+                  accept={POSTER_ACCEPT}
+                  hidden
+                  data-testid="new-poster-input"
+                  onChange={e => void pickPoster(e.currentTarget)}
+                />
+                <div className={s.posterRow}>
+                  <button
+                    type="button"
+                    className={c.secondary}
+                    onClick={() => posterInput.current?.click()}
+                    data-testid="new-poster-pick"
+                  >
+                    {poster ? t.posterChange : t.posterPick}
+                  </button>
+                  {poster ? (
+                    <>
+                      <span className={s.posterName} data-testid="new-poster-name">
+                        {fill(t.posterChosen, { name: poster.name })}
+                      </span>
+                      <button
+                        type="button"
+                        className={c.ghost}
+                        onClick={() => setPoster(null)}
+                        data-testid="new-poster-remove"
+                      >
+                        {t.posterRemove}
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+                {posterError ? (
+                  <p className={c.error} role="alert" data-testid="new-poster-error">
+                    {posterError}
+                  </p>
+                ) : (
+                  <p className={c.hint}>{t.posterHint}</p>
+                )}
               </section>
 
               <section className={s.group}>

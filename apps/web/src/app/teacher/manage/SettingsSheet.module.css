@@ -1,0 +1,31 @@
+/* 반응·투어 설정 시트(V-17). 색·간격은 토큰·테마 변수만 */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  background-color: var(--plate-bg-elevated);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+}
+
+.group + .group {
+  margin-top: var(--s-3);
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: var(--fs-3);
+  font-weight: 700;
+}
+
+.secondsRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.seconds {
+  inline-size: 6ch;
+  text-align: right;
+}

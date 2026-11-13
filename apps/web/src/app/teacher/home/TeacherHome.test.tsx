@@ -193,3 +193,23 @@ describe('선생님 링크 /t#{토큰}', () => {
     expect(mounted.q('[data-testid="link-failed"]')?.textContent).toBe(errorCopy.E_AUTH);
   });
 });
+
+describe('선생님 첫 화면 — 선생님 캐릭터(V-04, PRD 15.8)', () => {
+  it('`선생님 캐릭터`로 대화 상자를 열어 고르면 이 기기에 기억한다(이름표는 서버가 늘 "선생님")', async () => {
+    const t = teacherServices(fakeTeacher());
+    mounted = mountTeacher(<TeacherHome />, t.services);
+    await flush();
+    click(mounted.q('[data-testid="character-open"]'));
+    const dialog = mounted.q('[data-testid="teacher-character-dialog"]');
+    expect(dialog?.textContent).toContain(copy.teacher.characterTitle);
+    click(mounted.q('[data-testid="char-teacher-f"]'));
+    // 닫기는 기억하지 않는다
+    click(mounted.q('[data-testid="teacher-dialog-close"]'));
+    expect(t.device.teacherCharacter()).toBe('teacher-m');
+    click(mounted.q('[data-testid="character-open"]'));
+    click(mounted.q('[data-testid="char-teacher-f"]'));
+    click(mounted.q('[data-testid="teacher-character-save"]'));
+    expect(t.device.teacherCharacter()).toBe('teacher-f');
+    expect(mounted.q('[data-testid="teacher-character-dialog"]')).toBeNull();
+  });
+});

@@ -63,6 +63,21 @@ test('데스크톱 · 만들기 → 그림·제목 → 열기 → 학생 반응 
   await uploadTeacherArtworks(page);
   await captureTeacher(page, 'desktop-02-uploaded');
 
+  // 글 붙여넣기(V-01, PRD G-10·15.3-5): 놓기 띠 아래 링크 → 시트 → 같은 올리기 줄 → 격자 끝에 글 카드
+  await page.getByTestId('paste-open').click();
+  const paste = page.getByTestId('paste-sheet');
+  await expect(paste).toBeVisible();
+  await paste.getByTestId('paste-title').fill('가상 감상 글');
+  await paste.getByTestId('paste-body').fill('첫째 줄 가상 감상\n둘째 줄 가상 감상');
+  await paste.getByTestId('paste-save').click();
+  await expect(paste).toHaveCount(0);
+  await expect(page.getByTestId('upload-row')).toHaveCount(3);
+  await expect(page.getByTestId('upload-row').nth(2)).toHaveAttribute('data-phase', 'done', {
+    timeout: TEACHER_READY_MS,
+  });
+  await expect(page.getByTestId('cell-2').locator('[data-form="TEXTCARD"]')).toHaveCount(1);
+  await expect(page.getByTestId('cell-2').getByRole('heading')).toHaveText('가상 감상 글');
+
   const card = page.getByTestId('cell-0');
   const artworkId = UuidSchema.parse(await card.getAttribute('data-cell-id'));
   const title = '다시 만난 상상의 산';
@@ -172,6 +187,25 @@ test('데스크톱 · 만들기 → 그림·제목 → 열기 → 학생 반응 
     await expect(savedMemo).toHaveAttribute('data-hidden', '1');
     await expect(savedMemo.getByTestId('memo-hide')).toHaveText(copy.teacher.reactionsTab.unhide);
     await captureTeacher(page, 'desktop-06-hidden-memo');
+
+    // 열린 전시의 3D 미리 보기는 함께 관람에 "선생님"으로 들어간다(PRD 15.8, V-05) — 학생 화면 인원이 늘었다 준다
+    await page.getByTestId('open-preview').click();
+    await expect(page.getByTestId('preview-layer').getByTestId('visit-screen')).toHaveAttribute(
+      'data-ready',
+      '1',
+      {
+        timeout: TEACHER_READY_MS,
+      },
+    );
+    await expect(student.getByTestId('live-count')).toHaveAccessibleName(
+      fill(copy.viewer.liveCount, { n: 2 }),
+      {
+        timeout: 15_000,
+      },
+    );
+    await page.getByTestId('preview-layer').getByTestId('overlay-close').click();
+    // 선생님이 나가면 다시 혼자 — 인원 표시가 사라진다(V-54)
+    await expect(student.getByTestId('live-count')).toHaveCount(0, { timeout: 15_000 });
 
     await page.getByTestId('manage-menu-trigger').click();
     await page.getByRole('menuitem', { name: copy.teacher.menu.close, exact: true }).click();

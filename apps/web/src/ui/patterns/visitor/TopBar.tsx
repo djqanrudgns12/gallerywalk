@@ -1,14 +1,16 @@
 import { copy, fill } from '@gallery/core/copy';
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 import { Icon } from '../../Icon.tsx';
 import s from './TopBar.module.css';
 
 export interface TopBarProps {
   title: string;
   place?: string | undefined;
-  /** 함께 관람 인원 수 (0이면 copy.live.alone "혼자 둘러보는 중", 1 이상이면 copy.viewer.liveCount) */
+  /** 함께 관람 인원 수. 0이면 인원 표시를 두지 않는다(V-54), 1 이상이면 copy.viewer.liveCount */
   liveCount?: number | undefined;
   onCollection?: (() => void) | undefined;
+  /** 오른쪽 위 아이콘 묶음 끝에 더 둘 단추들(지도·소리·미리 보기 닫기 — 안내판 세 자리 규칙, V-54) */
+  actions?: ReactNode;
   className?: string | undefined;
 }
 
@@ -17,10 +19,12 @@ export const TopBar = ({
   place,
   liveCount = 0,
   onCollection,
+  actions,
   className,
 }: TopBarProps): JSX.Element => {
+  // 혼자일 때는 인원 표시를 두지 않는다(안내판을 줄임, V-54). 함께 보는 사람이 있을 때만
   const hasPeers = liveCount > 0;
-  const liveLabel = hasPeers ? fill(copy.viewer.liveCount, { n: liveCount }) : copy.live.alone;
+  const liveLabel = fill(copy.viewer.liveCount, { n: liveCount });
 
   return (
     <header className={className ? `${s.topBar} ${className}` : s.topBar} aria-label={title}>
@@ -38,10 +42,12 @@ export const TopBar = ({
       </div>
 
       <div className={s.rightGroup}>
-        <div className={s.liveCounter} data-testid="live-count" role="status" aria-label={liveLabel}>
-          <span className={hasPeers ? s.dotOnline : s.dotAlone} aria-hidden="true" />
-          <span className={s.liveText}>{liveLabel}</span>
-        </div>
+        {hasPeers ? (
+          <div className={s.liveCounter} data-testid="live-count" role="status" aria-label={liveLabel}>
+            <span className={s.dotOnline} aria-hidden="true" />
+            <span className={s.liveText}>{liveLabel}</span>
+          </div>
+        ) : null}
 
         {onCollection ? (
           <button
@@ -54,6 +60,7 @@ export const TopBar = ({
             <span className={s.collectionLabel}>{copy.viewer.collection}</span>
           </button>
         ) : null}
+        {actions}
       </div>
     </header>
   );

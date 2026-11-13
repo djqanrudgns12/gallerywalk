@@ -79,7 +79,8 @@ export const planImagePages = (input: ImagePageInput, vp: Viewport): ImagePagePl
   if (input.pageMode === 'SINGLE' || !isSplitCandidate(input)) return single(contain, false);
 
   const forced = alwaysSplit(input.form);
-  if (!forced && contain >= need) return single(contain, false);
+  // 한 장 맞춤이 읽기 기준에 조금만 못 미치면 한 장 + 확대(데스크톱 A4, PRD 15.1-5). 읽힘 여부(`readable`)는 그대로 알린다
+  if (!forced && contain >= need * config().PAGE_SINGLE_READ_TOLERANCE) return single(contain, false);
 
   const shortFit = shortAxisScale(input.content, vp, axis);
   // 읽히는 가장 작은 배율로 그려 한 쪽에 가장 많이 담는다. 화면이 좁아 거기까지 못 가면 짧은 축 맞춤이 최선.

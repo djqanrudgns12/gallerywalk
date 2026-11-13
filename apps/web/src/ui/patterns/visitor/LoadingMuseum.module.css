@@ -1,12 +1,17 @@
+/*
+ * 준비 화면(F8 V-55) — 어두운 바탕 · 가는 선그림 · 큰 세리프 이름 · 가는 놋쇠 진행선.
+ * 판 안의 판(테 두른 그림 상자)은 두지 않는다. 색·간격·글꼴은 토큰·테마 변수만(`--loader-*`).
+ */
 .stage {
   position: relative;
+  box-sizing: border-box;
   width: 100%;
   min-height: 420px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--s-6) var(--s-8);
+  padding: var(--s-8) var(--s-8);
   background-color: var(--loader-bg);
   color: var(--loader-ink);
   font-family: var(--font-ui);
@@ -14,153 +19,129 @@
 
 .center {
   width: 100%;
-  max-width: 680px;
+  max-width: 560px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--s-6);
-  text-align: center;
+  gap: var(--s-8);
 }
 
 .silhouetteFrame {
-  position: relative;
   width: 100%;
-  max-width: 560px;
-  height: 280px;
-  background-color: var(--plate-bg);
-  border: 1px solid var(--plate-edge);
-  border-radius: var(--r-card);
-  box-shadow: var(--shadow-card);
-  padding: var(--s-4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  max-width: 440px;
+  aspect-ratio: 520 / 250;
 }
 
 .silhouetteSvg {
   width: 100%;
   height: 100%;
   display: block;
+  overflow: visible;
 }
 
-@keyframes drawFacade {
+/* 선 길이는 `pathLength=100`으로 맞춰 두었다 — 0이면 다 그려진 그림 */
+@keyframes drawLine {
   0% {
-    stroke-dashoffset: 185;
-  }
-  50% {
-    stroke-dashoffset: 40;
+    stroke-dashoffset: 100;
   }
   100% {
-    stroke-dashoffset: 260;
-  }
-}
-
-@keyframes drawBrass {
-  0% {
-    stroke-dashoffset: 75;
-  }
-  50% {
     stroke-dashoffset: 0;
   }
-  100% {
-    stroke-dashoffset: 120;
-  }
 }
 
-@keyframes pulseNode {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.95;
-  }
-  50% {
-    transform: scale(1.22);
-    opacity: 0.65;
-  }
-}
-
+/* 밑그림: 점선 하나 */
 .lineGuide {
   fill: none;
-  stroke: var(--plate-edge);
-  stroke-width: 1.2;
-  stroke-dasharray: 4 4;
+  stroke: var(--loader-track);
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
 }
 
+/* 외관: 상아빛 가는 선 */
 .lineDrawPrimary {
   fill: none;
-  stroke: var(--accent);
-  stroke-width: 2.3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 820;
-  stroke-dashoffset: 185;
-  animation: drawFacade 3.2s var(--ease-out) infinite alternate;
+  stroke: var(--loader-sub);
+  stroke-width: 1.4;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  animation: drawLine 4.8s var(--ease-out) infinite alternate;
 }
 
+/* 박공·입구: 놋쇠 가는 선 */
 .lineDrawBrass {
   fill: none;
-  stroke: var(--brass);
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 480;
-  stroke-dashoffset: 75;
-  animation: drawBrass 3.2s var(--ease-out) infinite alternate;
+  stroke: var(--loader-fill);
+  stroke-width: 1.2;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  animation: drawLine 4.8s var(--ease-out) infinite alternate;
 }
 
-.penPoint {
-  transform-origin: center;
-  animation: pulseNode 1.6s ease-in-out infinite;
+.medallion {
+  fill: none;
+  stroke: var(--loader-fill);
+  stroke-width: 1.2;
 }
 
 .info {
   width: 100%;
-  max-width: 480px;
+  max-width: 440px;
   display: flex;
   flex-direction: column;
   gap: var(--s-3);
 }
 
 .title {
+  margin: 0 0 var(--s-2);
   font-family: var(--font-display);
-  font-size: var(--fs-6);
+  font-size: var(--fs-7);
   font-weight: 700;
+  line-height: var(--lh-tight);
   color: var(--loader-ink);
-  margin: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .statusRow {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--s-2);
   font-size: var(--fs-2);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--loader-sub);
 }
 
 .pct {
-  color: var(--accent);
-  font-weight: 700;
+  color: var(--loader-fill);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
+/* 가는 놋쇠 진행선 */
 .progressTrack {
   width: 100%;
-  height: 4px;
+  height: 2px;
   background-color: var(--loader-track);
-  border-radius: var(--r-pill);
   overflow: hidden;
 }
 
 .progressFill {
   height: 100%;
   background-color: var(--loader-fill);
+  transition: width var(--t-hover) var(--ease-out);
 }
 
 .subhint {
-  font-size: var(--fs-2);
-  color: var(--loader-sub);
   margin: 0;
+  text-align: center;
+  font-size: var(--fs-2);
+  line-height: var(--lh-body);
+  color: var(--loader-sub);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -170,22 +151,21 @@
     stroke-dashoffset: 0;
   }
 
-  .penPoint {
-    animation: none;
+  .progressFill {
+    transition: none;
   }
 }
 
 @media (max-width: 540px) {
   .stage {
-    padding: var(--s-4);
+    padding: var(--s-6) var(--s-5);
   }
 
-  .silhouetteFrame {
-    height: 210px;
-    padding: var(--s-3);
+  .center {
+    gap: var(--s-6);
   }
 
   .title {
-    font-size: var(--fs-5);
+    font-size: var(--fs-6);
   }
 }

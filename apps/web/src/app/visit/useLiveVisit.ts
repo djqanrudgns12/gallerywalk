@@ -25,9 +25,18 @@ export interface LiveVisitArgs {
   readonly character: CharacterId;
   readonly layout: Layout;
   readonly enabled: boolean;
+  /** 들어가는 역할(기본 방문자). 교사 3D 미리 보기는 `teacher` — 토큰은 교사 세션, 캐릭터는 `teacher-*`(PRD 15.8) */
+  readonly as?: 'visitor' | 'teacher' | undefined;
 }
 
-export const useLiveVisit = ({ code, token, character, layout, enabled }: LiveVisitArgs): LiveVisit => {
+export const useLiveVisit = ({
+  code,
+  token,
+  character,
+  layout,
+  enabled,
+  as = 'visitor',
+}: LiveVisitArgs): LiveVisit => {
   const buffer = useMemo(() => new PeerBuffer(), []);
   const [count, setCount] = useState(0);
   const [status, setStatus] = useState<LiveStatus>('off');
@@ -43,7 +52,7 @@ export const useLiveVisit = ({ code, token, character, layout, enabled }: LiveVi
       {
         code,
         token,
-        as: 'visitor',
+        as,
         character,
         pose: { x: spawn.pos[0], y: spawn.pos[1], z: spawn.pos[2], yaw: spawn.yaw, move: 0 },
       },
@@ -64,7 +73,7 @@ export const useLiveVisit = ({ code, token, character, layout, enabled }: LiveVi
       setStatus('off');
       wake.current();
     };
-  }, [enabled, token, code, character, layout, buffer]);
+  }, [enabled, token, code, character, layout, buffer, as]);
 
   const sendPose = useCallback((pose: Pose) => channel.current?.sendPose(pose), []);
   return { buffer, count, status, sendPose, wake };

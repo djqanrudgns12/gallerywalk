@@ -313,7 +313,13 @@ export interface DeviceStore {
   /** 이 기기가 전시 만들기에 한 번 성공했는가(시작 코드 칸을 숨김, ADR-048). 서버 판단의 힌트일 뿐이다 */
   startCodePassed(): boolean;
   setStartCodePassed(passed: boolean): void;
+
+  /** 이 기기 선생님의 캐릭터(PRD 15.8 "선생님은 교사 화면에서 고름") — 투어·3D 미리 보기·함께 관람에 쓴다. 기본 `teacher-m` */
+  teacherCharacter(): TeacherCharacter;
+  setTeacherCharacter(character: TeacherCharacter): void;
 }
+
+export type TeacherCharacter = Extract<CharacterId, `teacher-${string}`>;
 
 // ── TokenTools ────────────────────────────────────────────────
 

@@ -1,3 +1,4 @@
+import { copy, fill } from '@gallery/core/copy';
 import { describe, expect, it } from 'vitest';
 import { TEST_EXHIBITION_ID, testArtworkId, testAssetId, testExhibitionView } from '../../dev/testView.ts';
 import { visitModelOf } from './visitModel.ts';
@@ -39,5 +40,36 @@ describe('visitModelOf', () => {
       const room = p.roomId === view.rooms[0]!.id ? '전시실 1' : '전시실 2';
       expect(m.placeOf(p.partId)).toBe(p.partCount > 1 ? `${room} · ${p.partIndex + 1}관` : room);
     }
+  });
+});
+
+describe('명판 셋째 줄(PRD 6.4, V-23)', () => {
+  it('긴 세로 그림은 "이어서 보기", 여러 쪽 PDF는 쪽 수, 그 밖은 없음', () => {
+    const v = testExhibitionView([3]);
+    const [tall, pdf, plain] = v.artworks;
+    const view = {
+      ...v,
+      artworks: [
+        { ...tall!, form: 'TALL' as const },
+        {
+          ...pdf!,
+          kind: 'PDF' as const,
+          form: 'MULTIPAGE' as const,
+          pages: [1, 2, 3].map(idx => ({
+            idx,
+            asset: pdf!.image!.asset,
+            w: 1240,
+            h: 1754,
+            analysis: pdf!.image!.analysis,
+          })),
+        },
+        plain!,
+      ],
+    };
+    const m = visitModelOf(view);
+    const note = (id: string) => m.artworks.find(a => a.id === id)?.plateNote;
+    expect(note(tall!.id)).toBe(copy.viewer.continueReading);
+    expect(note(pdf!.id)).toBe(fill(copy.viewer.platePages, { n: 3 }));
+    expect(note(plain!.id)).toBeUndefined();
   });
 });

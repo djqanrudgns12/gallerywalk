@@ -1,3 +1,7 @@
+/*
+ * 크게 보기 캡션(R-7b, F8 V-55) — 어두운 전시관 안내판: 숯색 판 하나 · 1px 테 · 놋쇠는 `반응 남기기` 하나.
+ * 위계는 활자 크기로(큰 세리프 제목 → 작은 작가 이름 → 짧은 설명 한 줄). 색·간격·모서리·글꼴은 토큰·테마 변수만.
+ */
 .container {
   width: 100%;
   max-width: var(--caption-max-w);
@@ -22,187 +26,190 @@
   color: var(--plate-ink);
   border: 1px solid var(--plate-edge);
   border-radius: var(--r-plate);
-  box-shadow: var(--shadow-plate);
   font-family: var(--font-ui);
   font-size: var(--fs-2);
-  font-weight: 700;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--s-2);
   cursor: pointer;
 }
 
 .card {
+  box-sizing: border-box;
   width: 100%;
-  background-color: var(--plate-bg-elevated);
+  background-color: var(--plate-bg);
   color: var(--plate-ink);
   border: 1px solid var(--plate-edge);
-  border-top: 2px solid var(--brass-border);
   border-radius: var(--r-card);
-  box-shadow: var(--shadow-card);
-  padding: var(--s-4) var(--s-5);
+  padding: var(--s-5) var(--s-6) var(--s-4);
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
-}
-
-.head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
   gap: var(--s-4);
 }
 
-.titleGroup {
+.text {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--s-1);
-  min-width: 0;
-  flex: 1;
 }
 
+/* 대표작·쪽 표시: 작은 한 줄(대표작만 놋쇠) */
 .eyebrow {
-  display: inline-flex;
+  margin: 0 0 var(--s-1);
+  display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: var(--s-2);
   font-size: var(--fs-1);
-  font-weight: 700;
-  color: var(--brass);
+  font-weight: 600;
+  line-height: var(--lh-tight);
 }
 
 .featuredBadge {
-  padding: 1px 6px;
-  background-color: var(--brass-soft);
-  border: 1px solid var(--brass-border);
-  border-radius: var(--r-plate);
-  font-size: var(--fs-1);
-  font-weight: 700;
-  color: var(--brass);
+  color: var(--accent);
 }
 
 .pageInfo {
   color: var(--plate-ink-sub);
-  font-weight: 600;
 }
 
-.titleRow {
-  display: flex;
-  align-items: baseline;
-  gap: var(--s-2);
-  flex-wrap: wrap;
+.featuredBadge + .pageInfo::before {
+  content: '';
+  display: inline-block;
+  inline-size: 1px;
+  block-size: 0.9em;
+  margin-inline-end: var(--s-2);
+  vertical-align: -0.1em;
+  background-color: var(--plate-edge);
 }
 
 .title {
-  font-family: var(--font-display);
-  font-size: var(--fs-5);
-  font-weight: 700;
-  color: var(--plate-ink);
   margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-6);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  color: var(--plate-ink);
+  overflow-wrap: anywhere;
 }
 
 .author {
+  margin: 0;
   font-size: var(--fs-2);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--plate-ink-sub);
 }
 
 .caption {
-  font-size: var(--fs-2);
-  color: var(--plate-ink-sub);
-  margin: 0;
+  margin: var(--s-1) 0 0;
+  font-size: var(--fs-3);
   line-height: var(--lh-body);
-}
-
-.actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-2);
-  flex-shrink: 0;
-}
-
-.toggleBtn {
-  min-width: var(--touch-min);
-  min-height: var(--touch-min);
-  padding: 0 var(--s-3);
-  background-color: var(--plate-bg);
   color: var(--plate-ink);
-  border: 1px solid var(--plate-edge);
-  border-radius: var(--r-plate);
-  font-family: var(--font-ui);
-  font-size: var(--fs-2);
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  cursor: pointer;
 }
 
-.reactBtn {
-  min-width: var(--touch-min);
-  min-height: var(--touch-min);
-  padding: 0 var(--s-4);
-  background-color: var(--accent);
-  color: var(--accent-ink);
-  border: 1px solid var(--accent);
-  border-radius: var(--r-plate);
-  box-shadow: var(--shadow-plate);
-  font-family: var(--font-ui);
-  font-size: var(--fs-2);
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--s-2);
-  cursor: pointer;
-}
-
+/* 펼친 긴 설명: 판 안의 판 대신 위 1px 선 하나로 나눈다 */
 .expandedDesc {
-  padding: var(--s-3) var(--s-4);
-  background-color: var(--surface-wall);
-  border: 1px solid var(--plate-edge);
-  border-radius: var(--r-plate);
+  max-height: 32vh;
+  max-height: 32dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--plate-edge);
 }
 
 .descriptionText {
-  font-size: var(--fs-2);
+  margin: 0;
+  font-size: var(--fs-3);
   line-height: var(--lh-body);
   color: var(--plate-ink);
-  margin: 0;
   white-space: pre-wrap;
+}
+
+/* `더 보기` · `반응 남기기`는 늘 한 줄 */
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: var(--s-2);
+}
+
+.toggleBtn,
+.reactBtn {
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.toggleBtn {
+  margin-inline-end: auto;
+  padding: 0 var(--s-4);
+  background-color: transparent;
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  font-weight: 600;
+}
+
+.reactBtn {
+  padding: 0 var(--s-6);
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  font-weight: 700;
+}
+
+/* 보내지 못한 반응이 남았을 때 반응 단추의 작은 점(V-21) — 놋쇠 단추 위라 글자색으로 찍는다 */
+.pendingDot {
+  display: inline-block;
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background-color: var(--accent-ink);
+}
+
+.closeBtn:focus-visible,
+.toggleBtn:focus-visible,
+.reactBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .closeBtn:hover,
+  .toggleBtn:hover {
+    border-color: var(--plate-ink-sub);
+  }
 }
 
 @media (max-width: 540px) {
   .card {
-    padding: var(--s-3);
-    gap: var(--s-2);
-    border-radius: var(--r-sheet);
-  }
-
-  .head {
-    flex-direction: column;
-    gap: var(--s-2);
+    padding: var(--s-4) var(--s-4) var(--s-3);
+    gap: var(--s-3);
   }
 
   .title {
-    font-size: var(--fs-4);
+    font-size: var(--fs-5);
   }
 
-  .actions {
-    width: 100%;
-    justify-content: space-between;
+  .caption,
+  .descriptionText {
+    font-size: var(--fs-2);
   }
 
   .reactBtn {
     flex: 1;
-  }
-
-  .expandedDesc {
-    padding: var(--s-2) var(--s-3);
-  }
-
-  .descriptionText {
-    font-size: var(--fs-1);
+    padding: 0 var(--s-4);
   }
 }

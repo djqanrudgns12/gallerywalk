@@ -64,9 +64,20 @@ const useMediaLifecycle = (services: AppServices): void => {
   }, [services]);
 };
 
+/**
+ * 앱 시작 때 한 번: 최근 전시 목록을 읽으면 지난 전시의 방문자 토큰·별명과 교사 세션을 기기에서 지운다
+ * (`deviceStore.readRecent`, ADR-062 — 전시를 하나도 열지 않아도 정리되게)
+ */
+const useDeviceSweep = (services: AppServices): void => {
+  useEffect(() => {
+    services.device.recentExhibitions();
+  }, [services]);
+};
+
 export const App = () => {
   const services = appServices();
   useMediaLifecycle(services);
+  useDeviceSweep(services);
   return (
     <BrowserRouter>
       <ServicesContext value={services}>

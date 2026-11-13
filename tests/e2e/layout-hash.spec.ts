@@ -5,7 +5,7 @@ import { hashFixtures } from '../../apps/web/dev/hashFixtures.ts';
 /**
  * P2-3 끝 조건(PLAN §4.11): 고정 입력 20개의 배치 해시가 Node(이 시험 프로세스)와 브라우저에서 같다.
  * 서버(Node)가 계산해 저장한 배치를 기기가 같은 해시로 확인하려면 부동소수 끝자리 차이가 없어야 한다(§4.10).
- * 지금 프로젝트는 Chromium만 — WebKit은 브라우저를 받아야 해서 미실행(보고에 적음).
+ * Chromium과 WebKit(Safari 엔진, U-22) 두 프로젝트에서 돈다.
  */
 
 test('배치 해시: Node와 브라우저가 같다(고정 입력 20개)', async ({ page }) => {

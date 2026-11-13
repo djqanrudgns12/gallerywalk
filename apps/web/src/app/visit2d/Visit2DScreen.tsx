@@ -13,6 +13,7 @@ import {
 } from 'react';
 import '../../ui/tokens.css';
 import '../../ui/themes/modern-history.css';
+import '../../ui/themes/gallery-dark.css';
 import type { Track } from '../../audio/AudioEngine.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import { ZoomCaption } from '../../ui/patterns/visitor/ZoomCaption.tsx';
@@ -39,6 +40,7 @@ import {
 } from './slides.ts';
 import { TextCard2D } from './TextCard2D.tsx';
 import s from './Visit2DScreen.module.css';
+import { STUDENT_THEME } from '../student/theme.ts';
 
 /**
  * 2D 대체 화면(P4-10, ADR-019, PLAN §6.12): 3D로 볼 수 없는 기기에서 액자를 하나씩 넘겨 본다 — 수업 중 빈 화면이 없게.
@@ -121,6 +123,12 @@ export const Visit2DScreen = ({
       .flatMap(r => (first.has(r.id) ? [{ id: r.id, title: r.title, slide: first.get(r.id)! }] : []));
   }, [slides, roomOfPart, view.rooms]);
   const slide = slides[index] ?? EXIT_SLIDE;
+  // 전시실 첫 작품에서 그 전시실 소개 글(교사가 쓴 것, PRD G-12 — 3D는 소개판, V-03)
+  const introHere = useMemo(() => {
+    const tab = roomTabs.find(t => t.slide === index);
+    const intro = tab ? view.rooms.find(r => r.id === tab.id)?.intro : null;
+    return tab && intro ? { title: tab.title, intro } : null;
+  }, [roomTabs, index, view.rooms]);
   const art = slide.kind === 'artwork' ? byId.get(slide.artworkId) : undefined;
   const card = art ? model.cards.get(art.id) : undefined;
   const track = art ? model.tracks.get(art.id) : undefined;
@@ -229,7 +237,7 @@ export const Visit2DScreen = ({
   return (
     <div
       className={s.stage}
-      data-theme={model.layout.templateId}
+      data-theme={STUDENT_THEME}
       data-testid="visit-2d"
       data-index={index}
       data-stop={slide.stopId}
@@ -381,6 +389,16 @@ export const Visit2DScreen = ({
 
       {art ? (
         <div className={s.caption}>
+          {introHere ? (
+            <section
+              className={`${s.plate} ${s.roomIntro}`}
+              data-testid="visit2d-room-intro"
+              aria-label={introHere.title}
+            >
+              <p className={s.roomIntroTitle}>{introHere.title}</p>
+              <p className={s.roomIntroText}>{introHere.intro}</p>
+            </section>
+          ) : null}
           {captionOpen ? (
             <>
               <ZoomCaption

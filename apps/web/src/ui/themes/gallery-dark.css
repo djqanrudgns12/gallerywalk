@@ -1,0 +1,84 @@
+/**
+ * 학생 화면 테마 v3 — 어두운 전시관 안내 체계 (F8 V-51, U-19-10·U-24 기본안 A, ADR-066)
+ * - 3D 실내(분위기 D, 숯색 벽 + 작품 조명)와 같은 밤 톤: 숯색 판 · 상아색 글자 · 놋쇠 빛 한 가지 강조.
+ * - 판 모양은 하나: 각진 모서리(2px)·1px 테·그림자 없음에 가까움. 장식 대신 여백과 활자 크기로 위계를 만든다.
+ * - 순검정·네온·그라데이션·유리 금지(PRD 9.6). 글자 색 조합은 모두 AA(4.5:1) 이상.
+ *
+ * [WCAG 2.1 명도 대비 계산값]
+ * - --plate-ink (#F2EBDF) on --plate-bg (#171513)            : 15.37 : 1
+ * - --plate-ink-sub (#B8AD9C) on --plate-bg (#171513)        :  8.23 : 1
+ * - --plate-ink on --plate-bg-elevated (#201D1A)            : 14.16 : 1
+ * - --accent (#C9A66B) on --plate-bg                         :  7.94 : 1
+ * - --accent-ink (#16130F) on --accent                       :  8.07 : 1
+ * - --accent on --accent-soft (#2A2419)                      :  6.70 : 1
+ * - --brass (#D4B27A) on --plate-bg                          :  9.06 : 1
+ * - --accent-plum (#E09AAB) on --plate-bg                    :  8.13 : 1
+ * - --badge-teacher-ink (#F7EEE4) on --badge-teacher-bg (#7A2C3E): 8.11 : 1
+ * - --danger (#F09A8C) on --plate-bg / --danger-bg (#3A1D19)  : 8.42 / 7.09 : 1
+ * - --status-ok / warn / muted on 각 바탕                     : 8.65 / 9.03 / 8.06 : 1
+ * - --map-ink (#F2EBDF) on --map-paper (#1C1A17)             : 14.65 : 1
+ * - --loader-ink / sub / fill on --loader-bg (#0E0D0C)       : 16.39 / 8.78 / 8.46 : 1
+ */
+[data-theme='gallery-dark'] {
+  color-scheme: dark;
+
+  --plate-bg: #171513;
+  --plate-bg-elevated: #201d1a;
+  --plate-ink: #f2ebdf;
+  --plate-ink-sub: #b8ad9c;
+  --plate-edge: #3a342d;
+
+  --surface-wall: #0e0d0c;
+  --surface-marble: #1a1815;
+  --surface-oak: #2a241e;
+
+  --accent: #c9a66b;
+  --accent-ink: #16130f;
+  --accent-soft: #2a2419;
+
+  --brass: #d4b27a;
+  --brass-border: #8a6f45;
+  --brass-soft: #2a2419;
+  --accent-plum: #e09aab;
+  --accent-plum-soft: #2e1c21;
+
+  --badge-visitor-bg: #171513;
+  --badge-visitor-ink: #f2ebdf;
+  --badge-me-bg: #c9a66b;
+  --badge-me-ink: #16130f;
+  --badge-teacher-bg: #7a2c3e;
+  --badge-teacher-ink: #f7eee4;
+
+  --frame-outer: #2c241c;
+  --frame-inner: #8a6f45;
+  --mat-light: #f3eee3;
+  --mat-dark: #2b2520;
+
+  --scrim: rgba(5, 4, 3, 0.66);
+  --danger: #f09a8c;
+  --danger-bg: #3a1d19;
+  --status-ok: #8fd1a8;
+  --status-ok-bg: #16291f;
+  --status-warn: #e8c27f;
+  --status-warn-bg: #2e2414;
+  --status-muted: #c2b8a8;
+  --status-muted-bg: #26221e;
+
+  --map-paper: #1c1a17;
+  --map-ink: #f2ebdf;
+
+  --loader-bg: #0e0d0c;
+  --loader-track: #2c2823;
+  --loader-fill: #c9a66b;
+  --loader-ink: #f2ebdf;
+  --loader-sub: #b8ad9c;
+
+  /* 판 모양 하나: 각진 모서리 · 그림자 대신 1px 테(어두운 바탕에서 그림자는 뭉개진다) */
+  --r-plate: 2px;
+  --r-card: 2px;
+  --r-sheet: 6px;
+  --shadow-plate: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.4);
+  --shadow-frame: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-sheet: 0 -1px 0 #3a342d;
+}

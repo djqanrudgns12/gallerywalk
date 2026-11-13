@@ -95,11 +95,11 @@ for (const size of SIZES) {
       expect(start.me.y).toBeLessThan(-0.5); // 광장 땅(계단 아래)
       await page.screenshot({ path: `${SHOTS}/${size.name}-01-plaza.png` });
 
-      // 홀까지 안내 걷기(계단을 올라 정문을 지난다)
+      // 홀까지 안내 걷기(계단을 올라 정문을 지난다). 연타(두 번 누르기)해도 한 칸만(PRD 15.1-2)
       await page
         .getByTestId('walk-nav')
         .getByRole('button', { name: /다음 작품으로/ })
-        .click();
+        .dblclick();
       await waitMode(page, 'view');
       const hall = await settle(page);
       expect(hall.stopIndex).toBe(1);

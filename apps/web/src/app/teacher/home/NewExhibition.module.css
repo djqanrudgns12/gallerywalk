@@ -184,6 +184,21 @@ button.templateCard:focus-visible {
   gap: var(--s-3);
 }
 
+/* 포스터 고르기(V-02): 단추 · 고른 파일 이름 · 빼기 */
+.posterRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-3);
+}
+
+.posterName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-2);
+  color: var(--plate-ink);
+}
+
 .secondsRow {
   display: flex;
   align-items: center;

@@ -214,9 +214,13 @@ export const configDefaults = {
   ZOOM_DIM: 0.7,
   ZOOM_POOL_BOOST: 1.35,
   ZOOM_MAX_SCALE: 3,
+  /** 크게 볼 때 화면 아래 캡션 카드가 가리는 비율(세로 화면만 — 가로 휴대폰은 캡션이 오른쪽 패널, PRD 9.5) */
+  ZOOM_CAPTION_INSET: 0.24,
   ZOOM_HI_AT_SCALE: 1.5,
   PINCH_LOCK_SCALE: 1.05,
   IDLE_DIM_SEC: 3,
+  /** 걷기 키 안내를 처음 보이는 시간(그 사이 움직이면 바로 숨김, V-54) */
+  WALK_HINT_SEC: 8,
   /** 위 줄 투명도(PLAN §7.3): 움직이는 동안 · 입력 없이 `IDLE_DIM_SEC` 지난 뒤 */
   TOP_BAR_OPACITY: { moving: 0.5, idle: 0.35 },
   MICRO_MOTION_SETTLE_SEC: 2,
@@ -250,6 +254,11 @@ export const configDefaults = {
   CUT_MIN_PAGE_RATIO: 0.6,
   /** 나눠서 얻는 배율이 한 장 맞춤의 이 배를 넘을 때만 나눈다(§5.6, 아니면 확대 + 회전 안내) */
   PAGE_SPLIT_MIN_GAIN: 1.02,
+  /**
+   * 한 장 맞춤 배율이 읽기 기준의 이 배 이상이면(나눔 대상이어도 긴 세로·파노라마가 아니면) 한 장으로 두고 확대로 읽는다.
+   * 데스크톱 A4 한 장(PRD 15.1-5, V-27): 보통 글자(줄 간격 ≈ 83px)는 한 장, 아주 촘촘한 글은 그래도 나눈다
+   */
+  PAGE_SINGLE_READ_TOLERANCE: 0.8,
   /** 화면을 돌리면 짧은 축 맞춤 배율이 이 배를 넘게 커지는 글 문서만 회전 안내(ADR-047) */
   ROTATE_HINT_MIN_GAIN: 1.2,
   /** 붙여넣은 글의 시 판정(§5.7): 줄 수 하한, 짧은 줄 글자 수, 짧은 줄 비율 */
@@ -292,6 +301,8 @@ export const configDefaults = {
 
   // ── 입력 (PLAN §6.9) ───────────────────────────────────────
   TAP_MAX_PX: 10,
+  /** 크게 보는 중 한 손가락으로 이만큼 아래로 쓸면 닫는다(PRD G-03) */
+  ZOOM_SWIPE_CLOSE_PX: 80,
   /**
    * 자유 관람(ADR-057) 캐릭터: 걷기·뛰기 속도(m/s), 가속·감속(m/s²), 도는 빠르기(rad/s), 키(학생·선생님, m).
    * 안내 이동("다음 작품으로")은 걷기 속도 × `GUIDE_SPEED_SCALE`로, 경로 끝 `GUIDE_ARRIVE_M` 안이면 도착.

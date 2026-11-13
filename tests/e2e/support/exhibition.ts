@@ -22,11 +22,21 @@ const SeedSchema = z.object({
   entryCode: EntryCodeSchema,
   teacherToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   artworks: z.number().int().positive(),
+  /** 시드가 만든 종류별 수(`--with-pages`의 웹툰·A4는 IMAGE) */
+  kinds: z.object({
+    IMAGE: z.number().int().nonnegative(),
+    TEXT: z.number().int().nonnegative(),
+    PDF: z.number().int().nonnegative(),
+    AUDIO: z.number().int().nonnegative(),
+  }),
 });
 
 export type SeededExhibition = z.infer<typeof SeedSchema>;
 
-/** 자식의 stdout에는 자격 정보가 있다. 메모리에서만 읽고 PIN은 반환하지 않는다. */
+/**
+ * 자식의 stdout에는 자격 정보가 있다. 메모리에서만 읽고 PIN은 반환하지 않는다.
+ * `--with-pages`: 쪽 나눔 확인(V-08)용 웹툰·글 많은 A4·PDF 5쪽·소리를 더한다.
+ */
 export async function seedStudentExhibition(): Promise<SeededExhibition> {
   let stdout: string;
   try {
@@ -40,10 +50,11 @@ export async function seedStudentExhibition(): Promise<SeededExhibition> {
         '3',
         '--text',
         '1',
+        '--with-pages',
         '--title',
         '학생 흐름 합성 전시',
       ],
-      { cwd: ROOT, timeout: 180_000 },
+      { cwd: ROOT, timeout: 210_000 },
     ));
   } catch {
     // execFile의 오류 객체에는 stdout이 붙으므로 원본 오류를 기록하지 않는다.

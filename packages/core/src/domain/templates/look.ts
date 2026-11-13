@@ -74,13 +74,13 @@ export const surfaceSlotOf = (materialName: string): SurfaceSlot | null => {
 };
 
 /**
- * 실내 분위기 시안(R-9a, `.local/art/r9/`): A 저녁 미술관 · B 고전 박물관 · C 현대 갤러리.
- * 기본은 A(사용자 의견 "살짝 어둡게, 작품 쪽 은은하게 밝게"). 사용자가 고르면(U-07) `DEFAULT_MOOD`를 바꾼다.
- * 바깥(광장) 빛과 매트 색은 셋이 같다.
+ * 실내 분위기 시안(R-9a, `.local/art/r9/`): A 저녁 미술관 · B 고전 박물관 · C 현대 갤러리 · D 어두운 전시관.
+ * 기본은 D(U-19-10, 2026-11-13 사용자 결정: "전체적으로 검정 톤, 작품 쪽과 드문드문 조명, 전시관처럼").
+ * 바깥(광장) 빛과 매트 색은 모두 같다.
  */
-export const MOOD_IDS = ['a', 'b', 'c'] as const;
+export const MOOD_IDS = ['a', 'b', 'c', 'd'] as const;
 export type MoodId = (typeof MOOD_IDS)[number];
-export const DEFAULT_MOOD: MoodId = 'a';
+export const DEFAULT_MOOD: MoodId = 'd';
 
 const OUTDOOR: TemplateLook['outdoor'] = {
   exposure: 1.0,
@@ -142,6 +142,26 @@ export const templateMoods: Readonly<Record<TemplateId, Readonly<Record<MoodId, 
         Molding: '#53625b',
         Ceiling: '#5c6b64',
         Marble: '#5a6a63',
+      },
+      mat: MAT,
+      card: CARD,
+    },
+    // D 어두운 전시관(U-19-10): 숯색 벽·짙은 바닥·낮은 방 빛, 작품마다 스포트처럼 강한 빛 웅덩이, 방 : 작품 ≈ 1 : 6
+    d: {
+      background: '#0b0a09',
+      exposure: 0.95,
+      baked: { intensity: 0.95, color: '#e9dcc8', hemisphereScale: 0.08, environmentScale: 0.2 },
+      hemisphere: { sky: '#d9cdbb', ground: '#141110', intensity: 0.22 },
+      environment: 0.12,
+      outdoor: OUTDOOR,
+      pool: { color: '#ffe2b8', opacity: 0.95, scale: 1.55, lift: 0.18 },
+      surfaces: {
+        Plaster: '#2c2a28',
+        Panel: '#211d1a',
+        Floor: '#2e2925',
+        Molding: '#3b342d',
+        Ceiling: '#1d1c1b',
+        Marble: '#4b4743',
       },
       mat: MAT,
       card: CARD,

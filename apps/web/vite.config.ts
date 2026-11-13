@@ -82,6 +82,8 @@ const serviceWorkerManifest = (): Plugin => ({
     handler(_options, bundle) {
       const urls = new Set<string>(['/']);
       const visit = (name: string): void => {
+        // 글꼴 조각(U-21, unicode-range로 수백 개)은 미리 저장하지 않는다 — 브라우저가 쓰는 글자의 조각만 받는다
+        if (/\.(woff2?|ttf|otf)$/.test(name)) return;
         const url = `/${name}`;
         if (urls.has(url)) return;
         const item = bundle[name];

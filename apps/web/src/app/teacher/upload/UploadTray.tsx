@@ -1,5 +1,7 @@
 import { config } from '@gallery/core/config';
 import { copy, errorCopy, fill } from '@gallery/core/copy';
+import { planImagePages } from '@gallery/core/pages';
+import { type ArtworkTeacher, decodeImageAnalysis, type Viewport } from '@gallery/core/types';
 import { Icon } from '../../../ui/index.ts';
 import type { UploadProblem } from './precheck.ts';
 import { isFinished, type UploadTask } from './uploadQueue.ts';
@@ -32,6 +34,49 @@ export const problemFix = (problem: UploadProblem, about: { readonly pdf?: boole
   }
 };
 
+/**
+ * 그림 작품이 이 화면에서 몇 쪽으로 보이나(V-18, PRD 6.7·6.9). 학생 기기가 쓰는 쪽 계획기(`planImagePages`)를 지금 화면 크기로
+ * 돌린다(서버는 쪽 수를 주지 않는다). 나눌 수 있는 것은 긴 세로·파노라마·글 많은 그림뿐이고, 그 밖·그림 없음은 1.
+ * 원본 화소 좌표로 계산한다(학생은 줌·띠 그림 좌표 — 줄 간격을 같은 비율로 바꾸므로 쪽 수는 같다).
+ */
+export const imagePagesOf = (
+  a: Pick<ArtworkTeacher, 'form' | 'textHeavy' | 'pageMode' | 'image'>,
+  vp: Viewport,
+): number => {
+  if (!a.image) return 1;
+  const an = decodeImageAnalysis(a.image.analysis);
+  return planImagePages(
+    {
+      form: a.form,
+      textHeavy: a.textHeavy,
+      pageMode: a.pageMode,
+      content: { w: a.image.w, h: a.image.h },
+      linePitchPx: an.linePitchPx,
+      lineProfile: an.lineProfile,
+      profileBinPx: an.profileBinPx,
+    },
+    vp,
+  ).pages.length;
+};
+
+/** 쪽 수를 셀 화면 크기: 지금 창(교사 화면은 보통 데스크톱) */
+export const screenViewport = (): Viewport => ({
+  w: Math.max(1, window.innerWidth),
+  h: Math.max(1, window.innerHeight),
+});
+
+/** 결과 한 줄 "웹툰이라 3쪽으로 나눠 보여 줘요"(PRD 6.9). 나누지 않으면 null */
+export const splitNoteOf = (
+  a: Pick<ArtworkTeacher, 'form' | 'textHeavy' | 'pageMode' | 'image'>,
+  vp: Viewport,
+): string | null => {
+  const n = imagePagesOf(a, vp);
+  if (n <= 1) return null;
+  const u = copy.teacher.upload;
+  const text = a.form === 'TALL' ? u.splitTall : a.form === 'PANORAMA' ? u.splitPanorama : u.splitText;
+  return fill(text, { n });
+};
+
 const phaseText = (t: UploadTask): string => {
   const u = copy.teacher.upload;
   switch (t.phase) {
@@ -56,13 +101,22 @@ const phaseText = (t: UploadTask): string => {
 
 export interface UploadTrayProps {
   readonly tasks: readonly UploadTask[];
+  /** 지금 작품들(끝난 줄의 쪽 나눔 한 줄을 셈, V-18). 없으면 그 줄을 생략 */
+  readonly artworks?: readonly ArtworkTeacher[];
   readonly onClear: () => void;
 }
 
-/** 올리는 중인 파일 목록(동시 3개, 진행률, 결과·오류 한 줄 + 해결법) */
-export const UploadTray = ({ tasks, onClear }: UploadTrayProps) => {
+/** 올리는 중인 파일 목록(동시 3개, 진행률, 결과·오류 한 줄 + 해결법 · 쪽 나눔 한 줄) */
+export const UploadTray = ({ tasks, artworks = [], onClear }: UploadTrayProps) => {
   if (tasks.length === 0) return null;
   const finished = tasks.filter(t => isFinished(t.phase)).length;
+  const vp = screenViewport();
+  const noteOf = (t: UploadTask): string | null => {
+    if (t.phase !== 'done' || t.target.type !== 'ARTWORK') return null;
+    const id = t.target.artworkId;
+    const a = artworks.find(x => x.id === id);
+    return a ? splitNoteOf(a, vp) : null;
+  };
   return (
     <section className={s.tray} aria-label={copy.teacher.upload.trayTitle} data-testid="upload-tray">
       <header className={s.trayHead}>
@@ -79,6 +133,7 @@ export const UploadTray = ({ tasks, onClear }: UploadTrayProps) => {
         {tasks.map(t => {
           const bad = t.phase === 'blocked' || t.phase === 'failed' || t.phase === 'duplicate';
           const fix = bad && t.problem !== null ? problemFix(t.problem, { pdf: t.pdf }) : null;
+          const note = noteOf(t);
           return (
             <li
               key={t.key}
@@ -100,6 +155,11 @@ export const UploadTray = ({ tasks, onClear }: UploadTrayProps) => {
                 <span>{phaseText(t)}</span>
               </span>
               {fix ? <span className={s.fix}>{fix}</span> : null}
+              {note ? (
+                <span className={s.fix} data-testid="upload-note">
+                  {note}
+                </span>
+              ) : null}
               {t.phase === 'sending' || t.phase === 'rendering' ? (
                 <span className={s.bar} aria-hidden="true">
                   <span className={s.barFill} style={{ inlineSize: `${Math.round(t.progress * 100)}%` }} />

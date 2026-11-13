@@ -16,6 +16,8 @@ import {
   teacherServices,
   teacherView,
 } from '../../../dev/teacherShellFixtures.tsx';
+import { pngFile } from '../../../dev/teacherFixtures.ts';
+import { pickFiles } from '../../../dev/teacherDom.tsx';
 import { NewExhibition } from './NewExhibition.tsx';
 
 let mounted: ReturnType<typeof mountTeacher> | null = null;
@@ -193,5 +195,71 @@ describe('새 전시 만들기 — 성공', () => {
       className: T_CLASS,
     });
     expect(mounted?.location().path).toBe(`/t/e/${id}`);
+  });
+});
+
+describe('새 전시 만들기 — 포스터 이미지(V-02)', () => {
+  const choosePoster = async (file: File): Promise<void> => {
+    click(mounted?.q('[data-testid="new-more"]') ?? null);
+    expect(mounted?.q('[data-testid="new-poster-pick"]')?.textContent).toBe(copy.teacher.create.posterPick);
+    pickFiles(mounted?.q<HTMLInputElement>('[data-testid="new-poster-input"]') ?? null, [file]);
+    await flush();
+  };
+
+  it('`더 설정하기`에서 그림 하나를 고르면 전시를 만든 직후 `uploadPoster`로 올린다', async () => {
+    const createExhibition = created();
+    const uploadPoster = vi.fn<TeacherApi['uploadPoster']>(async id => teacherExhibition({ id }));
+    mount(fakeTeacher({ createExhibition, uploadPoster }));
+    fillForm();
+    const file = pngFile('가상 포스터.png', 1600, 1000);
+    await choosePoster(file);
+    expect(mounted?.q('[data-testid="new-poster-name"]')?.textContent).toBe(
+      fill(copy.teacher.create.posterChosen, { name: file.name }),
+    );
+    expect(uploadPoster).not.toHaveBeenCalled();
+    await submit();
+    const id = createExhibition.mock.calls[0]?.[0].exhibitionId ?? '';
+    expect(uploadPoster).toHaveBeenCalledWith(id, { blob: file, name: file.name });
+    expect(mounted?.location()).toMatchObject({
+      path: `/t/e/${id}`,
+      state: { toast: fill(copy.teacher.create.createdToast, { days: config().EXHIBITION_TTL_DAYS }) },
+    });
+  });
+
+  it('포스터 올리기가 실패해도 전시는 만들어진 채로 관리 화면에 가고 토스트 한 줄', async () => {
+    const createExhibition = created();
+    const uploadPoster = vi.fn<TeacherApi['uploadPoster']>(async () =>
+      Promise.reject(new AppError('E_OFFLINE')),
+    );
+    mount(fakeTeacher({ createExhibition, uploadPoster }));
+    fillForm();
+    await choosePoster(pngFile('가상 포스터.png', 1600, 1000));
+    await submit();
+    const id = createExhibition.mock.calls[0]?.[0].exhibitionId ?? '';
+    expect(uploadPoster).toHaveBeenCalledTimes(1);
+    expect(mounted?.location()).toMatchObject({
+      path: `/t/e/${id}`,
+      state: { toast: copy.teacher.create.posterSaveFailed },
+    });
+  });
+
+  it('기기 사전 검사에 걸리는 파일은 고르지 않고 이유, `빼기`로 고른 것을 뺀다', async () => {
+    const createExhibition = created();
+    const uploadPoster = vi.fn<TeacherApi['uploadPoster']>();
+    mount(fakeTeacher({ createExhibition, uploadPoster }));
+    fillForm();
+    await choosePoster(pngFile('작은 포스터.png', 40, 40));
+    expect(mounted?.q('[data-testid="new-poster-error"]')?.textContent).toBe(errorCopy.E_FILE_TOO_SMALL);
+    expect(mounted?.q('[data-testid="new-poster-name"]')).toBeNull();
+    pickFiles(mounted?.q<HTMLInputElement>('[data-testid="new-poster-input"]') ?? null, [
+      pngFile('가상 포스터.png', 1600, 1000),
+    ]);
+    await flush();
+    expect(mounted?.q('[data-testid="new-poster-error"]')).toBeNull();
+    click(mounted?.q('[data-testid="new-poster-remove"]') ?? null);
+    expect(mounted?.q('[data-testid="new-poster-name"]')).toBeNull();
+    await submit();
+    expect(createExhibition).toHaveBeenCalledTimes(1);
+    expect(uploadPoster).not.toHaveBeenCalled();
   });
 });

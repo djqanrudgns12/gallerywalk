@@ -1,411 +1,452 @@
+/*
+ * 입장 포스터 — 시안 A "어두운 전시관 안내 체계"(F8 V-53).
+ * 위: 조명 아래 걸린 작품들(빛은 그라데이션이 아니라 밝은 매트·짙은 테와 숯색 벽의 대비로).
+ * 아래: 학교·기간 한 줄 → 전시 이름(큰 세리프) → 별명 한 줄 → 캐릭터 둘 → 준비 막대 → `입장하기`(놋쇠, 화면의 유일한 강조 단추).
+ * 휴대폰·태블릿은 세로 한 장, 데스크톱(1024px~)은 좌우 2단(왼쪽 벽 · 오른쪽 입력).
+ * 색·간격·모서리·글꼴은 토큰·테마 변수만.
+ */
 .wrapper {
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--s-4);
-  font-family: var(--font-ui);
+  gap: var(--s-3);
   color: var(--plate-ink);
+  font-family: var(--font-ui);
 }
 
 .card {
   width: 100%;
-  max-width: 1120px;
+  max-width: 560px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   background-color: var(--plate-bg);
   border: 1px solid var(--plate-edge);
   border-radius: var(--r-card);
-  box-shadow: var(--shadow-card);
-  display: grid;
-  grid-template-columns: 1.08fr 1fr;
   overflow: hidden;
 }
 
-.posterCol {
-  background-color: var(--surface-wall);
-  border-right: 1px solid var(--plate-edge);
-  padding: var(--s-7);
+/* ── 위 절반: 작품이 걸린 벽 ── */
+.wall {
+  min-height: 280px;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: var(--s-5);
-}
-
-.posterHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-2);
-  padding-bottom: var(--s-3);
-  border-bottom: 1px solid var(--plate-edge);
-  flex-wrap: wrap;
-}
-
-.togetherBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: var(--s-1) var(--s-3);
-  background-color: var(--brass-soft);
-  border: 1px solid var(--brass-border);
-  border-radius: var(--r-plate);
-  font-size: var(--fs-1);
-  font-weight: 700;
-  color: var(--brass);
-}
-
-.schoolText {
-  font-size: var(--fs-1);
-  font-weight: 600;
-  color: var(--plate-ink-sub);
-}
-
-.facadeBox {
-  width: 100%;
-  height: 230px;
-  background-color: var(--plate-bg-elevated);
-  border: 1px solid var(--brass-border);
-  border-radius: var(--r-plate);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
+  gap: var(--s-4);
+  padding: var(--s-10) var(--s-5) var(--s-8);
+  background-color: var(--surface-wall);
+  border-bottom: 1px solid var(--plate-edge);
 }
 
-.posterImg {
-  width: 100%;
-  height: 100%;
+.wallPoster {
+  align-items: center;
+}
+
+.hung {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 액자 위 작은 그림 조명 */
+.lamp {
+  width: 40%;
+  height: 3px;
+  margin-bottom: var(--s-3);
+  background-color: var(--brass-border);
+}
+
+.frame {
+  max-width: 100%;
+  padding: var(--s-2);
+  background-color: var(--mat-light);
+  border: 6px solid var(--frame-outer);
+  box-shadow: var(--shadow-frame);
+}
+
+.art {
+  display: block;
+  height: 104px;
+  width: auto;
+  max-width: 100%;
   object-fit: cover;
-  display: block;
+  background-color: var(--mat-dark);
 }
 
-.facadeSvg {
-  width: 100%;
-  height: 100%;
-  display: block;
+.hungMain .art {
+  height: 150px;
 }
 
-.posterBody {
+.hungPoster {
+  flex: 0 1 auto;
+}
+
+.hungPoster .art {
+  height: auto;
+  max-height: 240px;
+  object-fit: contain;
+}
+
+/* ── 아래: 안내와 입력 ── */
+.body {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
-}
-
-.posterTitle {
-  font-family: var(--font-display);
-  font-size: var(--fs-7);
-  font-weight: 700;
-  color: var(--plate-ink);
-  line-height: 1.2;
-  margin: 0;
-}
-
-.posterSubtitle {
-  font-size: var(--fs-2);
-  line-height: var(--lh-body);
-  color: var(--plate-ink-sub);
-  margin: 0;
-}
-
-.posterMetaRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-3);
-  padding-top: var(--s-3);
-  border-top: 1px solid var(--plate-edge);
-  font-size: var(--fs-1);
-  font-weight: 600;
-  color: var(--plate-ink-sub);
-  flex-wrap: wrap;
-}
-
-.setupCol {
-  padding: var(--s-7);
-  background-color: var(--plate-bg-elevated);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
   gap: var(--s-5);
+  padding: var(--s-6) var(--s-6) var(--s-6);
 }
 
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-2);
-}
-
-.sectionHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s-2);
-  flex-wrap: wrap;
-}
-
-.sectionTitle {
-  font-size: var(--fs-3);
-  font-weight: 700;
-  color: var(--plate-ink);
-}
-
-.sectionHint {
-  font-size: var(--fs-1);
-  color: var(--plate-ink-sub);
-}
-
-.nicknameField {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.nicknameInput {
-  width: 100%;
-  min-height: 48px;
-  padding: 0 64px 0 var(--s-4);
-  background-color: var(--plate-bg);
-  border: 1.5px solid var(--accent);
-  border-radius: var(--r-plate);
-  font-family: var(--font-ui);
-  font-size: var(--fs-3);
+.meta {
+  margin: 0;
+  font-size: var(--fs-2);
   font-weight: 600;
-  color: var(--plate-ink);
-}
-
-.nicknameCount {
-  position: absolute;
-  right: var(--s-3);
-  font-size: var(--fs-1);
-  font-weight: 600;
+  line-height: var(--lh-body);
   color: var(--accent);
 }
 
-.charGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--s-3);
+.meta + .title {
+  margin-top: calc(var(--s-3) * -1);
 }
 
-.charCard {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--s-2);
-  padding: var(--s-3);
-  background-color: var(--plate-bg);
-  border: 1px solid var(--plate-edge);
-  border-radius: var(--r-card);
-  cursor: pointer;
-  text-align: center;
-  font-family: var(--font-ui);
-}
-
-.charCardSelected {
-  background-color: var(--accent-soft);
-  border: 2px solid var(--accent);
-  padding: calc(var(--s-3) - 1px);
-}
-
-.checkCircle {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 3;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--r-pill);
-  background-color: var(--accent);
-  color: var(--accent-ink);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.uncheckCircle {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 3;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--r-pill);
-  border: 1.5px solid var(--plate-edge);
-  background-color: var(--plate-bg-elevated);
-}
-
-.charFigureBox {
-  width: 100%;
-  height: 148px;
-  background-color: var(--surface-marble);
-  border: 1px dashed var(--plate-edge);
-  border-radius: var(--r-plate);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-  padding: var(--s-4) var(--s-2) var(--s-2);
-}
-
-.charCardSelected .charFigureBox {
-  background-color: var(--plate-bg-elevated);
-  border: 1px solid var(--accent);
-}
-
-.previewTagMe,
-.previewTagVisitor {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-1);
-  padding: 2px var(--s-2);
-  border-radius: var(--r-pill);
-  font-size: var(--fs-1);
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-6);
   font-weight: 700;
-  margin-bottom: var(--s-1);
-  max-width: 100%;
-  white-space: nowrap;
+  line-height: var(--lh-tight);
+  color: var(--plate-ink);
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.subtitle {
+  margin: calc(var(--s-3) * -1) 0 0;
+  font-size: var(--fs-3);
+  line-height: var(--lh-body);
+  color: var(--plate-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.label {
+  flex-shrink: 0;
+  font-size: var(--fs-2);
+  font-weight: 600;
+  color: var(--plate-ink);
+}
+
+/* 별명 한 줄: 밑줄형 칸 */
+.nickRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  border-bottom: 1px solid var(--plate-edge);
+  transition: border-color var(--t-hover) var(--ease-out);
+}
+
+.nickRow:focus-within {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1px 0 var(--accent);
+}
+
+.nicknameInput {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
   text-overflow: ellipsis;
 }
 
-.previewTagMe {
-  background-color: var(--badge-me-bg);
-  color: var(--badge-me-ink);
+.nicknameInput::placeholder {
+  color: var(--plate-ink-sub);
+  opacity: 1;
 }
 
-.previewTagVisitor {
-  background-color: var(--badge-visitor-bg);
-  color: var(--badge-visitor-ink);
+.nicknameCount {
+  flex-shrink: 0;
+  font-size: var(--fs-1);
+  color: var(--plate-ink-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.together {
+  margin: 0;
+  font-size: var(--fs-2);
+  line-height: var(--lh-body);
+  color: var(--plate-ink-sub);
+}
+
+/* 처음 쓰는 친구예요(U-20): 별명 아래 작은 글자 단추 */
+.freshRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  margin-top: calc(var(--s-2) * -1);
+}
+
+.freshBtn {
+  min-height: var(--touch-min);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--plate-ink);
+  font: inherit;
+  font-size: var(--fs-2);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.freshDone {
+  font-size: var(--fs-1);
+  color: var(--plate-ink-sub);
+}
+
+/* 캐릭터 둘: 작은 단추형 */
+.charRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+
+.charBtn {
+  min-height: 56px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 0 var(--s-3);
+  background-color: var(--plate-bg-elevated);
   border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  color: var(--plate-ink-sub);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color var(--t-hover) var(--ease-out),
+    color var(--t-hover) var(--ease-out);
+}
+
+.charBtn:hover {
+  border-color: var(--brass-border);
+}
+
+.charBtnSelected {
+  background-color: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--plate-ink);
+}
+
+.figure {
+  flex-shrink: 0;
+  width: 24px;
+  height: 30px;
+}
+
+.charBtnSelected .figure {
+  color: var(--accent);
 }
 
 .charImg {
-  max-width: 100%;
-  max-height: 96px;
-  object-fit: contain;
+  flex-shrink: 0;
+  height: 36px;
+  width: auto;
   display: block;
 }
 
 .charName {
-  font-size: var(--fs-2);
-  font-weight: 700;
-  color: var(--plate-ink);
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.charCardSelected .charName {
-  color: var(--accent);
-}
-
-.togetherNotice {
-  display: flex;
-  align-items: center;
-  gap: var(--s-2);
-  padding: var(--s-3);
-  background-color: var(--surface-wall);
-  border: 1px solid var(--plate-edge);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--r-plate);
-  font-size: var(--fs-2);
-  color: var(--plate-ink);
-}
-
-.noticeIcon {
-  color: var(--accent);
+.charCheck {
   flex-shrink: 0;
+  color: var(--accent);
 }
 
-.enterActions {
+/* 준비 막대 + 입장 단추(같은 폭) */
+.enterBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-top: var(--s-1);
+}
+
+.prepare {
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  color: var(--plate-ink-sub);
+}
+
+.prepareRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+
+.preparePct {
+  color: var(--plate-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.prepareTrack {
+  width: 100%;
+  height: 3px;
+  background-color: var(--loader-track);
+  overflow: hidden;
+}
+
+.prepareFill {
+  height: 100%;
+  background-color: var(--loader-fill);
+  transition: width var(--t-hover) var(--ease-out);
 }
 
 .enterBtn {
   width: 100%;
-  min-height: 52px;
+  min-height: 56px;
   padding: 0 var(--s-5);
   background-color: var(--accent);
   color: var(--accent-ink);
   border: 1px solid var(--accent);
   border-radius: var(--r-plate);
-  box-shadow: var(--shadow-plate);
   font-family: var(--font-ui);
   font-size: var(--fs-4);
   font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--s-2);
   cursor: pointer;
 }
 
 .enterBtn:disabled {
-  opacity: 0.6;
+  background-color: var(--plate-bg-elevated);
+  border-color: var(--plate-edge);
+  color: var(--plate-ink-sub);
   cursor: not-allowed;
 }
 
+.charBtn:focus-visible,
+.freshBtn:focus-visible,
+.enterBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .browserHint {
+  margin: 0;
   font-size: var(--fs-1);
   color: var(--plate-ink-sub);
   text-align: center;
-  margin: 0;
 }
 
-@media (max-width: 960px) {
+/* 태블릿: 세로 한 장, 벽과 제목을 조금 크게 */
+@media (min-width: 600px) {
+  .wall {
+    min-height: 340px;
+    gap: var(--s-6);
+  }
+
+  .art {
+    height: 130px;
+  }
+
+  .hungMain .art {
+    height: 190px;
+  }
+
+  .hungPoster .art {
+    max-height: 300px;
+  }
+
+  .body {
+    padding: var(--s-8);
+  }
+
+  .title {
+    font-size: var(--fs-7);
+  }
+}
+
+/* 데스크톱: 좌우 2단(왼쪽 벽이 주인공, 오른쪽 입력) */
+@media (min-width: 1024px) {
   .card {
-    grid-template-columns: 1fr;
-    max-width: 720px;
+    max-width: 1080px;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
   }
 
-  .posterCol {
-    border-right: none;
-    border-bottom: 1px solid var(--plate-edge);
-    padding: var(--s-5);
-    gap: var(--s-4);
+  .wall {
+    min-height: 560px;
+    align-items: center;
+    padding: var(--s-12) var(--s-8);
+    border-bottom: 0;
+    border-right: 1px solid var(--plate-edge);
   }
 
-  .setupCol {
-    padding: var(--s-5);
-    gap: var(--s-4);
+  .art {
+    height: 150px;
   }
 
-  .facadeBox {
-    height: 196px;
+  .hungMain .art {
+    height: 230px;
+  }
+
+  .hungPoster .art {
+    max-height: 440px;
+  }
+
+  .body {
+    justify-content: center;
+    padding: var(--s-10);
   }
 }
 
-@media (max-width: 540px) {
-  .posterCol {
-    padding: var(--s-4);
+/* 좁은 휴대폰(~360px): 여백만 줄인다 */
+@media (max-width: 380px) {
+  .wall {
     gap: var(--s-3);
+    padding: var(--s-8) var(--s-4) var(--s-6);
   }
 
-  .facadeBox {
-    height: 120px;
+  .body {
+    padding: var(--s-5) var(--s-4);
   }
+}
 
-  .posterTitle {
-    font-size: var(--fs-5);
-  }
-
-  .setupCol {
-    padding: var(--s-4);
-    gap: var(--s-3);
-  }
-
-  .nicknameInput {
-    min-height: var(--touch-min);
-    font-size: var(--fs-2);
-  }
-
-  .charFigureBox {
-    height: 108px;
-  }
-
-  .enterBtn {
-    min-height: 46px;
-    font-size: var(--fs-3);
+@media (prefers-reduced-motion: reduce) {
+  .prepareFill,
+  .nickRow,
+  .charBtn {
+    transition: none;
   }
 }

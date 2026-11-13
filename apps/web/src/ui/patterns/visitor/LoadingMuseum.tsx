@@ -13,6 +13,10 @@ export interface LoadingMuseumProps {
   className?: string | undefined;
 }
 
+/**
+ * 준비 화면(F8 V-55): 어두운 바탕 위 미술관 외관 선그림 + 큰 세리프 이름 + 가는 놋쇠 진행선.
+ * 판 안의 판·움직이는 펜 점은 두지 않는다 — 선을 천천히 그리는 움직임 하나(동작 줄이기면 멈춘 완성 그림).
+ */
 export const LoadingMuseum = ({
   title,
   progress = 72,
@@ -34,8 +38,6 @@ export const LoadingMuseum = ({
         <div className={s.silhouetteFrame} role="img" aria-label={statusText}>
           <svg className={s.silhouetteSvg} viewBox="0 0 520 250" xmlns="http://www.w3.org/2000/svg">
             <line className={s.lineGuide} x1="20" y1="212" x2="500" y2="212" />
-            <line className={s.lineGuide} x1="260" y1="14" x2="260" y2="232" />
-            <line className={s.lineGuide} x1="90" y1="74" x2="430" y2="74" />
 
             <path
               className={s.lineGuide}
@@ -44,15 +46,17 @@ export const LoadingMuseum = ({
 
             <path
               className={s.lineDrawPrimary}
+              pathLength={100}
               d="M44 212 L476 212 M96 212 L96 86 L156 86 L260 28 L364 86 L424 86 L424 212 M182 96 L182 186 M218 96 L218 186 M302 96 L302 186 M338 96 L338 186 M140 198 L380 198 M158 186 L362 186"
             />
 
             <path
               className={s.lineDrawBrass}
+              pathLength={100}
               d="M174 72 L260 36 L346 72 Z M176 74 L344 74 L344 96 L176 96 Z M238 186 L238 122 A22 22 0 0 1 282 122 L282 186 M260 100 L260 186"
             />
 
-            <circle cx="260" cy="56" r="7" fill="var(--brass-soft)" stroke="var(--brass)" strokeWidth="1.8" />
+            <circle className={s.medallion} cx="260" cy="56" r="6" />
 
             <text
               x="260"
@@ -65,15 +69,6 @@ export const LoadingMuseum = ({
             >
               {displayTitle}
             </text>
-
-            <g className={s.penPoint}>
-              <circle cx="364" cy="86" r="6" fill="var(--brass-soft)" />
-              <circle cx="364" cy="86" r="3.2" fill="var(--brass)" />
-            </g>
-            <g className={s.penPoint}>
-              <circle cx="338" cy="142" r="6" fill="var(--accent-soft)" />
-              <circle cx="338" cy="142" r="3.2" fill="var(--accent)" />
-            </g>
           </svg>
         </div>
 
@@ -96,7 +91,7 @@ export const LoadingMuseum = ({
             <div className={s.progressFill} style={{ width: `${clamped}%` }} />
           </div>
 
-          <p className={s.subhint}>{subhintText}</p>
+          {subhintText ? <p className={s.subhint}>{subhintText}</p> : null}
         </div>
       </div>
     </section>

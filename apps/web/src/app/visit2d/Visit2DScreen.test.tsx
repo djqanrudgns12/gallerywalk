@@ -144,6 +144,15 @@ const pointer = (el: Element, type: 'pointerdown' | 'pointerup', x: number, y = 
   });
 
 describe('2D 대체 화면 넘기기', () => {
+  it('전시실 첫 작품에서 그 전시실 소개 글(교사가 쓴 것)을 보이고, 다음 작품에서는 감춘다(V-03)', () => {
+    const v = testExhibitionView([3, 4]);
+    const withIntro = { ...v, rooms: v.rooms.map((r, i) => (i === 0 ? { ...r, intro: '가상 소개 글' } : r)) };
+    const m = mount({ view: withIntro });
+    expect(m.q('[data-testid="visit2d-room-intro"]')?.textContent).toContain('가상 소개 글');
+    click(m.q('[data-testid="visit2d-next"]'));
+    expect(m.q('[data-testid="visit2d-room-intro"]')).toBeNull();
+  });
+
   it('위 전시실 탭: 지금 전시실이 표시되고, 누르면 그 전시실 첫 작품으로', () => {
     const v = testExhibitionView([3, 4]);
     const m = mount({ view: v });

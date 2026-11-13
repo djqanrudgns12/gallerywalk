@@ -4,7 +4,7 @@ import { templateGeometry } from '@gallery/core/templates';
 import type { ArtworkForm, LayoutInput } from '@gallery/core/types';
 import { describe, expect, it } from 'vitest';
 import { cameraSpace, defaultOrbit, followPose } from './followCamera.ts';
-import { buildGuideMap, pathBetween, standSpot } from './guide.ts';
+import { buildGuideMap, pathBetween, standSpot, stepTarget } from './guide.ts';
 import { type MannerInput, type MannerNotice, MannerWatch } from './manners.ts';
 import { Walker, type WalkInput, yawOf } from './walker.ts';
 
@@ -461,5 +461,17 @@ describe('그리는 관', () => {
     expect(low.has(first.partId)).toBe(true);
     expect(high.size).toBeGreaterThanOrEqual(low.size);
     expect(high.size).toBeLessThan(layout.parts.length + 1);
+  });
+});
+
+describe('다음·이전 작품으로(PRD 15.1-2 연타해도 한 칸씩)', () => {
+  it('걷는 중(안내)에는 다시 눌러도 목표를 바꾸지 않고, 멈춰 있으면 한 칸, 끝에서는 그대로', () => {
+    expect(stepTarget('view', 2, 1, 6)).toBe(3);
+    expect(stepTarget('free', 2, -1, 6)).toBe(1);
+    expect(stepTarget('guiding', 3, 1, 6)).toBeNull();
+    expect(stepTarget('guiding', 3, -1, 6)).toBeNull();
+    expect(stepTarget('view', 5, 1, 6)).toBeNull();
+    expect(stepTarget('view', 0, -1, 6)).toBeNull();
+    expect(stepTarget('zoom', 2, 1, 6)).toBe(3);
   });
 });

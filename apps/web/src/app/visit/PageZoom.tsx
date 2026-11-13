@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Icon } from '../../ui/Icon.tsx';
 import type { ZoomPage } from '../../viewer/zoom/zoomPages.ts';
 import s from './walkUi.module.css';
+import { MAG_NONE, type Magnify, magnifyTo, panBy, toggleMagnify } from './pageMagnify.ts';
 
 /**
  * 크게 보기의 여러 쪽(P4-4, PLAN §5.6·§6.8, PRD 6.7): PDF·긴 세로·파노라마·글이 많은 그림은 쪽마다 HTML 그림으로.
@@ -15,10 +16,13 @@ import s from './walkUi.module.css';
 export const PageZoom = ({
   pagesFor,
   onPage,
+  onPastEnd,
 }: {
   /** 상자 크기(CSS px)·화소 비율 → 쪽들 */
   pagesFor: (vp: Viewport, dpr: number) => readonly ZoomPage[];
   onPage?: (page: number, total: number) => void;
+  /** 마지막 쪽에서 `›`(오른쪽 키) — 다음 작품으로(PRD G-03). 없으면 잠김 */
+  onPastEnd?: (() => void) | undefined;
 }) => {
   const box = useRef<HTMLDivElement>(null);
   const [pages, setPages] = useState<readonly ZoomPage[]>([]);
@@ -48,10 +52,14 @@ export const PageZoom = ({
   }, [onPage, page, total]);
   const go = useCallback(
     (d: 1 | -1) => {
+      if (d === 1 && page >= total - 1) {
+        onPastEnd?.();
+        return;
+      }
       setDir(d);
       setPage(p => Math.max(0, Math.min(total - 1, p + d)));
     },
-    [total],
+    [total, page, onPastEnd],
   );
   useEffect(() => {
     const key = (e: KeyboardEvent): void => {
@@ -66,19 +74,63 @@ export const PageZoom = ({
   const start = useRef<{ x: number; y: number; t: number } | null>(null);
   const c = config();
   const cur = pages[page];
+  // 두 번 누르기·두 손가락 확대(PRD G-03): 쪽이 바뀌면 1배로
+  const [mag, setMag] = useState<Magnify>(MAG_NONE);
+  useEffect(() => setMag(MAG_NONE), [page, pages]);
+  const touches = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ d: number; s: number } | null>(null);
+  const size = (): { w: number; h: number } => ({ w: cur?.w ?? 1, h: cur?.h ?? 1 });
+  // 휴대폰 세로에서 한 장으로 둔 글 많은 쪽: "가로로 돌리면 더 크게 보여요"를 처음 한 번(ADR-047)
+  const [hintSeen, setHintSeen] = useState(false);
+  const showRotate = !hintSeen && cur?.plan.rotateHint === true && window.innerHeight > window.innerWidth;
   return (
     <section
       className={s.pageZoom}
       data-testid="page-zoom"
       data-page={page + 1}
       data-total={total}
+      data-scale={mag.s}
       onPointerDown={e => {
+        setHintSeen(true);
+        touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (touches.current.size === 2) {
+          const [a, b] = [...touches.current.values()];
+          pinch.current = { d: Math.hypot(a!.x - b!.x, a!.y - b!.y), s: mag.s };
+          start.current = null;
+          return;
+        }
         start.current = { x: e.clientX, y: e.clientY, t: performance.now() };
       }}
+      onPointerMove={e => {
+        const p = touches.current.get(e.pointerId);
+        if (!p) return;
+        const dx = e.clientX - p.x;
+        const dy = e.clientY - p.y;
+        p.x = e.clientX;
+        p.y = e.clientY;
+        const { w, h } = size();
+        if (touches.current.size >= 2 && pinch.current) {
+          const [a, b] = [...touches.current.values()];
+          const d = Math.hypot(a!.x - b!.x, a!.y - b!.y);
+          const from = pinch.current;
+          setMag(m => magnifyTo(m, (from.s * d) / Math.max(1, from.d), w, h));
+        } else if (mag.s > 1) setMag(m => panBy(m, dx, dy, w, h));
+      }}
+      onPointerCancel={e => {
+        touches.current.delete(e.pointerId);
+        pinch.current = null;
+      }}
+      onDoubleClick={() => {
+        const { w, h } = size();
+        setMag(m => toggleMagnify(m, w, h));
+      }}
       onPointerUp={e => {
+        touches.current.delete(e.pointerId);
+        if (touches.current.size < 2) pinch.current = null;
         const st = start.current;
         start.current = null;
-        if (!st) return;
+        // 확대한 동안의 끌기는 옮기기 — 쪽 넘기기가 아니다
+        if (!st || mag.s > 1) return;
         const dx = e.clientX - st.x;
         const dy = e.clientY - st.y;
         if (
@@ -94,7 +146,11 @@ export const PageZoom = ({
           <div
             key={page}
             className={`${s.pageZoomPage} ${dir > 0 ? s.textZoomPageNext : s.textZoomPagePrev}`}
-            style={{ width: `${cur.w}px`, height: `${cur.h}px` }}
+            style={{
+              width: `${cur.w}px`,
+              height: `${cur.h}px`,
+              ...(mag.s > 1 ? { scale: `${mag.s}`, translate: `${mag.x}px ${mag.y}px` } : {}),
+            }}
           >
             {cur.pieces.map((p, i) => (
               <div
@@ -120,6 +176,11 @@ export const PageZoom = ({
           </div>
         )}
       </div>
+      {showRotate ? (
+        <p className={`${s.plate} ${s.rotateHint}`} role="status" data-rotate-hint="1">
+          {copy.viewer.rotateHint}
+        </p>
+      ) : null}
       {total > 1 && (
         <div className={s.pageZoomPager}>
           <button
@@ -136,7 +197,7 @@ export const PageZoom = ({
             type="button"
             className={s.textZoomTurn}
             onClick={() => go(1)}
-            disabled={page >= total - 1}
+            disabled={page >= total - 1 && !onPastEnd}
             aria-label={copy.viewer.next}
           >
             <Icon name="chevron-right" />

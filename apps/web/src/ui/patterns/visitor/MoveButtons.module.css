@@ -20,7 +20,7 @@
   background-color: var(--plate-bg);
   color: var(--plate-ink);
   border: 1px solid var(--plate-edge);
-  border-radius: 50%;
+  border-radius: var(--r-plate); /* 안내판 모양 하나(V-54) */
   box-shadow: var(--shadow-plate);
   cursor: pointer;
   touch-action: manipulation;

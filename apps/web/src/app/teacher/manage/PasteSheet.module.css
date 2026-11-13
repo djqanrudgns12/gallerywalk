@@ -1,0 +1,12 @@
+/* 글 붙여넣기 시트(V-01): 본문 칸은 여러 줄, 한도를 넘으면 글자 수를 위험 색으로. 토큰·테마 변수만. */
+.body {
+  min-height: 240px;
+  resize: vertical;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.over {
+  color: var(--danger);
+  font-weight: 700;
+}

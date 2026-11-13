@@ -28,6 +28,14 @@ import type { ModulePart } from './TemplateModules.tsx';
 
 type Kind = 'easel' | 'bench' | 'plant' | 'lamp' | 'tree';
 const KINDS: readonly Kind[] = ['easel', 'bench', 'plant', 'lamp', 'tree'];
+/** 글자 사인 판(V-03): `fixtures.glb`에 모델이 있을 때만 그린다(임시 모형 없음 — 글은 `SignTexts`) */
+const BOARD_KINDS: readonly Fixture['kind'][] = [
+  'nameplate',
+  'introPanel',
+  'corridorNameplate',
+  'hallSign',
+  'exitSign',
+];
 
 const tint = (g: BufferGeometry, hex: string): BufferGeometry => {
   const c = new Color(hex);
@@ -118,7 +126,7 @@ export const FixtureModels = ({
     const q = new Quaternion();
     const up = new Vector3(0, 1, 0);
     const one = new Vector3(1, 1, 1);
-    for (const kind of KINDS) {
+    for (const kind of [...KINDS, ...BOARD_KINDS]) {
       const list = fixtures.filter(f => f.kind === kind);
       if (list.length === 0) continue;
       const real = models?.get(kind);
@@ -137,7 +145,8 @@ export const FixtureModels = ({
         }
         continue;
       }
-      const geometry = shapes[kind]();
+      if (!(KINDS as readonly string[]).includes(kind)) continue;
+      const geometry = shapes[kind as Kind]();
       const inst = new InstancedMesh(geometry, material, list.length);
       list.forEach((f, i) => {
         inst.setMatrixAt(

@@ -14,7 +14,7 @@ import s from '../src/app/visit/walkUi.module.css';
  * `/dev/characters` — 캐릭터 4종 검수(규격 `tools/assets/spec/characters.md` §5, U-07).
  * 같은 빛 아래 나란히 세워 정면·옆·뒤와 동작을 본다. 검수 화면이라 늘 다시 그린다(관람 화면은 `demand`).
  * `?clip=idle|walk|run`(동작), `?angle=0|90|180|270`(돌린 각, 0 = 정면), `?spin=1`(천천히 돎),
- * `?place=hall|plaza`(실내·광장 빛), `?mood=a|b|c`(실내 분위기 시안), `?focus=student-f` 등(그 캐릭터 얼굴 가까이),
+ * `?place=hall|plaza`(실내·광장 빛), `?mood=a|b|c|d`(실내 분위기 시안), `?focus=student-f` 등(그 캐릭터 얼굴 가까이),
  * `?wave=1`(4초마다 손 흔들기).
  */
 

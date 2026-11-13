@@ -11,6 +11,11 @@ export interface ViewerArtwork {
   readonly title: string;
   readonly author: string;
   readonly caption: string;
+  /** 크게 보기 `더 보기`의 긴 설명·대표작 표시(V-11) */
+  readonly description?: string | null | undefined;
+  readonly featured?: boolean | undefined;
+  /** 명판 셋째 줄(PRD 6.4, V-23): 긴 세로 "이어서 보기", 여러 쪽 "{n}쪽" — 없으면 빈 줄 없음 */
+  readonly plateNote?: string | undefined;
   /**
    * 3D 벽용 텍스처(상주 관리가 올린 가장 좋은 변형, 받는 중이면 null — 매트 색 판으로 그림)와
    * 줌 HTML 층에 쓸 같은 그림의 주소(그림 없는 작품은 null)

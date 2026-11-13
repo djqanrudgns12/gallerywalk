@@ -24,7 +24,7 @@
   bottom: 0;
   height: 22%;
   background-color: var(--surface-oak);
-  border-top: 3px solid var(--brass-border);
+  border-top: 1px solid var(--plate-edge);
   pointer-events: none;
 }
 
@@ -215,7 +215,8 @@
 }
 
 .side:disabled {
-  color: var(--plate-edge);
+  color: var(--plate-ink-sub);
+  opacity: 0.45;
   box-shadow: none;
   cursor: default;
 }
@@ -361,7 +362,6 @@
   align-items: center;
   gap: var(--s-3);
   text-align: center;
-  border-top: 2px solid var(--brass-border);
   font-family: var(--font-display);
 }
 
@@ -397,7 +397,6 @@
   flex-direction: column;
   gap: var(--s-2);
   text-align: center;
-  border-top: 2px solid var(--brass-border);
 }
 
 .exitTitle {
@@ -507,26 +506,30 @@
   }
 }
 
-/* 위 전시실 탭(§6.12) — 가로로 밀어 넘긴다 */
+/* 위 전시실 탭(§6.12) — 가로로 밀어 넘긴다. 모아 보기와 같은 밑줄형(F8 V-55): 놋쇠는 고른 탭 밑줄만 */
 .tabs {
   position: relative;
   z-index: 2;
   display: flex;
-  gap: var(--s-2);
+  gap: var(--s-5);
   overflow-x: auto;
   scrollbar-width: none;
-  padding: var(--s-2) calc(var(--s-3) + env(safe-area-inset-right)) 0
+  margin: var(--s-2) calc(var(--s-3) + env(safe-area-inset-right)) 0
     calc(var(--s-3) + env(safe-area-inset-left));
+  padding: 0 var(--s-1);
+  border-bottom: 1px solid var(--plate-edge);
 }
 
 .tab {
   flex: 0 0 auto;
   min-height: var(--touch-min);
-  padding: 0 var(--s-4);
-  background: var(--plate-bg);
+  margin-bottom: -1px;
+  padding: 0 var(--s-1);
+  background: none;
   color: var(--plate-ink-sub);
-  border: 1px solid var(--plate-edge);
-  border-radius: var(--r-plate);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
   font-family: var(--font-ui);
   font-size: var(--fs-2);
   font-weight: 600;
@@ -534,7 +537,33 @@
 }
 
 .tab[aria-current='true'] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  color: var(--plate-ink);
+  border-bottom-color: var(--accent);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* 전시실 첫 작품에서 그 전시실 소개 글(V-03) */
+.roomIntro {
+  width: min(100%, var(--caption-max-w));
+  box-sizing: border-box;
+  padding: var(--s-3) var(--s-4);
+  color: var(--plate-ink);
+}
+
+.roomIntroTitle {
+  margin: 0 0 var(--s-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-3);
+  font-weight: 700;
+}
+
+.roomIntroText {
+  margin: 0;
+  font-size: var(--fs-2);
+  line-height: 1.55;
+  white-space: pre-line;
 }

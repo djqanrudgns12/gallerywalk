@@ -1,6 +1,7 @@
 # 우리들의 아트 갤러리 작업 지침 (모든 에이전트 공용)
 
-> Claude·Codex·Antigravity와 Claude 서브에이전트가 이 저장소에서 일할 때 먼저 읽는다. 사용자에게 보이는 출력은 한국어로 쓴다(코드 식별자·명령·경로·고유 명칭은 원문).
+> Claude·Codex·Antigravity와 Claude 서브에이전트가 이 저장소에서 일할 때 먼저 읽는다.
+> **모든 출력은 한국어로 쓴다** — 보고·진행 문장·질문·커밋 메시지·문서까지 예외 없음(코드 식별자·명령·경로·고유 명칭·오류 원문만 원문).
 
 ## 0. 무엇을 기준으로 하나
 
@@ -12,6 +13,7 @@
 | `docs/PRD_REVIEW.md` | PRD의 모순(C)·빈틈(B)·사실 확인(F) |
 | `docs/USER_DECISIONS.md` | 사용자만 정할 수 있는 것(U) |
 | `docs/briefs/<작업 ID>.md` | 맡은 작업의 범위·완료 기준 |
+| `docs/FINISH_PLAN.md` | **남은 일의 순서(V-nn·phase F0~F7)와 실행 규약 §6**: 위임 호출 예산, 기다림·되풀이 금지, 검증 사다리 L0~L6 |
 
 - 우선순위: 사용자의 최신 지시 > PRD `[고정]` > ADR > PLAN > PRD `[추천]`. PRD와 PLAN이 어긋나면 보고한다.
 - PRD·PLAN·decisions·USER_DECISIONS·PRD_REVIEW는 Claude(통합 담당)만 고친다. 어긋남을 찾으면 고치지 말고 보고한다.
@@ -73,7 +75,8 @@
 /Users/bodyking/.local/bin/resource-guard run --profile build -- npm run build
 ```
 
-- 반환값 75는 자원 대기다(실패가 아님). 바로 다시 돌리지 않고 다른 가벼운 일을 하거나 `--wait-seconds 600`을 쓴다. `RESOURCE_GUARD_ACTIVE=1` 안에서는 겹쳐 부르지 않는다.
+- 반환값 75는 자원 대기다(실패가 아님). 바로 다시 돌리지 않고 다른 가벼운 일을 하거나 `--wait-seconds 560`을 쓴다. 같은 검사는 최대 2회 시도 뒤 "미실행"으로 적는다(FINISH_PLAN §6.2). `RESOURCE_GUARD_ACTIVE=1` 안에서는 겹쳐 부르지 않는다.
+- 무엇을 언제 돌릴지는 FINISH_PLAN §6.3 표를 따른다. 넓은 검사는 phase 끝에 1회만 하고, 운영 빌드는 CI(`verify`) 결과를 인용한다.
 - 작업 중에는 바뀐 범위만 검사한다. 넓은 검사는 phase 끝에 Claude가 한 번 돌린다.
 - 같은 실패가 세 번이면 고치기를 멈추고 시도·가설·증거를 보고한다.
 - 통과시키려고 기대값을 바꾸거나 단언을 약하게 하지 않는다. 일회용 검증 스크립트를 만들지 않는다.

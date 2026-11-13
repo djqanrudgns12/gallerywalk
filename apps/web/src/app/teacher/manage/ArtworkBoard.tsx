@@ -5,6 +5,7 @@ import { rectSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sort
 import { CSS } from '@dnd-kit/utilities';
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -13,6 +14,7 @@ import {
   type SyntheticEvent,
 } from 'react';
 import { ArtworkCard } from '../../../ui/index.ts';
+import { imagePagesOf, screenViewport } from '../upload/UploadTray.tsx';
 import { AutosaveField } from './AutosaveField.tsx';
 import { cardKey } from './dnd.ts';
 import { useDragState } from './ManageDnd.tsx';
@@ -60,7 +62,12 @@ export interface CardFaceProps {
 
 /** 카드 한 장의 모양(격자 칸·끄는 동안 손끝을 따라다니는 모양이 같이 쓴다) */
 export const CardFace = ({ exhibitionId, artwork: a, selected, dragging }: CardFaceProps) => {
-  const pages = a.pages?.length ?? 1;
+  // 쪽 수(V-18): PDF는 쪽 수, 그림은 이 화면에서 쪽 계획기로 나눈 수. 한 장이면 보이지 않는다(빈 글자)
+  const vp = screenViewport();
+  const split = useMemo(() => (a.pages ? 1 : imagePagesOf(a, { w: vp.w, h: vp.h })), [a, vp.w, vp.h]);
+  const pages = a.pages ? a.pages.length : split;
+  const pageLabel =
+    pages <= 1 ? '' : fill(a.pages ? copy.teacher.pageCount : copy.teacher.pageSplitCount, { n: pages });
   return (
     <ArtworkCard
       id={a.id}
@@ -78,7 +85,7 @@ export const CardFace = ({ exhibitionId, artwork: a, selected, dragging }: CardF
       selected={selected}
       dragging={dragging}
       formLabel={copy.teacher.forms[a.form]}
-      pageLabel={fill(copy.teacher.pageCount, { n: pages })}
+      pageLabel={pageLabel}
       statusLabel={copy.teacher.status[a.status]}
       warningLabel={warningOf(a)}
       draggingLabel={copy.teacher.draggingBadge}

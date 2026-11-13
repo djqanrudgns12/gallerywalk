@@ -15,6 +15,7 @@ import {
 import type { WebGLRenderer } from 'three';
 import '../../ui/tokens.css';
 import '../../ui/themes/modern-history.css';
+import '../../ui/themes/gallery-dark.css';
 import { visibleMaxFor } from '../../viewer/live/peerBuffer.ts';
 import {
   deviceKindOf,
@@ -42,6 +43,7 @@ import {
 } from '../reactions/index.ts';
 import { ServicesContext } from '../services.ts';
 import { prefersReducedMotion, REDUCED_MOTION_QUERY } from '../student/motion.ts';
+import { STUDENT_THEME } from '../student/theme.ts';
 import { zoomPagesFor } from '../../viewer/zoom/zoomPages.ts';
 import { collectionOf } from './collection.ts';
 import { CollectionSheet } from './CollectionSheet.tsx';
@@ -100,6 +102,7 @@ export const VisitScreen = ({
   sound,
   onFallback2d,
   onPickArtwork,
+  liveAs,
 }: VisitScreenProps) => {
   const fresh = useMemo(() => visitModelOf(view), [view]);
   // 내용만 바뀌면(배치 그대로) 그림 받기 입력·작품별 밝기 손잡이를 그대로 둔다 — 글자 하나 고쳐도 텍스처를 다시 받지 않게
@@ -112,6 +115,7 @@ export const VisitScreen = ({
   const services = onPickArtwork ? null : ctxServices;
   const [reactingId, setReactingId] = useState<string | null>(null);
   const [reactionsOff, setReactionsOff] = useState(false);
+  const [reactPending, setReactPending] = useState(false);
   const canReact = services !== null && !reactionsOff && reactionsEnabled(view);
   const zoomId = useWalk(st => st.zoomId);
   useEffect(() => {
@@ -124,18 +128,19 @@ export const VisitScreen = ({
             onReact: canReact ? setReactingId : undefined,
             below: id => <PublicReactionsFor view={view} artworkId={id} />,
             openFor: reactingId,
+            pending: reactPending,
           }
         : undefined,
-    [services, canReact, view, reactingId],
+    [services, canReact, view, reactingId, reactPending],
   );
-  // 여러 쪽으로 크게 볼 그림(P4-4): PDF · 긴 세로·파노라마 · 글이 많은 그림
+  // 크게 볼 그림(P4-4·V-10)
   const zoomPages = useMemo(() => {
     const out = new Map<string, PagesFor>();
     for (const a of view.artworks) {
-      const multi =
-        a.kind === 'PDF' ||
-        (a.kind === 'IMAGE' && (a.form === 'TALL' || a.form === 'PANORAMA' || a.textHeavy));
-      if (multi) out.set(a.id, (vp, dpr) => zoomPagesFor(view.exhibition.id, a, vp, dpr));
+      // 모든 그림·PDF: 크게 볼 때는 벽용 텍스처 대신 `zoom`/`zoom-hi` 단계를 HTML 층에(PRD 6.6, ADR-016, V-10).
+      // 여러 쪽(PDF·긴 세로·파노라마·글 많음)은 쪽 넘김, 보통 그림은 한 쪽
+      if (a.kind === 'PDF' || a.kind === 'IMAGE')
+        out.set(a.id, (vp, dpr) => zoomPagesFor(view.exhibition.id, a, vp, dpr));
     }
     return out;
   }, [view]);
@@ -188,7 +193,14 @@ export const VisitScreen = ({
   const soundOn = sound?.on ?? localSound;
   const setSound = sound?.set ?? setLocalSound;
   useRoomMusic({ view, region, entered, on: soundOn });
-  const live = useLiveVisit({ code, token: liveToken, character, layout: model.layout, enabled: entered });
+  const live = useLiveVisit({
+    code,
+    token: liveToken,
+    character,
+    layout: model.layout,
+    enabled: entered,
+    as: liveAs,
+  });
   // 품질 단계는 캔버스를 다시 붙여도 이어 간다(내린 단계를 되돌리지 않음)
   const [device, setDevice] = useState<{ tier: Tier; kind: DeviceKind } | null>(null);
   const onLower = useCallback((tier: Tier) => setDevice(d => (d ? { ...d, tier } : d)), []);
@@ -250,7 +262,7 @@ export const VisitScreen = ({
   return (
     <div
       className={s.stage}
-      data-theme={model.layout.templateId}
+      data-theme={STUDENT_THEME}
       data-testid="visit-screen"
       data-entered={entered ? '1' : '0'}
       data-ready={ready ? '1' : '0'}
@@ -371,7 +383,9 @@ export const VisitScreen = ({
           }}
         />
       )}
-      {services && entered && <ReactionOutbox exhibitionId={view.exhibition.id} />}
+      {services && entered && (
+        <ReactionOutbox exhibitionId={view.exhibition.id} onPending={setReactPending} />
+      )}
       {services && entered && reactingId && (
         <ReactionLayer
           key={reactingId}
@@ -480,6 +494,8 @@ const VisitContent = ({
       start={start}
       reducedMotion={reducedMotion}
       onArtworkTap={onArtworkTap}
+      signRooms={model.signRooms}
+      signAreas={assets.signAreas}
     />
   );
 };
@@ -540,7 +556,14 @@ class CanvasGuard extends Component<{ onError: () => void; children: ReactNode }
  * 반응 보내기 줄(ADR-049)을 관람 중 늘 살려 둔다: 처음 불릴 때 줄을 만들고, 지난 탭이 남긴 것을 보내며,
  * `online`·화면 복귀·60초 확인이 돈다. 남은 것이 있는지는 반응 단추의 작은 점에 쓸 자리(부품 속성이 생기면)
  */
-const ReactionOutbox = ({ exhibitionId }: { exhibitionId: string }) => {
-  useReactionPending(exhibitionId);
+const ReactionOutbox = ({
+  exhibitionId,
+  onPending,
+}: {
+  exhibitionId: string;
+  onPending: (pending: boolean) => void;
+}) => {
+  const pending = useReactionPending(exhibitionId);
+  useEffect(() => onPending(pending), [pending, onPending]);
   return null;
 };
