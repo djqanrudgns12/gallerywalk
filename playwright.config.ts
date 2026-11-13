@@ -25,7 +25,7 @@ export default defineConfig({
               ...devices['Desktop Chrome'],
               baseURL: 'http://127.0.0.1:4521',
               serviceWorkers: 'allow' as const,
-              trace: 'off' as const,
+              trace: 'retain-on-failure' as const,
               launchOptions: {
                 args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
               },

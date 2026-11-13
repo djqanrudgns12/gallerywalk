@@ -1,5 +1,5 @@
 import type { ThreeEvent } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import { BoxGeometry, type BufferGeometry, MeshStandardMaterial, type Texture } from 'three';
 import { coverCrop } from '../textures/coverCrop.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -36,8 +36,8 @@ export const ArtworkFrame = ({
   pool?: PoolStyle | undefined;
   /** 빛 웅덩이 세기 배율(마우스 올림·크게 보기·빛 흔들림). 없으면 1 */
   boost?: DimHolder | undefined;
-  /** 마우스가 이 액자에 올라옴(true)·떠남(false) — 손가락 누르기는 알리지 않는다 */
-  onHover?: ((id: string, on: boolean) => void) | undefined;
+  /** 실제 마우스 이동의 광선 적중 — 장면에서 한 사건으로 모아 밝힐 작품을 정한다 */
+  onHover?: ((id: string, event: PointerEvent) => void) | undefined;
 }) => {
   const outer = outerOf(artwork);
   const depth = FRAME_DEPTH;
@@ -79,26 +79,10 @@ export const ArtworkFrame = ({
     e.stopPropagation();
     onTap(artwork.id);
   };
-  // 테·매트·그림 면이 한 광선에 함께 걸리므로 몇 개에 올라 있는지 센다 — 0 ↔ 1일 때만 알린다
-  const hits = useRef(0);
-  const hoverRef = useRef(onHover);
-  hoverRef.current = onHover;
-  const over = (e: ThreeEvent<PointerEvent>) => {
-    if (e.pointerType !== 'mouse') return;
-    if (hits.current++ === 0) hoverRef.current?.(artwork.id, true);
+  const move = (e: ThreeEvent<PointerEvent>) => {
+    if (e.pointerType === 'mouse') onHover?.(artwork.id, e.nativeEvent);
   };
-  const out = (e: ThreeEvent<PointerEvent>) => {
-    if (e.pointerType !== 'mouse' || hits.current === 0) return;
-    if (--hits.current === 0) hoverRef.current?.(artwork.id, false);
-  };
-  useEffect(
-    () => () => {
-      if (hits.current > 0) hoverRef.current?.(artwork.id, false);
-      hits.current = 0;
-    },
-    [],
-  );
-  const pointer = { onClick: tap, onPointerOver: over, onPointerOut: out };
+  const pointer = { onClick: tap, onPointerMove: move };
   const innerW = outer.w - 2 * artwork.frame;
   const innerH = outer.h - 2 * artwork.frame;
 

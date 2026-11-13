@@ -349,6 +349,17 @@ test('3D 미리 보기 · 열기 → 첫 작품까지 안내 걷기 → 작품�
     await expect(perf).toHaveAttribute('data-mode', 'view', { timeout: WALK_MS });
   }
   await expect(layer.getByTestId('near-card')).toBeVisible();
+  // mode=view는 보행 도착 시점이다. 카메라 보간·연출의 마지막 렌더 뒤에 화면 가운데를 누른다.
+  await expect
+    .poll(
+      async () =>
+        perf.evaluate(el => {
+          const frames = Number(el.getAttribute('data-frames'));
+          return frames > 0 && Number(el.getAttribute('data-idle-mark')) === frames;
+        }),
+      { timeout: WALK_MS },
+    )
+    .toBe(true);
   // 안내 걷기가 작품을 화면 가운데에 둔다 — 그 자리를 누르면 크게 보기 대신 그 작품 패널
   await page.mouse.click(DESKTOP.width / 2, DESKTOP.height / 2);
   await expect(page.getByTestId('artwork-panel')).toBeVisible();

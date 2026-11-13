@@ -233,3 +233,39 @@ it.each(['keyboard', 'stick'] as const)(
     expect(useWalk.getState().idleFrameMark).toBe(useWalk.getState().perf.framesRendered);
   },
 );
+
+it('다른 관람객이 계속 그려져도 카메라·연출 종료 뒤 실제 렌더의 예산을 표시한다', () => {
+  let effectsActive = true;
+  const Crowd = () => {
+    useFrame(state => {
+      useWalk.getState().set({ microMotionActive: effectsActive });
+      state.invalidate();
+    });
+    return null;
+  };
+  const model = visitModelOf(testExhibitionView([2]));
+  act(() =>
+    root.render(
+      <>
+        <WalkView
+          layout={model.layout}
+          artworks={model.artworks}
+          character="student-m"
+          placeOf={model.placeOf}
+          paused
+        />
+        <Crowd />
+      </>,
+    ),
+  );
+  for (let i = 0; i < 100; i++) frame(0.5);
+  expect(useWalk.getState().viewFrameMark).toBe(0);
+  effectsActive = false;
+  loop.state!.gl.info.render.calls = 31;
+  frame(0.5);
+  expect(loop.state!.internal.frames).toBeGreaterThan(0);
+  expect(useWalk.getState().idleFrameMark).toBe(0);
+  expect(useWalk.getState().viewFrameMark).toBe(useWalk.getState().perf.framesRendered);
+  expect(useWalk.getState().viewFrameMark).toBeGreaterThan(0);
+  expect(useWalk.getState().perf.calls).toBe(31);
+});

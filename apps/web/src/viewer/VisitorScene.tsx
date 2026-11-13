@@ -2,9 +2,10 @@ import type { TemplateLook } from '@gallery/core/templates';
 import type { P2 } from '@gallery/core/layout';
 import type { CharacterId, Layout, Pose } from '@gallery/core/types';
 import { useThree } from '@react-three/fiber';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { type PeerView } from './live/peerBuffer.ts';
 import { Peers } from './live/Peers.tsx';
+import { useArtworkHover } from './scene/useArtworkHover.ts';
 import { ArtworkFrame } from './scene/ArtworkFrame.tsx';
 import { ArtworkLabels, type LabelItem } from './scene/ArtworkLabels.tsx';
 import { ExteriorContact } from './scene/ExteriorContact.tsx';
@@ -209,16 +210,7 @@ export const VisitorScene = ({
     () => Object.fromEntries(idsKey.split('|').map(id => [id, { value: 1 }])),
     [idsKey],
   );
-  const hover = useRef<string | null>(null);
-  const hovered = useCallback(() => hover.current, []);
-  const onHover = useCallback(
-    (id: string, on: boolean) => {
-      if (on) hover.current = id;
-      else if (hover.current === id) hover.current = null;
-      invalidate();
-    },
-    [invalidate],
-  );
+  const { hovered, onHover } = useArtworkHover(invalidate);
   // 둘레 사람(보간된 자리) — 내 캐릭터가 겹치지 않게 비켜 간다
   const crowd = useMemo(() => (peers ? () => peers.sample().map((p): P2 => [p.x, p.z]) : undefined), [peers]);
   return (

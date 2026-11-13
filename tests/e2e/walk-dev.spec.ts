@@ -24,6 +24,7 @@ interface Snap {
   near: string | null;
   frames: number;
   mark: number;
+  viewMark: number;
   calls: number;
   triangles: number;
   me: { x: number; y: number; z: number; yaw: number };
@@ -43,6 +44,7 @@ const snap = (page: Page): Promise<Snap> =>
       near: w['nearArtworkId'] as string | null,
       frames: perf.framesRendered,
       mark: w['idleFrameMark'] as number,
+      viewMark: w['viewFrameMark'] as number,
       calls: perf.calls,
       triangles: perf.triangles,
       me: w['me'] as Snap['me'],
@@ -195,7 +197,8 @@ test.describe('함께 관람 · 가짜 관람객 30명(태블릿 820×1180)', ()
     await callApi(page, 'goTo', 1);
     // 헤드리스 소프트웨어 렌더링에서 30명을 그리면 프레임이 낮아 걷기가 실시간보다 느리다(프레임당 0.1초 상한) — 도착만 넉넉히 기다린다
     await waitMode(page, 'view', 90_000);
-    await page.waitForTimeout(1500);
+    // 관람객은 계속 걷는다. 1.5초 대기 대신 카메라·빛·먼지가 끝난 렌더를 확인한다.
+    await expect.poll(async () => (await snap(page)).viewMark, { timeout: 40_000 }).toBeGreaterThan(0);
     const crowd = await snap(page);
     await page.screenshot({ path: `${SHOTS}/tablet-05-crowd.png` });
     // 몸 4종 + 이름표 1 + 발밑 그늘 1(2026-11-12 사용자 의견으로 더함, ADR-057 보충) = 사람이 늘어도 +6 이하

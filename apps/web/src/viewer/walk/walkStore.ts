@@ -64,6 +64,9 @@ interface WalkState {
   /** 위 줄에 보일 지금 자리(외관·홀·전시실 이름) */
   place: string;
   idleFrameMark: number;
+  /** 카메라·빛·먼지 정지가 렌더에 반영된 프레임. 다른 관람객의 이동은 제외한다. */
+  viewFrameMark: number;
+  microMotionActive: boolean;
   perf: WalkPerf;
   /** 내 캐릭터 자리(성능 숫자와 함께 0.5초마다·멈출 때) — 지도·함께 관람 보내기·시험이 읽는다 */
   me: { x: number; y: number; z: number; yaw: number };
@@ -86,6 +89,8 @@ export const useWalk = create<WalkState>(set => ({
   zoomId: null,
   place: '',
   idleFrameMark: 0,
+  viewFrameMark: 0,
+  microMotionActive: false,
   perf: { fps: 0, calls: 0, triangles: 0, textures: 0, geometries: 0, framesRendered: 0 },
   me: { x: 0, y: 0, z: 0, yaw: 0 },
   api: null,

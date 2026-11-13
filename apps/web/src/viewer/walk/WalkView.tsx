@@ -142,7 +142,8 @@ export const WalkView = ({
   const wake = useCallback(() => {
     if (!st.wasActive && st.wokeAt === null) st.wokeAt = performance.now();
     const store = useWalk.getState();
-    if (store.idleFrameMark !== 0) store.set({ idleFrameMark: 0 });
+    if (store.idleFrameMark !== 0 || store.viewFrameMark !== 0)
+      store.set({ idleFrameMark: 0, viewFrameMark: 0 });
     invalidate();
   }, [st, invalidate]);
 
@@ -174,6 +175,19 @@ export const WalkView = ({
       if (observed === st.totalFrames) return;
       observed = st.totalFrames;
       const store = useWalk.getState();
+      // 사람은 계속 걸어도 카메라와 연출이 끝난 같은 상태에서 그리기 예산을 잴 수 있다.
+      const viewActive = st.wasActive || store.microMotionActive;
+      if (viewActive && store.viewFrameMark !== 0) store.set({ viewFrameMark: 0 });
+      else if (!viewActive && store.viewFrameMark === 0)
+        store.set({
+          viewFrameMark: st.totalFrames,
+          perf: {
+            ...store.perf,
+            calls: gl.info.render.calls,
+            triangles: gl.info.render.triangles,
+            framesRendered: st.totalFrames,
+          },
+        });
       // useFrame은 WalkView 뒤에도 실행된다. 실제 렌더 뒤에 모든 연출의 예약을 함께 본다.
       if (get().internal.frames > 0) {
         if (store.idleFrameMark !== 0) store.set({ idleFrameMark: 0 });

@@ -125,6 +125,8 @@ export const MicroMotion = ({ boosts, hovered, tier, reducedMotion, color }: Mic
       }
     }
     s.animating = glowing || s.level > 0;
+    if (useWalk.getState().microMotionActive !== s.animating)
+      useWalk.getState().set({ microMotionActive: s.animating });
     if (s.animating) invalidate();
   });
 
