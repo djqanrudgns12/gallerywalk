@@ -53,6 +53,10 @@ interface Diagnostic {
   finishedMs: number | null;
   phase: 'request' | 'response' | 'size' | 'failed' | 'fallback';
   status: number | null;
+  readonly method: string;
+  /** 앱 자산(해시 붙은 빌드 파일·SW)만 경로를 남긴다. API·미디어 주소는 남기지 않는다(전시 ID·토큰). */
+  readonly assetPath: string | null;
+  failure: string | null;
 }
 
 /** 주소·인증·이름 대신 고정 범주와 일련번호만 기록한다. */
@@ -102,6 +106,11 @@ export function measureReceivedBytes(context: BrowserContext) {
         finishedMs: null,
         phase: 'request',
         status: null,
+        method: request.method(),
+        assetPath: ['asset', 'worker-script'].includes(requestKind(request))
+          ? new URL(request.url()).pathname
+          : null,
+        failure: null,
       },
     });
   };
@@ -112,7 +121,11 @@ export function measureReceivedBytes(context: BrowserContext) {
     try {
       if (failed) {
         result.failedRequests++;
-        result.diagnostics.push({ ...item.diagnostic, phase: 'failed' });
+        result.diagnostics.push({
+          ...item.diagnostic,
+          phase: 'failed',
+          failure: request.failure()?.errorText ?? null,
+        });
         return;
       }
       item.diagnostic.phase = 'response';

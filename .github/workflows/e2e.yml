@@ -5,6 +5,12 @@ name: e2e
 
 on:
   workflow_dispatch:
+    inputs:
+      only:
+        description: '돌릴 작업(all·dev·prod)'
+        type: choice
+        options: [all, dev, prod]
+        default: all
 
 permissions:
   contents: read
@@ -15,6 +21,7 @@ concurrency:
 
 jobs:
   dev:
+    if: inputs.only != 'prod'
     runs-on: macos-15
     timeout-minutes: 60
     steps:
@@ -42,6 +49,7 @@ jobs:
           retention-days: 14
 
   prod:
+    if: inputs.only != 'dev'
     runs-on: macos-15
     timeout-minutes: 60
     steps:

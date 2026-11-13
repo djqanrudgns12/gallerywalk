@@ -5,6 +5,8 @@ import { measureReceivedBytes } from './receivedBytes.ts';
 
 const request = ({ bytes = 100, worker = false, forwarded = false, fail = false } = {}) => ({
   url: () => 'http://127.0.0.1:4521/assets/g/sample.js',
+  method: () => 'GET',
+  failure: () => ({ errorText: 'net::ERR_ABORTED' }),
   serviceWorker: () => (worker ? {} : null),
   response: async () => ({ fromServiceWorker: () => forwarded, status: () => 200 }),
   sizes: async () => {
@@ -56,6 +58,11 @@ test('크기를 못 읽거나 요청이 실패하면 0바이트 성공으로 숨
   const result = await meter.stop();
   assert.equal(result.failedRequests, 1);
   assert.equal(result.errors.length, 1);
+  // 실패한 앱 자산은 무엇이 왜 실패했는지 남긴다(경로는 해시 붙은 빌드 파일만)
+  const failedDiag = result.diagnostics?.find(d => d.phase === 'failed');
+  assert.equal(failedDiag?.failure, 'net::ERR_ABORTED');
+  assert.equal(failedDiag?.assetPath, '/assets/g/sample.js');
+  assert.equal(failedDiag?.method, 'GET');
 });
 
 test('CDP가 음수 본문 크기를 주면 응답의 인코딩된 Content-Length로 보수적으로 센다', async () => {
