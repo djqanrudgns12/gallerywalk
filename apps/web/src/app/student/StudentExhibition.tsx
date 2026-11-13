@@ -1,3 +1,4 @@
+import { config } from '@gallery/core/config';
 import { copy } from '@gallery/core/copy';
 import type { ExhibitionView } from '@gallery/core/types';
 import {
@@ -232,6 +233,14 @@ const PosterLayer = ({ store, view, leaving, covered, inApp }: PosterLayerProps)
   const ex = view.exhibition;
   // 위 절반의 작품: 포스터 동안 미리 받는 첫 전시실 썸네일(같은 주소라 두 번 받지 않는다)
   const hung = useMemo(() => posterArtworks(view), [view]);
+
+  // CSS 완료 사건이 늦거나 사라져도 입장 상태가 붙잡히지 않게 한다.
+  // 주 스레드가 막힌 동안에는 타이머도 지연되지만, 풀린 뒤에는 animationend를 더 기다리지 않는다.
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = window.setTimeout(finishEntering, config().T_ENTER * 1000);
+    return () => window.clearTimeout(timer);
+  }, [leaving, finishEntering]);
 
   const onAnimationEnd = (e: AnimationEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) finishEntering();

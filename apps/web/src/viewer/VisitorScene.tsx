@@ -130,9 +130,9 @@ export const VisitorScene = ({
   const placements = useMemo(() => placementsOf(layout), [layout]);
   const [region, setRegion] = useState('exterior');
   // 그리는 관: 구역이 바뀔 때 + 자리 표시(0.5초마다)가 바뀔 때 다시 계산 — 1m 칸으로 묶어 자주 바뀌지 않게
-  const me = useWalk(st => st.me);
-  const cellX = Math.round(me.x);
-  const cellZ = Math.round(me.z);
+  // 칸을 구독해야 같은 칸의 정지 위치 기록이 늦은 React 커밋과 R3F 재그리기를 만들지 않는다.
+  const cellX = useWalk(st => Math.round(st.me.x));
+  const cellZ = useWalk(st => Math.round(st.me.z));
   const visible = useMemo(
     () => visibleParts(layout, region, { x: cellX, z: cellZ }, tier),
     [layout, region, cellX, cellZ, tier],

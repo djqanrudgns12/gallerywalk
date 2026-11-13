@@ -142,3 +142,27 @@ test('끝나지 않은 요청은 제외하지 않고 식별 가능한 비밀값 
   assert.equal(result.diagnostics?.[0]?.kind, 'api');
   assert.doesNotMatch(JSON.stringify(result), /private-code|private-token/);
 });
+
+test('requestfinished 뒤 응답 메타데이터가 없으면 네트워크 종료 대기와 구별해 실패한다', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const context = new EventEmitter();
+  const meter = measureReceivedBytes(context);
+  const req = {
+    ...request({ worker: true }),
+    url: () => 'http://127.0.0.1:4521/sw.js',
+    response: () => new Promise(() => {}),
+  };
+  context.emit('request', req);
+  context.emit('requestfinished', req);
+  const stopping = meter.stop();
+  t.mock.timers.tick(3_750);
+  await new Promise(resolve => setImmediate(resolve));
+  t.mock.timers.tick(11_250);
+  const result = await stopping;
+  assert.deepEqual(result.errors, ['종료된 HTTP 요청의 응답 메타데이터 확인 실패']);
+  assert.equal(result.diagnostics[0].kind, 'worker-script');
+  assert.equal(result.diagnostics[0].worker, true);
+  assert.equal(result.diagnostics[0].phase, 'response');
+  assert.equal(typeof result.diagnostics[0].finishedMs, 'number');
+  assert.equal(result.networkRequests, 0);
+});

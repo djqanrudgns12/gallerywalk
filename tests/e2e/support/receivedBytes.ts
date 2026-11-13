@@ -49,6 +49,8 @@ interface Diagnostic {
   readonly id: number;
   readonly kind: 'api' | 'media' | 'asset' | 'worker-script' | 'document';
   readonly worker: boolean;
+  readonly startedMs: number;
+  finishedMs: number | null;
   phase: 'request' | 'response' | 'size' | 'failed' | 'fallback';
   status: number | null;
 }
@@ -58,7 +60,7 @@ const requestKind = (request: Request): Diagnostic['kind'] => {
   const path = new URL(request.url()).pathname;
   if (path === '/sw.js') return 'worker-script';
   if (path.startsWith('/api/')) return 'api';
-  if (path.startsWith('/media/')) return 'media';
+  if (path.startsWith('/media/') || path.startsWith('/assets/g/m/')) return 'media';
   if (path.startsWith('/assets/') || /\.(?:js|css|wasm|woff2|glb|ktx2)$/.test(path)) return 'asset';
   return 'document';
 };
@@ -68,6 +70,8 @@ export function measureReceivedBytes(context: BrowserContext) {
   const pending = new Map<Request, { done: Promise<void>; resolve: () => void; diagnostic: Diagnostic }>();
   let nextId = 0;
   let closed = false;
+  const startedAt = performance.now();
+  const elapsed = (): number => Math.round(performance.now() - startedAt);
   const result = {
     bodyBytes: 0,
     headerBytes: 0,
@@ -94,6 +98,8 @@ export function measureReceivedBytes(context: BrowserContext) {
         id: ++nextId,
         kind: requestKind(request),
         worker: !!request.serviceWorker(),
+        startedMs: elapsed(),
+        finishedMs: null,
         phase: 'request',
         status: null,
       },
@@ -102,6 +108,7 @@ export function measureReceivedBytes(context: BrowserContext) {
   const finish = async (request: Request, failed: boolean): Promise<void> => {
     const item = pending.get(request);
     if (!item || closed) return;
+    item.diagnostic.finishedMs = elapsed();
     try {
       if (failed) {
         result.failedRequests++;
@@ -109,7 +116,9 @@ export function measureReceivedBytes(context: BrowserContext) {
         return;
       }
       item.diagnostic.phase = 'response';
-      const response = await request.response();
+      // Chromium은 SW 주 스크립트에서 response 없이 requestfinished를 내기도 한다.
+      // 실제 종료와 Playwright 메타데이터 대기를 구분하고, 끝없는 약속을 남겨 기다리지 않는다.
+      const response = await bounded(request.response(), config().API_TIMEOUT_MS / 4);
       if (closed) return;
       if (!response) throw new Error('응답 없음');
       if (response.fromServiceWorker()) {
@@ -133,7 +142,11 @@ export function measureReceivedBytes(context: BrowserContext) {
     } catch {
       // URL·본문·인증 머리는 기록하지 않는다.
       if (!closed) {
-        result.errors.push('HTTP 응답 크기 확인 실패');
+        result.errors.push(
+          item.diagnostic.phase === 'response'
+            ? '종료된 HTTP 요청의 응답 메타데이터 확인 실패'
+            : 'HTTP 응답 크기 확인 실패',
+        );
         result.diagnostics.push({ ...item.diagnostic });
       }
     } finally {

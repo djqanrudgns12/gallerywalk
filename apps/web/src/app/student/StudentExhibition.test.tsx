@@ -115,6 +115,23 @@ describe('학생 전시 화면', () => {
     expect(visit.mounts).toBe(1);
   });
 
+  it('animationend가 오지 않아도 T_ENTER 뒤 포스터를 내린다', async () => {
+    const t = await open();
+    reportReady(true, 1);
+    vi.useFakeTimers();
+    try {
+      click(enterButton());
+      expect(t.m.q('[data-phase="entering"]')).not.toBeNull();
+      act(() => vi.advanceTimersByTime(config().T_ENTER * 1000 - 1));
+      expect(t.m.q('[data-testid="entry-poster"]')).not.toBeNull();
+      act(() => vi.advanceTimersByTime(1));
+      expect(t.m.q('[data-testid="entry-poster"]')).toBeNull();
+      expect(t.m.q('[data-phase="viewing"]')).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('별명을 적고 입장 → 동의 시트("모두에게" 판·지워지는 날) → 알겠어요 → 시작하기 → 관람', async () => {
     const t = await open();
     reportReady(true, 1);
