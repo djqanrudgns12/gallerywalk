@@ -45,10 +45,12 @@ export interface ModulePart {
  * 조각 glb들을 **주어진 순서대로 하나씩** 받아 이름 → 부품 목록으로 합치고, 하나 받을 때마다 돌려준다(§2.5 R-8).
  * 자유 관람은 광장에서 시작하므로 외관을 먼저 주면 광장이 먼저 서고, 실내 핵심은 계단을 오르는 동안 받는다.
  * 받지 못한 파일은 건너뛴다. 주소가 없으면 null.
+ * `onSettled`가 있으면 전체 목록을 다 시도했는지 알린다(포스터의 첫 화면 준비 관문).
  */
 export const useTemplateModules = (
   urls: string | readonly string[],
   look: TemplateLook,
+  onSettled?: (ready: boolean) => void,
 ): Map<string, ModulePart[]> | null => {
   const gl = useThree(s => s.gl);
   const invalidate = useThree(s => s.invalidate);
@@ -57,7 +59,11 @@ export const useTemplateModules = (
 
   useEffect(() => {
     const list = key ? key.split('|') : [];
-    if (list.length === 0) return;
+    onSettled?.(false);
+    if (list.length === 0) {
+      onSettled?.(true);
+      return;
+    }
     let cancelled = false;
     const loader = gltfLoaderFor(gl);
     void (async () => {
@@ -71,11 +77,12 @@ export const useTemplateModules = (
         setModules(new Map(map));
         invalidate();
       }
+      if (!cancelled) onSettled?.(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [key, gl, invalidate, look]);
+  }, [key, gl, invalidate, look, onSettled]);
 
   return modules;
 };

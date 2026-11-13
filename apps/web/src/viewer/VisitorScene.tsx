@@ -2,7 +2,7 @@ import type { TemplateLook } from '@gallery/core/templates';
 import type { P2 } from '@gallery/core/layout';
 import type { CharacterId, Layout, Pose } from '@gallery/core/types';
 import { useThree } from '@react-three/fiber';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { type PeerView } from './live/peerBuffer.ts';
 import { Peers } from './live/Peers.tsx';
 import { useArtworkHover } from './scene/useArtworkHover.ts';
@@ -17,6 +17,7 @@ import { MicroMotion } from './scene/MicroMotion.tsx';
 import { vignetteOf } from './scene/microMotion.ts';
 import { Sky } from './scene/Sky.tsx';
 import { Stage } from './scene/Stage.tsx';
+import { ScenePreparation } from './scene/ScenePreparation.tsx';
 import { type ModulePlacement, TemplateModules, useTemplateModules } from './scene/TemplateModules.tsx';
 import type { ViewerArtwork } from './scene/types.ts';
 import { Vignette } from './scene/Vignette.tsx';
@@ -81,8 +82,8 @@ export interface VisitorSceneProps {
   readonly reducedMotion?: boolean | undefined;
   /** 시작 자리(캔버스를 다시 붙일 때 이어 걷기) */
   readonly start?: WalkStart | undefined;
-  /** 첫 조각 묶음(외관)이 올라와 첫 자리를 그릴 수 있음 — 한 번 */
-  readonly onReady?: (() => void) | undefined;
+  /** 포스터 뒤 첫 화면의 모델·질감·셰이더·실제 그리기 준비 상태 */
+  readonly onReady?: ((ready: boolean) => void) | undefined;
   /** 3D 안 사인(V-03): 관 ID → 전시실 이름·소개. 없으면 사인 글을 그리지 않는다 */
   readonly signRooms?: ReadonlyMap<string, SignRoom> | undefined;
   /** 사인 판의 글자 자리(템플릿 manifest) */
@@ -122,12 +123,11 @@ export const VisitorScene = ({
   signRooms,
   signAreas,
 }: VisitorSceneProps) => {
-  const modules = useTemplateModules(modulesUrl, look);
-  const loaded = modules !== null;
-  useEffect(() => {
-    if (loaded) onReady?.();
-  }, [loaded, onReady]);
-  const fixtureModels = useTemplateModules(fixturesUrl ?? [], look);
+  const [modulesReady, setModulesReady] = useState(false);
+  const [fixturesReady, setFixturesReady] = useState(false);
+  const [readyCharacter, setReadyCharacter] = useState<CharacterId | null>(null);
+  const modules = useTemplateModules(modulesUrl, look, setModulesReady);
+  const fixtureModels = useTemplateModules(fixturesUrl ?? [], look, setFixturesReady);
   const placements = useMemo(() => placementsOf(layout), [layout]);
   const [region, setRegion] = useState('exterior');
   // 그리는 관: 구역이 바뀔 때 + 자리 표시(0.5초마다)가 바뀔 때 다시 계산 — 1m 칸으로 묶어 자주 바뀌지 않게
@@ -169,6 +169,13 @@ export const VisitorScene = ({
     [cards, artworks, visible, partOf],
   );
   const cardTex = useCardTextures(cards ?? null, cardTargets, look.card);
+  const ready =
+    modules !== null &&
+    modulesReady &&
+    fixturesReady &&
+    resident.ready &&
+    cardTargets.every(t => cardTex.has(t.id)) &&
+    (controller !== undefined || readyCharacter === character);
   const shown = useMemo(
     () =>
       textures || cards
@@ -179,6 +186,10 @@ export const VisitorScene = ({
         : artworks,
     // `resident`(버전)·`cardTex`가 바뀌면 올라간 텍스처가 바뀐 것
     [artworks, textures, cards, resident, cardTex],
+  );
+  const preparation = useMemo(
+    () => [modules, fixtureModels, shown, cardTex, character, tier],
+    [modules, fixtureModels, shown, cardTex, character, tier],
   );
   const signs = useMemo(
     () => (signRooms && signAreas ? signItems(layout, signRooms, title, signAreas) : []),
@@ -257,6 +268,7 @@ export const VisitorScene = ({
           }}
           crowd={crowd}
           paused={paused}
+          onCharacterReady={setReadyCharacter}
           onPose={onPose}
           start={start}
           reducedMotion={reducedMotion}
@@ -281,6 +293,7 @@ export const VisitorScene = ({
           invalidate={peers.invalidate}
         />
       )}
+      <ScenePreparation ready={ready} revision={preparation} paused={paused ?? false} onReady={onReady} />
     </>
   );
 };

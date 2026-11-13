@@ -4,10 +4,11 @@ import type { CharacterId } from '@gallery/core/types';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import '../src/ui/tokens.css';
-import '../src/ui/themes/modern-history.css';
+import '../src/ui/themes/gallery-dark.css';
 import { Character } from '../src/viewer/scene/Character.tsx';
 import type { CharacterHandle } from '../src/viewer/scene/CharacterFigure.tsx';
 import { Stage } from '../src/viewer/scene/Stage.tsx';
+import { STUDENT_THEME } from '../src/app/student/theme.ts';
 import s from '../src/app/visit/walkUi.module.css';
 
 /**
@@ -86,7 +87,7 @@ const Lineup = () => {
 };
 
 export const CharactersDev = () => (
-  <div className={s.stage} data-theme="modern-history">
+  <div className={s.stage} data-theme={STUDENT_THEME}>
     <div className={s.canvasWrap}>
       <Canvas
         frameloop="always"

@@ -44,6 +44,7 @@ const focusKey = (f: Focus): string =>
   `${[...f.visibleParts].sort().join(',')}|${f.partId ?? ''}|${f.nearestId ?? ''}|${f.targetId ?? ''}`;
 
 export interface ResidentTextures {
+  readonly ready: boolean;
   /** 바뀔 때마다 1씩 — 작품 목록을 다시 만들 때 쓴다 */
   readonly version: number;
   readonly textureOf: (artworkId: string) => Texture | null;
@@ -87,6 +88,13 @@ export const useResidentTextures = (
   const key = focusKey(focus);
   const focusRef = useRef(focus);
   focusRef.current = focus;
+  const wanted = useMemo(
+    () =>
+      source
+        ? wantedVariants(source.arts, focusRef.current, tier, gl.capabilities.maxTextureSize)
+        : new Map<string, Variant>(),
+    [source, key, tier, gl],
+  );
   useEffect(() => {
     if (!residency || !source) return;
     residency.update(wantedVariants(source.arts, focusRef.current, tier, gl.capabilities.maxTextureSize));
@@ -110,8 +118,9 @@ export const useResidentTextures = (
   return useMemo(
     () => ({
       version,
+      ready: source === null || (residency?.settled(wanted) ?? false),
       textureOf: (id: string) => residency?.textureOf(id)?.tex.tex ?? null,
     }),
-    [version, residency],
+    [version, residency, source, wanted],
   );
 };
