@@ -265,7 +265,7 @@ export const VisitScreen = ({
     if (tierNow) activeProbe()?.tier(tierNow);
   }, [tierNow]);
   const [ready, setReady] = useState(false);
-  const onReady = useCallback(() => setReady(true), []);
+  const onReady = useCallback((ready: boolean) => setReady(ready), []);
   // 컨텍스트 손실(§6.12): 기본 동작을 막고 "잠시만 기다려 주세요" → 복구되면 캔버스를 새로 붙여 같은 자리에서
   const [epoch, setEpoch] = useState(0);
   const epochRef = useRef(0);
@@ -500,7 +500,7 @@ const VisitContent = ({
   start: WalkStart | undefined;
   entered: boolean;
   live: LiveVisit | null;
-  onReady: () => void;
+  onReady: (ready: boolean) => void;
   onLoadFail: () => void;
   onRegion: (region: string) => void;
   onFallback: () => void;

@@ -49,11 +49,12 @@ export interface ModulePart {
  * 받지 못한 파일은 건너뛴다. 주소가 없으면 null.
  * 받는 진행이 `MODULE_LOAD_STALL_MS` 동안 멈춘 파일은 기다리지 않고 다음 파일로 간다(G-24 HW-01, `loadWithStall`) —
  * 늦게라도 오면 그때 합친다. 목록을 한 번 다 돌면 `onSettled(받은 수, 전체 수)`를 한 번 부른다.
+ * 시작할 때는 `onSettled(false, 0, 전체 수)`로 되돌린다(포스터의 첫 화면 준비 관문).
  */
 export const useTemplateModules = (
   urls: string | readonly string[],
   look: TemplateLook,
-  onSettled?: (loaded: number, total: number) => void,
+  onSettled?: (settled: boolean, loaded: number, total: number) => void,
 ): Map<string, ModulePart[]> | null => {
   const gl = useThree(s => s.gl);
   const invalidate = useThree(s => s.invalidate);
@@ -64,7 +65,11 @@ export const useTemplateModules = (
 
   useEffect(() => {
     const list = key ? key.split('|') : [];
-    if (list.length === 0) return;
+    onSettled?.(false, 0, list.length);
+    if (list.length === 0) {
+      onSettled?.(true, 0, 0);
+      return;
+    }
     let cancelled = false;
     const loader = gltfLoaderFor(gl);
     const map = new Map<string, ModulePart[]>();
@@ -90,12 +95,12 @@ export const useTemplateModules = (
         if (cancelled) return;
         if (gltf) add(gltf);
       }
-      settledRef.current?.(loaded, list.length);
+      if (!cancelled) settledRef.current?.(true, loaded, list.length);
     })();
     return () => {
       cancelled = true;
     };
-  }, [key, gl, invalidate, look]);
+  }, [key, gl, invalidate, look, onSettled]);
 
   return modules;
 };

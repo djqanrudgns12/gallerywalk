@@ -110,6 +110,39 @@ describe('Residency', () => {
     expect(r.textureOf('a0')?.variant).toBe('wall');
   });
 
+  it('첫 화면 준비는 받기와 GPU 올리기가 끝나야 끝나고, 새로 원하는 그림은 다시 기다린다', async () => {
+    const { r, flush } = rig(budgetBytes('HIGH'));
+    const want = new Map<string, Variant>([['a0', 'thumb']]);
+    expect(r.settled(want)).toBe(false);
+    r.update(want);
+    expect(r.settled(want)).toBe(false);
+    await flush();
+    expect(r.settled(want)).toBe(false);
+    r.tick();
+    expect(r.settled(want)).toBe(true);
+    expect(r.settled(new Map<string, Variant>([['a1', 'thumb']]))).toBe(false);
+  });
+
+  it('첫 그림 받기에 실패하면 준비 상태 변경을 알리고 빈 액자로 입장을 이어 간다', async () => {
+    const changed: string[] = [];
+    const r = new Residency({
+      budget: budgetBytes('HIGH'),
+      load: async () => {
+        throw new Error('offline');
+      },
+      upload: () => {},
+      onChange: id => changed.push(id),
+    });
+    r.setArtworks(ARTS);
+    const want = new Map<string, Variant>([['a0', 'thumb']]);
+    r.update(want);
+    expect(r.settled(want)).toBe(false);
+    await Promise.resolve();
+    expect(r.settled(want)).toBe(true);
+    expect(changed).toEqual(['a0']);
+    r.dispose();
+  });
+
   it('예산을 넘으면 원하는 집합 밖에서 오래 안 쓴 것부터 내리고(dispose), 원하는 것은 남긴다', async () => {
     const wall = estimateBytes({ w: 1600, h: 1200 });
     const thumb = estimateBytes({ w: 256, h: 192 });

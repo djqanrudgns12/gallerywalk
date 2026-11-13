@@ -339,8 +339,10 @@ export const Character = forwardRef<
     fx?: CharacterFx | undefined;
     /** 검수 화면(`/dev/characters?try=…&src=…`)만: 저장소에 넣기 전 시험 glb 주소. 없으면 `characterGlbUrl(character)` */
     src?: string | undefined;
+    /** 이 캐릭터의 모델(또는 임시 모형)을 그릴 준비가 됨 — 포스터 뒤 첫 화면 준비 관문 */
+    onReady?: ((id: CharacterId) => void) | undefined;
   }
->(({ character, fx, src }, ref) => {
+>(({ character, fx, src, onReady }, ref) => {
   const gl = useThree(s => s.gl);
   const invalidate = useThree(s => s.invalidate);
   // 받은 캐릭터와 그 종류를 함께 둔다: 포스터에서 고르기를 바꾸면 새 것을 받을 때까지 옛 모습을 두고, 오면 새로 붙인다
@@ -357,6 +359,9 @@ export const Character = forwardRef<
       alive = false;
     };
   }, [character, gl, invalidate, src]);
+  useEffect(() => {
+    if (got?.id === character) onReady?.(character);
+  }, [got, character, onReady]);
   const body = got?.loaded ? (
     <Model key={got.id} ref={ref} loaded={got.loaded} character={got.id} fx={fx} />
   ) : (

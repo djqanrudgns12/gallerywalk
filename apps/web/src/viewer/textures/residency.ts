@@ -134,6 +134,16 @@ export class Residency<T extends TextureLike> {
     return this.queue.length > 0;
   }
 
+  /** 첫 화면의 원하는 그림을 모두 올렸는가. 받기 실패는 빈 액자로 진행하되, 아직 받는 중인 것은 기다린다. */
+  settled(wanted: ReadonlyMap<string, Variant>): boolean {
+    for (const [id, variant] of wanted) {
+      if (!this.arts.get(id)?.sizes[variant]) continue;
+      const state = this.entries.get(keyOf(id, variant))?.state;
+      if (state !== 'uploaded' && state !== 'failed') return false;
+    }
+    return !this.pending;
+  }
+
   setArtworks(arts: readonly ResidentArt[]): void {
     this.arts.clear();
     for (const a of arts) this.arts.set(a.id, a);
@@ -188,9 +198,11 @@ export class Residency<T extends TextureLike> {
           this.deps.onChange(id);
         },
         () => {
+          if (this.disposed || this.entries.get(k) !== entry) return;
           entry.state = 'failed';
           entry.failedAt = this.now();
           this.fails.set(k, (this.fails.get(k) ?? 0) + 1);
+          this.deps.onChange(id);
         },
       );
     }

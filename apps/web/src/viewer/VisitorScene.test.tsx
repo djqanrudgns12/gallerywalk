@@ -7,14 +7,39 @@ import { testExhibitionView } from '../dev/testView.ts';
 import { VisitorScene } from './VisitorScene.tsx';
 import { useWalk } from './walk/walkStore.ts';
 
-const scene = vi.hoisted(() => ({ renders: 0, invalidate: () => {}, gl: {} }));
-vi.mock('@react-three/fiber', () => ({ useThree: (select: (s: unknown) => unknown) => select(scene) }));
-vi.mock('./scene/TemplateModules.tsx', () => ({
-  useTemplateModules: () => null,
-  TemplateModules: () => null,
+const scene = vi.hoisted(() => ({
+  renders: 0,
+  invalidate: () => {},
+  gl: {},
+  modules: new Map(),
+  modulesReady: false,
+  fixturesReady: false,
+  residentReady: false,
+  characterReady: false,
 }));
+vi.mock('@react-three/fiber', () => ({ useThree: (select: (s: unknown) => unknown) => select(scene) }));
+vi.mock('./scene/TemplateModules.tsx', async () => {
+  const { useEffect } = await import('react');
+  return {
+    useTemplateModules: (urls: unknown, _look: unknown, onSettled?: (ready: boolean) => void) => {
+      const ready = urls === 'modules' ? scene.modulesReady : scene.fixturesReady;
+      useEffect(() => onSettled?.(ready), [ready, onSettled]);
+      return scene.modules;
+    },
+    TemplateModules: () => null,
+  };
+});
 vi.mock('./scene/Stage.tsx', () => ({ Stage: () => null }));
 vi.mock('./npc/Docents.tsx', () => ({ Docents: () => null }));
+vi.mock('./scene/ScenePreparation.tsx', async () => {
+  const { useEffect } = await import('react');
+  return {
+    ScenePreparation: ({ ready, onReady }: { ready: boolean; onReady?: (ready: boolean) => void }) => {
+      useEffect(() => onReady?.(ready), [ready, onReady]);
+      return null;
+    },
+  };
+});
 vi.mock('./scene/Sky.tsx', () => ({ Sky: () => null }));
 vi.mock('./scene/ExteriorContact.tsx', () => ({ ExteriorContact: () => null }));
 vi.mock('./scene/FixtureModels.tsx', () => ({ FixtureModels: () => null }));
@@ -25,15 +50,22 @@ vi.mock('./scene/MicroMotion.tsx', () => ({ MicroMotion: () => null }));
 vi.mock('./scene/Vignette.tsx', () => ({ Vignette: () => null }));
 vi.mock('./signs/SignTexts.tsx', () => ({ SignTexts: () => null }));
 vi.mock('./walk/ZoomDim.tsx', () => ({ ZoomDim: () => null }));
-vi.mock('./walk/WalkView.tsx', () => ({
-  WalkView: () => {
-    scene.renders++;
-    return null;
-  },
-}));
+vi.mock('./walk/WalkView.tsx', async () => {
+  const { useEffect } = await import('react');
+  return {
+    WalkView: ({ onCharacterReady }: { onCharacterReady?: (id: 'student-m') => void }) => {
+      scene.renders++;
+      const ready = scene.characterReady;
+      useEffect(() => {
+        if (ready) onCharacterReady?.('student-m');
+      }, [ready, onCharacterReady]);
+      return null;
+    },
+  };
+});
 vi.mock('./textures/useCardTextures.ts', () => ({ useCardTextures: () => new Map() }));
 vi.mock('./textures/useResidentTextures.ts', () => ({
-  useResidentTextures: () => ({ textureOf: () => null }),
+  useResidentTextures: () => ({ ready: scene.residentReady, textureOf: () => null }),
 }));
 
 it('같은 1m 칸에서 정지 위치·방향만 갱신하면 장면을 재렌더하지 않고 칸을 넘을 때 갱신한다', () => {
@@ -65,6 +97,52 @@ it('같은 1m 칸에서 정지 위치·방향만 갱신하면 장면을 재렌�
     expect(scene.renders).toBe(before + 1);
   } finally {
     act(() => root.unmount());
+    useWalk.setState(useWalk.getInitialState());
+  }
+});
+
+it('모델을 받았어도 모든 조각·설비·선택한 캐릭터·첫 그림 준비가 끝나야 입장을 연다', () => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  useWalk.setState(useWalk.getInitialState());
+  const model = visitModelOf(testExhibitionView([2]));
+  const root = createRoot(document.createElement('div'));
+  const onReady = vi.fn();
+  const render = () =>
+    act(() =>
+      root.render(
+        <VisitorScene
+          layout={model.layout}
+          artworks={model.artworks}
+          holders={{}}
+          title="합성 전시"
+          look={templateMoods['modern-history'].a}
+          modulesUrl="modules"
+          fixturesUrl="fixtures"
+          character="student-m"
+          tier="HIGH"
+          placeOf={model.placeOf}
+          paused
+          onReady={onReady}
+        />,
+      ),
+    );
+  try {
+    render();
+    expect(onReady).toHaveBeenLastCalledWith(false);
+    for (const resource of ['modulesReady', 'fixturesReady', 'characterReady'] as const) {
+      scene[resource] = true;
+      render();
+      expect(onReady).not.toHaveBeenCalledWith(true);
+    }
+    scene.residentReady = true;
+    render();
+    expect(onReady).toHaveBeenLastCalledWith(true);
+  } finally {
+    act(() => root.unmount());
+    scene.modulesReady = false;
+    scene.fixturesReady = false;
+    scene.characterReady = false;
+    scene.residentReady = false;
     useWalk.setState(useWalk.getInitialState());
   }
 });
