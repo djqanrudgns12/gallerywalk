@@ -221,3 +221,42 @@ test('원본 응답 머리가 끝내 오지 않으면 응답이 가진 머리의
   assert.equal(result.bodyBytes, 31952);
   assert.equal(result.sizeFallbacks, 1);
 });
+
+test('전송 길이가 없는 앱 자산은 보낸 파일 크기로, 앱 자산이 아닌 요청은 계속 근거 없음으로 실패한다', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const context = new EventEmitter();
+  const seen = [];
+  const meter = measureReceivedBytes(context, {
+    assetBytes: (path, encoding) => {
+      seen.push([path, encoding]);
+      return 1234;
+    },
+  });
+  const noLength = url => ({
+    ...request({ worker: true }),
+    url: () => url,
+    sizes: () => new Promise(() => {}),
+    response: async () => ({
+      fromServiceWorker: () => false,
+      status: () => 200,
+      statusText: () => 'OK',
+      headersArray: async () => [{ name: 'content-encoding', value: 'br' }],
+      headers: () => ({ 'content-encoding': 'br' }),
+    }),
+  });
+  const asset = noLength('http://127.0.0.1:4521/assets/g/protocol-abc.js');
+  const api = noLength('http://127.0.0.1:4521/api/e/123456');
+  for (const req of [asset, api]) {
+    context.emit('request', req);
+    context.emit('requestfinished', req);
+  }
+  const stopping = meter.stop();
+  for (let i = 0; i < 14; i++) {
+    await new Promise(resolve => setImmediate(resolve));
+    t.mock.timers.tick(1_000);
+  }
+  const result = await stopping;
+  assert.deepEqual(seen, [['/assets/g/protocol-abc.js', 'br']]);
+  assert.equal(result.bodyBytes, 1234);
+  assert.deepEqual(result.errors, ['HTTP 응답 크기 확인 실패']);
+});

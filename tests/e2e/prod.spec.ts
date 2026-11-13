@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { z } from 'zod';
@@ -158,7 +158,24 @@ test('운영 빌드 · 첫 받기 6MB · 전체 미리 받기 · 연결 없이 �
   const cdp = await context.newCDPSession(page);
   await cdp.send('Network.enable');
   await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
-  const meter = measureReceivedBytes(context);
+  // 응답에 전송 길이가 없을 때 쓰는 앱 자산 크기: 서버가 실제로 보낸 파일(run-prod.mjs가 준 운영 빌드 폴더)
+  const webDir = process.env['WEB_DIR'];
+  const meter = measureReceivedBytes(context, {
+    assetBytes: (path, encoding) => {
+      if (!webDir) return null;
+      const suffix = encoding === 'br' ? '.br' : encoding === 'gzip' ? '.gz' : '';
+      try {
+        return statSync(join(webDir, path + suffix)).size;
+      } catch {
+        // 인코딩을 모르거나 사본이 없으면 압축 전 원본(보내는 것보다 크거나 같다)
+        try {
+          return statSync(join(webDir, path)).size;
+        } catch {
+          return null;
+        }
+      }
+    },
+  });
   let socketBytes = 0;
   page.on('websocket', socket =>
     socket.on('framereceived', frame => {

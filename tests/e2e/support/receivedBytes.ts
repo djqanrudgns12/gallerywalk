@@ -18,7 +18,13 @@ async function bounded<T>(promise: Promise<T>, timeoutMs: number): Promise<T | n
   }
 }
 
-async function responseSize(request: Request, response: Response) {
+/**
+ * 앱 자산(`/assets/g/…`·`/sw.js`)의 실제 보낸 파일 크기. 응답에 전송 길이 근거가 없을 때만 쓴다.
+ * encoding은 응답의 Content-Encoding(없으면 null — 그때는 압축 전 원본, 즉 보수적 상계를 돌려줘야 한다).
+ */
+export type AssetBytes = (path: string, encoding: string | null) => number | null;
+
+async function responseSize(request: Request, response: Response, assetBytes?: AssetBytes) {
   // requestfinished가 와도 Playwright의 별도 CDP extra-info 약속(sizes)은 끝나지 않을 수 있다.
   // 종료 대기 예산의 일부만 사용하고, 실제 전송 길이를 가진 응답 머리로 복구한다.
   const size = await bounded(request.sizes(), config().API_TIMEOUT_MS / 2);
@@ -31,7 +37,23 @@ async function responseSize(request: Request, response: Response) {
     Object.entries(response.headers()).map(([name, value]) => ({ name, value }));
   const lengths = headers.filter(h => h.name.toLowerCase() === 'content-length');
   const length = lengths.length === 1 ? lengths[0]!.value : '';
-  if (!/^\d+$/.test(length) || !validSize(Number(length))) throw new Error('전송 크기 근거 없음');
+  if (!/^\d+$/.test(length) || !validSize(Number(length))) {
+    // SW가 미리 저장하며 받은 압축 응답은 Chromium이 Content-Length를 빼고 넘기기도 한다. 앱 자산이면 서버가 실제로
+    // 보낸 파일(.br·.gz, 인코딩을 모르면 더 큰 원본)의 크기로 센다. 그 밖(API·미디어)은 계속 근거 없음으로 실패한다.
+    const path = new URL(request.url()).pathname;
+    const encoding = headers.find(h => h.name.toLowerCase() === 'content-encoding')?.value ?? null;
+    const known = path.startsWith('/assets/g/') || path === '/sw.js' ? assetBytes?.(path, encoding) : null;
+    if (known === null || known === undefined || !validSize(known)) throw new Error('전송 크기 근거 없음');
+    return {
+      body: known,
+      headers: Buffer.byteLength(
+        `HTTP/1.1 ${response.status()} ${response.statusText()}\r\n` +
+          headers.map(h => `${h.name}: ${h.value}\r\n`).join('') +
+          '\r\n',
+      ),
+      fallback: true,
+    };
+  }
   // HTTP/1.1 머리 표현의 보수적 상계. 인증 머리·URL·본문은 반환하거나 기록하지 않는다.
   const headerBytes = Buffer.byteLength(
     `HTTP/1.1 ${response.status()} ${response.statusText()}\r\n` +
@@ -73,7 +95,7 @@ const requestKind = (request: Request): Diagnostic['kind'] => {
 };
 
 /** HTTP 응답의 인코딩된 본문과 머리. SW가 화면에 전달한 응답은 실제 네트워크 요청 쪽에서만 센다. */
-export function measureReceivedBytes(context: BrowserContext) {
+export function measureReceivedBytes(context: BrowserContext, options: { assetBytes?: AssetBytes } = {}) {
   const pending = new Map<Request, { done: Promise<void>; resolve: () => void; diagnostic: Diagnostic }>();
   let nextId = 0;
   let closed = false;
@@ -145,7 +167,7 @@ export function measureReceivedBytes(context: BrowserContext) {
       }
       item.diagnostic.phase = 'size';
       item.diagnostic.status = response.status();
-      const size = await responseSize(request, response);
+      const size = await responseSize(request, response, options.assetBytes);
       if (closed) return;
       if (size.fallback) {
         result.sizeFallbacks++;
