@@ -68,6 +68,8 @@ export interface DocentsProps {
   readonly interactive?: boolean | undefined;
   /** 동작 줄이기(PRD 8.4) */
   readonly reducedMotion?: boolean | undefined;
+  /** 지금 그릴 도슨트의 모습을 다 받음(못 읽은 것은 임시 모형) — 포스터 뒤 첫 화면 준비 관문 */
+  readonly onReady?: ((ready: boolean) => void) | undefined;
 }
 
 interface Rig {
@@ -377,6 +379,7 @@ export const Docents = ({
   visibleParts,
   interactive = true,
   reducedMotion = false,
+  onReady,
 }: DocentsProps) => {
   const gl = useThree(s => s.gl);
   const invalidate = useThree(s => s.invalidate);
@@ -419,6 +422,10 @@ export const Docents = ({
       });
     }
   }, [wantKey, requested, gl, invalidate]);
+  const modelsReady = wantKey === '' || wantKey.split('|').every(u => models.has(u));
+  useEffect(() => {
+    onReady?.(modelsReady);
+  }, [modelsReady, onReady]);
   const needFigure = [...models.values()].some(m => m === null);
   const figure = useMemo(
     () =>

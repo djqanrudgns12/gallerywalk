@@ -143,6 +143,7 @@ export const VisitorScene = ({
   const [modulesReady, setModulesReady] = useState(false);
   const [fixturesReady, setFixturesReady] = useState(false);
   const [readyCharacter, setReadyCharacter] = useState<CharacterId | null>(null);
+  const [docentsReady, setDocentsReady] = useState(false);
   const onModulesSettled = useCallback((settled: boolean, loaded: number, total: number) => {
     setModulesReady(settled);
     if (settled && total > 0 && loaded === 0) failRef.current?.();
@@ -197,7 +198,8 @@ export const VisitorScene = ({
     fixturesReady &&
     resident.ready &&
     cardTargets.every(t => cardTex.has(t.id)) &&
-    (controller !== undefined || readyCharacter === character);
+    (controller !== undefined || readyCharacter === character) &&
+    (layout.schemaVersion !== 3 || docentsReady);
   useEffect(() => {
     onLoaded?.(ready);
   }, [ready, onLoaded]);
@@ -331,6 +333,7 @@ export const VisitorScene = ({
           visibleParts={visible}
           interactive={!controller}
           reducedMotion={reducedMotion ?? false}
+          onReady={setDocentsReady}
         />
       )}
       {!controller && <ZoomDim holders={holders} reducedMotion={reducedMotion ?? false} />}

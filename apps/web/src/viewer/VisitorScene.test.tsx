@@ -30,7 +30,15 @@ vi.mock('./scene/TemplateModules.tsx', async () => {
   };
 });
 vi.mock('./scene/Stage.tsx', () => ({ Stage: () => null }));
-vi.mock('./npc/Docents.tsx', () => ({ Docents: () => null }));
+vi.mock('./npc/Docents.tsx', async () => {
+  const { useEffect } = await import('react');
+  return {
+    Docents: ({ onReady }: { onReady?: (ready: boolean) => void }) => {
+      useEffect(() => onReady?.(true), [onReady]);
+      return null;
+    },
+  };
+});
 vi.mock('./scene/ScenePreparation.tsx', async () => {
   const { useEffect } = await import('react');
   return {
