@@ -362,6 +362,7 @@ export const VisitScreen = ({
           tracks={model.tracks}
           reactions={reactions}
           pages={zoomPages}
+          partName={model.placeOf}
           onClose={onPickArtwork ? { label: copy.teacher.manage.previewClose, run: onHome } : undefined}
           onCollection={collection.length > 0 ? openCollection : undefined}
           reducedMotion={reducedMotion}

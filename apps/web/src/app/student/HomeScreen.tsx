@@ -17,6 +17,7 @@ export const HomeScreen = () => {
   const [focused, setFocused] = useState(false);
   const titleId = useId();
   const inputId = useId();
+  const hintId = useId();
   const n = config().ENTRY_CODE_DIGITS;
 
   const onChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -38,7 +39,9 @@ export const HomeScreen = () => {
             {line1} <br />
             {line2}
           </h1>
-          <p className={s.hint}>{fill(copy.entry.hint, { n })}</p>
+          <p id={hintId} className={s.hint}>
+            {fill(copy.entry.hint, { n })}
+          </p>
         </div>
 
         <div className={s.foot}>
@@ -70,6 +73,7 @@ export const HomeScreen = () => {
               maxLength={n}
               value={digits}
               aria-label={fill(copy.entry.codeLabel, { n })}
+              aria-describedby={hintId}
               onChange={onChange}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}

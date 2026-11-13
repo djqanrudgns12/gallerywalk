@@ -111,3 +111,54 @@ describe('sceneOf', () => {
     expect(s.artworks.find(a => a.id === uuid(13))!.media).toBeNull();
   });
 });
+
+describe('소리 명판 표지 그림(PRD 6.4 표 "작은 명판 + 표지 이미지", V-23)', () => {
+  /** 넷째 작품(글 카드 자리)을 소리 작품으로 바꾼 보기 — 표지가 있거나 없거나 */
+  const withAudio = (cover: boolean) => {
+    const v = view();
+    const audioAsset = uuid(200);
+    return {
+      ...v,
+      artworks: v.artworks.map(a =>
+        a.id === uuid(13)
+          ? {
+              ...a,
+              kind: 'AUDIO' as const,
+              form: 'SOUND' as const,
+              textBody: null,
+              audio: {
+                asset: {
+                  assetId: audioAsset,
+                  variants: [{ name: 'audio', ext: 'm4a' as const, w: 0, h: 0, bytes: 900_000 }],
+                },
+                durationMs: 60_000,
+                analysis: { audibleStartMs: 0, audibleEndMs: 60_000, loudnessDb: -14 },
+                cover: cover
+                  ? {
+                      assetId: audioAsset,
+                      variants: [{ name: 'cover', ext: 'webp' as const, w: 512, h: 512, bytes: 40_000 }],
+                    }
+                  : null,
+              },
+            }
+          : a,
+      ),
+    };
+  };
+
+  it('표지가 있으면 상주 관리에 썸네일로 올리고(벽에 카드 대신 표지), 주소는 표지 변형', () => {
+    const s = sceneOf(withAudio(true));
+    const r = s.resident.find(x => x.id === uuid(13));
+    expect(r?.sizes).toEqual({ thumb: { w: 512, h: 512 } });
+    expect(s.urlOf(uuid(13), 'thumb')).toBe(`/assets/g/m/${EX}/${uuid(200)}/cover.webp`);
+    expect(s.urlOf(uuid(13), 'wall')).toBeNull();
+    expect(s.artworks.find(a => a.id === uuid(13))!.cover).toBe(true);
+  });
+
+  it('표지가 없으면 지금처럼 상주 관리 밖(벽에는 기기가 그린 명판 카드)', () => {
+    const s = sceneOf(withAudio(false));
+    expect(s.resident.map(x => x.id)).not.toContain(uuid(13));
+    expect(s.urlOf(uuid(13), 'thumb')).toBeNull();
+    expect(s.artworks.find(a => a.id === uuid(13))!.cover).toBe(false);
+  });
+});

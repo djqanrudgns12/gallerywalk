@@ -7,7 +7,7 @@
 
 ```
 git push (main) ─▶ GitHub CI(verify, macOS) ─▶ 맥미니 launchd 1분마다 확인(pull)
-                                                   │ CI 성공 + 수업 시간 아님 + 맥미니 한가함
+                                                   │ CI 성공 + 맥미니 한가함
                                                    ▼
                      releases/<sha> 빌드 → 운영 DB 사본으로 사전 기동 → 링크 교체 → 재시작 → 건강 확인
                                                    │ 실패
@@ -17,7 +17,7 @@ git push (main) ─▶ GitHub CI(verify, macOS) ─▶ 맥미니 launchd 1분마
 
 - 서버 폴더: `/Users/gwsvc/gallery-server/{app→releases/<sha>, releases, data, media, tmp, secrets, logs, state, repo-cache, bootstrap}`
 - 운영 포트 `127.0.0.1:4520`, 사전 검사 `4523`, 터널 메트릭 `20243`
-- 평일 08:00~16:00(KST)에는 배포하지 않는다. 그 시간에 푸시하면 16시 뒤 첫 회차(1분 안)에 올라간다.
+- 시간 제한 없이 배포한다(2026-11-13 사용자 결정, ADR-068 — 개발 중). 푸시하면 CI 성공 뒤 1분 안에 올라간다.
 
 ## 처음 한 번 (순서대로)
 
@@ -109,7 +109,6 @@ sh ops/gw.sh start-code
 
 자동 배포 상태 문구:
 
-- `수업 시간 — 16:00 뒤 배포`: 기다리는 중
 - `CI 기다리는 중`: GitHub CI가 아직 안 끝남
 - `배포 대기(맥미니가 바쁩니다 …)`: 부하가 내려가면 다음 회차에
 - `실패 1회`: 다음 회차에 한 번 더

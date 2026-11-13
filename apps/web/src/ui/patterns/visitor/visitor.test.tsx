@@ -7,6 +7,7 @@ import {
   EntryPoster,
   Joystick,
   LoadingMuseum,
+  MoveButtons,
   NearArtworkCard,
   type StickValue,
   TopBar,
@@ -332,5 +333,152 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
     render(<EntryPoster {...base} artworks={[art(1)]} posterImageUrl="/m/poster.webp" />);
     const poster = container.querySelectorAll<HTMLImageElement>('[data-testid="poster-artworks"] img');
     expect([...poster].map(i => i.getAttribute('src'))).toEqual(['/m/poster.webp']);
+  });
+
+  it('ZoomCaption: 휴대폰 세로의 한 줄 접기 → 펼치기(PRD 9.5 "접힘 1줄 → 펼침", V-15)', () => {
+    const onReact = vi.fn();
+    render(
+      <ZoomCaption
+        title="독립문 목판화"
+        author="별바라기"
+        caption="짧은 소개"
+        onClose={() => {}}
+        onReact={onReact}
+        hideClose
+      />,
+    );
+    const dialog = container.querySelector('[data-testid="zoom-caption"]');
+    // 처음에는 접힘. 접힘 줄은 CSS가 휴대폰 세로에서만 보인다(넓은 화면은 늘 펼친 카드)
+    expect(dialog?.getAttribute('data-folded')).toBe('1');
+    const fold = container.querySelector('[data-testid="zoom-fold"]') as HTMLButtonElement | null;
+    expect(fold?.getAttribute('aria-expanded')).toBe('false');
+    expect(fold?.textContent).toContain('독립문 목판화');
+    expect(fold?.textContent).toContain('별바라기');
+    expect(fold?.textContent).toContain(copy.viewer.captionUnfold);
+    const card = container.querySelector('[data-testid="zoom-card"]');
+    expect(card?.textContent).toContain('짧은 소개');
+    expect(fold?.getAttribute('aria-controls')).toBe(card?.getAttribute('id'));
+    expect(card?.getAttribute('id')?.length).toBeGreaterThan(0);
+
+    // 접힌 줄에서도 반응 단추는 바로 누를 수 있다
+    const foldReact = container.querySelector('[data-testid="zoom-fold-react"]') as HTMLButtonElement | null;
+    expect(foldReact?.textContent).toContain(copy.viewer.react);
+    act(() => {
+      foldReact?.click();
+    });
+    expect(onReact).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      fold?.click();
+    });
+    expect(dialog?.getAttribute('data-folded')).toBe('0');
+    expect(fold?.getAttribute('aria-expanded')).toBe('true');
+    expect(fold?.textContent).toContain(copy.viewer.captionFold);
+    // 펼치면 접힌 줄의 반응 단추는 없고 카드의 반응 단추 하나만
+    expect(container.querySelector('[data-testid="zoom-fold-react"]')).toBeNull();
+    expect(container.querySelectorAll('[data-testid="zoom-react"]').length).toBe(1);
+
+    act(() => {
+      fold?.click();
+    });
+    expect(dialog?.getAttribute('data-folded')).toBe('1');
+
+    // 접지 않는 곳(2D 화면 — 자기 접기가 따로 있음)
+    render(<ZoomCaption title="독립문 목판화" onClose={() => {}} foldable={false} />);
+    expect(container.querySelector('[data-testid="zoom-fold"]')).toBeNull();
+    expect(container.querySelector('[data-testid="zoom-caption"]')?.getAttribute('data-folded')).toBeNull();
+  });
+
+  it('EntryPoster: 캐릭터 고르기는 한 칸만 Tab에 들어가고 화살표로 옮긴다(라디오 묶음 키보드, V-35)', () => {
+    const onCharacterChange = vi.fn();
+    render(
+      <EntryPoster
+        title="연대기"
+        nickname=""
+        onNicknameChange={() => {}}
+        character="student-m"
+        onCharacterChange={onCharacterChange}
+        onEnter={() => {}}
+      />,
+    );
+    const m = container.querySelector('[data-testid="char-student-m"]') as HTMLButtonElement;
+    const f = container.querySelector('[data-testid="char-student-f"]') as HTMLButtonElement;
+    expect(m.tabIndex).toBe(0);
+    expect(f.tabIndex).toBe(-1);
+    act(() => {
+      m.focus();
+      m.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    });
+    expect(onCharacterChange).toHaveBeenLastCalledWith('student-f');
+    expect(document.activeElement).toBe(f);
+    act(() => {
+      f.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    });
+    expect(onCharacterChange).toHaveBeenLastCalledWith('student-m');
+    expect(document.activeElement).toBe(m);
+  });
+
+  it('EntryPoster: 함께 관람 인원은 위 줄과 같은 말(V-37)', () => {
+    render(
+      <EntryPoster
+        title="연대기"
+        nickname=""
+        onNicknameChange={() => {}}
+        character="student-m"
+        onCharacterChange={() => {}}
+        onEnter={() => {}}
+        togetherCount={3}
+      />,
+    );
+    expect(container.textContent).toContain(fill(copy.viewer.liveCount, { n: 3 }));
+  });
+
+  it('WalkNav: 묶음 이름은 단추 이름과 겹치지 않는다(화면 읽기, V-35)', () => {
+    render(<WalkNav current={1} total={2} onPrev={() => {}} onNext={() => {}} />);
+    const nav = container.querySelector('nav');
+    expect(nav?.getAttribute('aria-label')).toBe(copy.viewer.walkNav);
+    expect(copy.viewer.walkNav).not.toBe(copy.viewer.nextArtwork);
+  });
+
+  it('MoveButtons: 뛰기 잠김의 설명을 연결하고 잠금이 풀리면 지운다', () => {
+    const onRunToggle = vi.fn();
+    const props = { running: false, onRunToggle, onJump: vi.fn() };
+    render(<MoveButtons {...props} runLocked />);
+    const run = container.querySelector<HTMLButtonElement>('[data-testid="run-toggle"]')!;
+    const descriptionId = run.getAttribute('aria-describedby');
+    expect(descriptionId).not.toBeNull();
+    const description = document.getElementById(descriptionId!);
+    expect(description?.textContent).toBe('잠깐 뛰기를 쉬고 있어요. 천천히 걸어 주세요');
+    expect(run.hasAttribute('data-locked')).toBe(true);
+    expect(run.disabled).toBe(false);
+    act(() => {
+      run.click();
+    });
+    expect(onRunToggle).toHaveBeenCalledTimes(1);
+
+    render(<MoveButtons {...props} />);
+    expect(run.getAttribute('aria-describedby')).toBeNull();
+    expect(run.hasAttribute('data-locked')).toBe(false);
+    expect(document.getElementById(descriptionId!)).toBeNull();
+  });
+
+  it('EntryPoster: 함께 관람하는 사람이 없으면 안내 줄을 숨기고 한 명부터 인원을 보인다', () => {
+    const props = {
+      title: '연대기',
+      nickname: '',
+      onNicknameChange: vi.fn(),
+      character: 'student-m' as const,
+      onCharacterChange: vi.fn(),
+      onEnter: vi.fn(),
+    };
+    render(<EntryPoster {...props} togetherCount={0} />);
+    const nicknameField = container.querySelector('input')!.closest('div')!.parentElement!;
+    expect(nicknameField.querySelector('p')).toBeNull();
+    expect(container.textContent).not.toContain(copy.live.alone);
+
+    render(<EntryPoster {...props} togetherCount={1} />);
+    expect(nicknameField.querySelector('p')?.textContent).toBe(fill(copy.viewer.liveCount, { n: 1 }));
+    render(<EntryPoster {...props} />);
+    expect(nicknameField.querySelector('p')?.textContent).toBe(copy.poster.togetherNotice);
   });
 });

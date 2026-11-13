@@ -214,6 +214,14 @@ for (const size of SIZES) {
       const caption = page.getByRole('dialog', { name: artwork!.title, exact: true });
       await expect(caption).toBeVisible();
       await expect(caption).toContainText(artwork!.title);
+      if (size.name === 'phone') {
+        // 휴대폰 세로는 캡션이 한 줄로 접혀 시작한다(PRD 9.5, V-15).
+        const fold = page.getByTestId('zoom-fold');
+        await expect(fold).toHaveAttribute('aria-expanded', 'false');
+        await expect(page.getByTestId('zoom-card')).toBeHidden();
+        await fold.click();
+        await expect(page.getByTestId('zoom-card')).toBeVisible();
+      }
       await settle(page);
       await capture(page, `${size.name}-07-zoom`);
       // 크게 보기 닫기는 화면 오른쪽 위(PRD 9.2)
@@ -246,6 +254,23 @@ for (const size of SIZES) {
       await expect(exit.getByRole('button', { name: copy.viewer.restart })).toBeVisible();
       await settle(page);
       await capture(page, `${size.name}-08-exit`);
+
+      // 전시실 지도로 다른 전시실로 간다(PRD 15.1-7): 출구에서 지도 열기 → 마지막 전시실 단추 → 그 관 소개 자리까지
+      // 걸어감 → 거기서 차례로 다시 출구까지
+      const lastPart = view.layout.parts.at(-1)!;
+      const lastRoom = view.rooms.find(r => r.id === lastPart.roomId)!;
+      const introIndex = view.layout.stops.findIndex(st => st.partId === lastPart.partId);
+      await page.getByTestId('map-toggle').click();
+      await expect(page.getByTestId('walk-map')).toBeVisible();
+      await page.getByTestId(`map-part-${lastPart.partId}`).click();
+      await expect(page.getByTestId('walk-map')).toBeHidden();
+      await expect(page.getByTestId('walk-perf')).toHaveAttribute('data-stop', String(introIndex));
+      await expect(page.getByTestId('walk-perf')).toHaveAttribute('data-mode', 'view', {
+        timeout: WALK_TIMEOUT,
+      });
+      await expect(page.getByTestId('place')).toContainText(lastRoom.title);
+      for (let index = introIndex + 1; index <= exitIndex; index++) await walkTo(page, index);
+      await expect(exit).toBeVisible();
       await exit.getByRole('button', { name: copy.closed.home, exact: true }).click();
       await expect(page).toHaveURL('/');
       await expect(page.getByTestId('entry-home')).toBeVisible();

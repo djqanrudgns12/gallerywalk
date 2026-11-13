@@ -56,7 +56,6 @@ wait_for() { status "$*"; exit 0; }
 gw_lock autodeploy || { echo "다른 자동 배포 회차가 진행 중입니다"; exit 0; }
 [ "$mode" != "--retry" ] || rm -f "$failed_file" "$ci_file"
 [ ! -e "$GW_PAUSED_FILE" ] || wait_for "일시정지 중(AUTO_DEPLOY_PAUSED)"
-if gw_is_school_hours; then wait_for "수업 시간 — 16:00 뒤 배포"; fi
 [ -f "$GW_APP/.gw-commit" ] || wait_for "첫 배포 전 — sh ops/gw.sh deploy --init"
 current="$(cat "$GW_APP/.gw-commit")"
 gw_valid_sha "$current" || wait_for "운영 SHA 기록이 잘못되었습니다 — 수동 확인"

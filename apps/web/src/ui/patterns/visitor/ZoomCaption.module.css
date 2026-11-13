@@ -213,3 +213,118 @@
     padding: 0 var(--s-4);
   }
 }
+
+/*
+ * 휴대폰 세로 한 줄 접기(PRD 9.5 "접힘 1줄 → 펼침", V-15). 넓은 화면에서는 접힘 줄을 그리지 않아 늘 펼친 카드다.
+ * 접힘: 판 하나에 제목·작가(말줄임) · `펼치기` · `반응 남기기`. 펼침: 같은 자리에 `접기` 손잡이, 아래에 카드.
+ */
+.foldRow {
+  display: none;
+}
+
+.foldBtn {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--touch-min);
+  padding: 0 var(--s-2) 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  background-color: transparent;
+  color: var(--plate-ink);
+  border: 0;
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  text-align: start;
+  cursor: pointer;
+}
+
+.foldText {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.foldTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-display);
+  font-size: var(--fs-3);
+  font-weight: 700;
+  color: var(--plate-ink);
+}
+
+.foldAuthor {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--fs-1);
+  font-weight: 500;
+  color: var(--plate-ink-sub);
+}
+
+.foldHint {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-size: var(--fs-1);
+  font-weight: 600;
+  color: var(--plate-ink-sub);
+}
+
+/* 펼침 손잡이는 오른쪽 끝에 */
+.foldHintOpen {
+  margin-inline-start: auto;
+}
+
+/* 접힘은 위(펼치면 위로 자람), 펼침은 아래 */
+.foldIcon {
+  transform: rotate(-90deg);
+}
+
+.foldHintOpen .foldIcon {
+  transform: rotate(90deg);
+}
+
+.foldBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 540px) and (orientation: portrait) {
+  .foldRow {
+    box-sizing: border-box;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-1) var(--s-1) var(--s-1) var(--s-4);
+    background-color: var(--plate-bg);
+    color: var(--plate-ink);
+    border: 1px solid var(--plate-edge);
+    border-radius: var(--r-card);
+  }
+
+  .foldRow .reactBtn {
+    flex: none;
+    padding: 0 var(--s-4);
+  }
+
+  /* 펼친 동안 손잡이 줄은 카드 위에 붙은 얇은 줄 — 판을 겹쳐 그리지 않는다 */
+  .container[data-folded='0'] .foldRow {
+    padding-inline-start: var(--s-1);
+    background-color: transparent;
+    border-color: transparent;
+  }
+
+  .container[data-folded='1'] .card {
+    display: none;
+  }
+}

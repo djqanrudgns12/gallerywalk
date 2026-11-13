@@ -31,6 +31,8 @@ export interface ViewerArtwork {
   readonly maxDistance: number;
   /** 벽에 걸림 · 이젤에 놓임(ADR-057) — 이젤이면 벽에서 띄우지 않고 빛 웅덩이·접촉 그림자 대신 뒤판 */
   readonly mount: 'WALL' | 'EASEL';
+  /** 그림을 판에 맞추는 법: 없으면 그대로(배치가 그림 비율로 판을 만듦), `cover`면 가운데를 잘라 채움(소리 명판 표지, V-23) */
+  readonly fit?: 'cover' | undefined;
 }
 
 export const outerOf = (a: ViewerArtwork): { w: number; h: number } => ({

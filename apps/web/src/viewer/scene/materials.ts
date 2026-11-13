@@ -54,12 +54,22 @@ const BAKED_BEGIN = patched(
   'irradiance += getHemisphereLightIrradiance( hemisphereLights[ i ], geometryNormal ) * uBakedHemisphere;',
 );
 
-type Variant = 'plain' | 'art' | 'baked';
+type Variant = 'plain' | 'art' | 'baked' | 'pool';
 
-const injectDim = (material: Material, holder: DimHolder, variant: Variant, extra = ''): void => {
+const injectDim = (
+  material: Material,
+  holder: DimHolder,
+  variant: Variant,
+  extra = '',
+  uniforms: Readonly<Record<string, DimHolder>> = {},
+): void => {
   material.onBeforeCompile = shader => {
     shader.uniforms['uDim'] = holder;
     let header = 'uniform float uDim;\n';
+    for (const [name, u] of Object.entries(uniforms)) {
+      shader.uniforms[name] = u;
+      header += `uniform float ${name};\n`;
+    }
     let fragment = shader.fragmentShader;
     if (variant === 'baked') {
       shader.uniforms['uBakedTint'] = bakedLight.tint;
@@ -138,20 +148,27 @@ export interface PoolStyle {
 
 export const DEFAULT_POOL: PoolStyle = { color: '#ffe2b8', opacity: 0.32, scale: 1.6, lift: 0.15 };
 
-/** 캔버스로 그린 부드러운 타원 빛(빛 웅덩이). 가산 혼합 */
-export const lightPoolMaterial = (holder: DimHolder, style: PoolStyle = DEFAULT_POOL): MeshBasicMaterial =>
-  withDim(
-    new MeshBasicMaterial({
-      map: radialTexture(),
-      color: style.color,
-      transparent: true,
-      opacity: style.opacity,
-      blending: AdditiveBlending,
-      depthWrite: false,
-      toneMapped: false,
-    }),
-    holder,
-  );
+/**
+ * 캔버스로 그린 부드러운 타원 빛(빛 웅덩이). 가산 혼합.
+ * `boost`(작품마다 하나)는 마우스 올림·크게 보기·빛 흔들림 배율(V-40, `MicroMotion`) — 값만 바꾸고 셰이더는 그대로.
+ */
+export const lightPoolMaterial = (
+  holder: DimHolder,
+  style: PoolStyle = DEFAULT_POOL,
+  boost: DimHolder = { value: 1 },
+): MeshBasicMaterial => {
+  const material = new MeshBasicMaterial({
+    map: radialTexture(),
+    color: style.color,
+    transparent: true,
+    opacity: style.opacity,
+    blending: AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  injectDim(material, holder, 'pool', 'gl_FragColor.rgb *= uBoost;', { uBoost: boost });
+  return material;
+};
 
 /**
  * 사람 발밑 그늘(내 캐릭터·다른 관람객 인스턴스 공용): 가운데가 짙고 가장자리로 부드럽게 사라지는 원판.

@@ -19,7 +19,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-const [srcDir, templateId, outArg] = process.argv.slice(2);
+const [srcDir, templateId, outArg, onlyArg] = process.argv.slice(2);
 if (!srcDir || !templateId) {
   console.error('사용: node tools/assets/pipeline/build.mjs <Blender 산출 폴더> <템플릿 ID>');
   process.exit(2);
@@ -61,7 +61,9 @@ const steps = [
   ['meshopt', '--level', 'medium'],
 ];
 
-const FILES = ['core', 'exterior', 'fixtures'];
+const FILES = onlyArg ? onlyArg.split(',') : ['core', 'exterior', 'fixtures'];
+if (FILES.some(part => !['core', 'exterior', 'fixtures'].includes(part)))
+  throw new Error('산출물 종류는 core,exterior,fixtures만 허용됩니다');
 try {
   for (const part of FILES) {
     const input = resolve(srcDir, `${templateId}-${part}.glb`);

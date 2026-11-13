@@ -1,7 +1,8 @@
 import { config } from '@gallery/core/config';
 import { copy } from '@gallery/core/copy';
-import { type JSX, useId } from 'react';
+import { type JSX, useEffect, useId, useRef } from 'react';
 import { Icon } from '../../Icon.tsx';
+import { radioKeyStep } from '../radioKeys.ts';
 import s from './TeacherCharacterDialog.module.css';
 
 export type TeacherCharacterId = 'teacher-m' | 'teacher-f';
@@ -97,6 +98,26 @@ export const TeacherCharacterDialog = ({
 }: TeacherCharacterDialogProps): JSX.Element | null => {
   const titleId = useId();
   const inputId = useId();
+  const radioRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+
+  // 열면 고른 칸으로 초점, Esc로 닫기, 닫히면 연 단추로 초점(V-35)
+  useEffect(() => {
+    if (!open) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    radioRefs.current.find(b => b?.getAttribute('aria-checked') === 'true')?.focus();
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') closeRef.current();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      opener?.focus();
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -136,7 +157,7 @@ export const TeacherCharacterDialog = ({
         </header>
 
         <div className={s.charGrid} role="radiogroup" aria-label={title}>
-          {options.map(opt => {
+          {options.map((opt, i) => {
             const selected = character === opt.id;
             const imgSrc = characterImage?.[opt.id];
             return (
@@ -146,8 +167,20 @@ export const TeacherCharacterDialog = ({
                 role="radio"
                 aria-checked={selected}
                 aria-label={opt.label}
+                tabIndex={selected ? 0 : -1}
+                ref={el => {
+                  radioRefs.current[i] = el;
+                }}
                 className={selected ? `${s.charCard} ${s.charCardSelected}` : s.charCard}
                 onClick={() => onCharacterChange(opt.id)}
+                onKeyDown={e => {
+                  const to = radioKeyStep(e.key, i, options.length);
+                  const target = to === null ? undefined : options[to];
+                  if (to === null || !target) return;
+                  e.preventDefault();
+                  onCharacterChange(target.id);
+                  radioRefs.current[to]?.focus();
+                }}
                 data-testid={`char-${opt.id}`}
               >
                 {selected ? (

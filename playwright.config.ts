@@ -15,6 +15,24 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
+    // 운영 웹 빌드는 support/run-prod.mjs가 한 번 만든 뒤 4521에서 낸다. 평소 개발 시험에서는 켜지 않는다.
+    ...(process.env['GALLERY_PROD_E2E'] === '1'
+      ? [
+          {
+            name: 'prod',
+            testMatch: 'prod.spec.ts',
+            use: {
+              ...devices['Desktop Chrome'],
+              baseURL: 'http://127.0.0.1:4521',
+              serviceWorkers: 'allow' as const,
+              trace: 'off' as const,
+              launchOptions: {
+                args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+              },
+            },
+          },
+        ]
+      : []),
     {
       name: 'chromium',
       use: {

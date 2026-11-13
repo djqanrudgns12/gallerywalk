@@ -44,6 +44,9 @@ describe('기기 사전 검사(PRD 6.3)', () => {
     expect(problemText('E_FILE_TOO_SMALL')).toBe(errorCopy.E_FILE_TOO_SMALL);
     expect(problemFix('E_FILE_TYPE')).toBe(copy.teacher.upload.fix.fileTypeWithPdf);
     expect(problemFix('E_FILE_TOO_LARGE')).toContain(String(config().MAX_IMAGE_MB));
+    // HEIC는 받는 형식인데(형식 안내에 있음) 바꾸지 못한 파일만 막힌다 — 이유와 방법을 함께(V-37)
+    expect(copy.teacher.upload.fix.fileTypeWithPdf).toContain('HEIC');
+    expect(problemFix('E_HEIC_UNSUPPORTED')).toBe(copy.teacher.upload.fix.heic);
   });
 
   it('크기: 그림 25MB·소리 20MB 초과 막힘', async () => {

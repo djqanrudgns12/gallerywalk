@@ -171,6 +171,9 @@ def viewer_material(mat, look, outdoor, baked_override=None, has_color=False):
 
     base_t = tex(base, base_uv) if base is not None else None
     albedo = base_t.outputs['Color'] if base_t else tuple(base_col)
+    surface = mat.name.split('__')[0].removeprefix('M_')
+    if not outdoor and surface in look.get('surfaces', {}):
+        albedo = mul(albedo, tuple(look['surfaces'][surface]))
     # 금속은 뷰어에서 환경맵이 대부분 — 미리 보기에서는 기본색을 밝기 대신 조금만
     if metal > 0.5:
         albedo = mul(albedo, (0.55, 0.55, 0.55))
@@ -449,6 +452,9 @@ def interior_scene(args, c, core, fix):
     put('easel', -3.2, -4.4, 0.0)
     put('introPanel', -hw + off, -2.4, math.pi / 2, y=c['config']['EYE_HEIGHT_M'])
     put('hallSign', 0.0, -0.9, math.pi, y=c['config']['WALL_HEIGHT_M'] - c['geometry']['fixtures']['hallSignDropM'])
+    for item in c.get('decorations', []):
+        x, y, z = item['pos']
+        put(item['kind'], x, z, item['rotY'], y=y)
     # 합성 그림(시안): 오른쪽 벽 두 점 + 이젤 위 한 점
     synth = []
     synth.append(painting(sc, 'ArtA', (hw - 0.08, 1.75, -6.8), -math.pi / 2, (1.35, 1.0), seed=1))
@@ -605,6 +611,43 @@ def fixtures_scene(args, c, fix):
     return sc
 
 
+def decorations_scene(args, c, fix):
+    """새 장식만 같은 배율로 모은 검수 그림. 실시간 조명 없이 꼭짓점 그늘·발광을 확인한다."""
+    look = LOOK['interior']
+    sc = new_scene('decorations', args.mode, '1600x1000', args.samples, (0.12, 0.11, 0.10))
+    placed = []
+    for name, pos in (
+        ('barrier', (-2.2, 0, 0)), ('artPlinth', (0, 0, 0)), ('exitPortal', (2.2, 0, -0.4)),
+        ('spotRail', (-2.2, 2.7, 0)), ('wallSconce', (0, 1.6, 0)),
+    ):
+        o = place(fix, name, pos, 0, sc.collection)
+        if o:
+            placed.append(o)
+    if args.mode != 'solid':
+        apply_viewer_materials(placed, look, outdoor=False)
+    camera(sc, gl_to_bl((4.2, 3.2, 8)), gl_to_bl((0, 1.5, 0)), lens=40)
+    return sc
+
+
+def use_contract_look(c):
+    """제품의 기본 분위기를 읽는다. 예전 밝은 시안 값을 최종 포스터에 재사용하지 않는다."""
+    look = c.get('look')
+    if look is None:
+        return
+
+    def linear(hex_color):
+        values = [int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        return tuple(v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in values)
+
+    LOOK['interior'].update({
+        'bakedIntensity': look['baked']['intensity'], 'bakedColor': linear(look['baked']['color']),
+        'hemiSky': linear(look['hemisphere']['sky']), 'hemiGround': linear(look['hemisphere']['ground']),
+        'hemiIntensity': look['hemisphere']['intensity'], 'background': linear(look['background']),
+        'pool': linear(look['pool']['color']), 'poolStrength': look['pool']['opacity'],
+        'surfaces': {name: linear(color) for name, color in look.get('surfaces', {}).items()},
+    })
+
+
 def main():
     args = parse_args()
     src = os.path.abspath(args.src)
@@ -614,6 +657,7 @@ def main():
 
     with open(args.contract or os.path.join(src, 'contract.json'), encoding='utf-8') as f:
         c = json.load(f)
+    use_contract_look(c)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     core = import_glb(os.path.join(src, 'modern-history-core.glb'))
     ext = import_glb(os.path.join(src, 'modern-history-exterior.glb'))
@@ -630,6 +674,16 @@ def main():
     if 'fixtures' in only:
         sc = fixtures_scene(args, c, fix)
         render(sc, os.path.join(out, f'fixtures{tag}.png'))
+    if 'decorations' in only:
+        sc = decorations_scene(args, c, fix)
+        render(sc, os.path.join(out, f'decorations{tag}.png'))
+    for name, size in (('poster', (900, 1200)), ('template-card', (960, 600))):
+        if name in only:
+            sc = interior_scene(args, c, core, fix)
+            sc.render.resolution_x, sc.render.resolution_y = size
+            if name == 'poster':
+                camera(sc, gl_to_bl((0.6, 1.9, -0.8)), gl_to_bl((-3.3, 1.7, -5.3)), lens=24)
+            render(sc, os.path.join(out, f'{name}{tag}.png'))
 
 
 if __name__ == '__main__':

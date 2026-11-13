@@ -101,4 +101,36 @@ describe('여러 쪽 크게 보기', () => {
     });
     expect(sec.getAttribute('data-scale')).toBe('1');
   });
+
+  it('화면을 돌리면(상자 크기가 바뀌면) 쪽을 그 크기로 다시 계산한다(PRD 15.5-2)', () => {
+    let resize: (() => void) | null = null;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          resize = cb;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    const asked: { w: number; h: number }[] = [];
+    const host = document.createElement('div');
+    root = createRoot(host);
+    act(() =>
+      root!.render(
+        <PageZoom
+          pagesFor={vp => {
+            asked.push(vp);
+            return [page(0)];
+          }}
+        />,
+      ),
+    );
+    expect(asked.at(-1)).toEqual({ w: 320, h: 420 });
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 760 });
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 300 });
+    act(() => resize?.());
+    expect(asked.at(-1)).toEqual({ w: 760, h: 300 });
+  });
 });

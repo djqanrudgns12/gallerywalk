@@ -1,0 +1,8 @@
+{
+  "name": "gallerywalk-assets",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "assets:build": "node pipeline/finish.mjs"
+  }
+}

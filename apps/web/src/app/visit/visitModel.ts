@@ -60,7 +60,8 @@ export const visitModelOf = (view: ExhibitionView): VisitModel => {
     featured: byIdView.get(a.id)?.featured ?? false,
     plateNote: plateNoteOf(byIdView.get(a.id)),
     texture: null,
-    imageSrc: scene.urlOf(a.id, 'wall') ?? scene.urlOf(a.id, 'thumb'),
+    // 소리 작품은 크게 보기에서 재생 명판을 쓴다 — 표지는 벽에만(`fit: cover`)
+    imageSrc: a.cover ? null : (scene.urlOf(a.id, 'wall') ?? scene.urlOf(a.id, 'thumb')),
     art: a.art,
     mat: a.mat,
     frame: a.frame,
@@ -69,6 +70,7 @@ export const visitModelOf = (view: ExhibitionView): VisitModel => {
     normal: a.normal,
     maxDistance: a.maxDistance,
     mount: a.mount,
+    ...(a.cover ? { fit: 'cover' as const } : {}),
   }));
   const placeOf = (region: string): string => {
     if (region === 'exterior') return fill(copy.viewer.stopExterior, { title: facade });

@@ -1,10 +1,16 @@
 import type { TemplateId } from './look.ts';
 
+export type DecorationKind = 'spotRail' | 'wallSconce' | 'barrier' | 'artPlinth' | 'exitPortal';
+
 /**
  * 템플릿마다의 공간 치수와 조각 이름(PLAN §4.2·§4.6·§13.1). 배치 엔진(`domain/layout`)이 읽는다.
  * 모든 템플릿이 함께 쓰는 규칙 수치는 `config.ts`, 템플릿마다 다른 것만 여기에.
  */
 export interface TemplateGeometry {
+  /** F9: 템플릿 장식 외곽 크기. 바닥 소품은 벽의 보행 제외 여유 안에만 둔다. */
+  readonly decorations: Readonly<
+    Record<DecorationKind, { readonly w: number; readonly h: number; readonly d: number }>
+  >;
   /** 액자 테 폭(m, §4.2 "템플릿마다") */
   readonly frameBorderM: number;
   /** 문 조각의 문틀 폭(맑은 폭 = 문 폭 − 2 × 문틀, tools/assets/spec/modules.md) */
@@ -125,6 +131,13 @@ export interface TemplateGeometry {
 
 export const templateGeometry: Readonly<Record<TemplateId, TemplateGeometry>> = {
   'modern-history': {
+    decorations: {
+      spotRail: { w: 1.6, h: 0.28, d: 0.24 },
+      wallSconce: { w: 0.18, h: 0.42, d: 0.18 },
+      barrier: { w: 1.6, h: 0.72, d: 0.24 },
+      artPlinth: { w: 0.8, h: 0.72, d: 0.24 },
+      exitPortal: { w: 2.4, h: 3.2, d: 0.24 },
+    },
     frameBorderM: 0.07,
     doorCasingM: 0.1,
     hall: { w: 12, d: 8 },

@@ -1,7 +1,8 @@
 import type { TemplateLook } from '@gallery/core/templates';
 import type { P2 } from '@gallery/core/layout';
 import type { CharacterId, Layout, Pose } from '@gallery/core/types';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { useThree } from '@react-three/fiber';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type PeerView } from './live/peerBuffer.ts';
 import { Peers } from './live/Peers.tsx';
 import { ArtworkFrame } from './scene/ArtworkFrame.tsx';
@@ -10,10 +11,13 @@ import { ExteriorContact } from './scene/ExteriorContact.tsx';
 import { FacadeSign } from './scene/FacadeSign.tsx';
 import { FixtureModels } from './scene/FixtureModels.tsx';
 import type { DimHolder } from './scene/materials.ts';
+import { MicroMotion } from './scene/MicroMotion.tsx';
+import { vignetteOf } from './scene/microMotion.ts';
 import { Sky } from './scene/Sky.tsx';
 import { Stage } from './scene/Stage.tsx';
 import { type ModulePlacement, TemplateModules, useTemplateModules } from './scene/TemplateModules.tsx';
 import type { ViewerArtwork } from './scene/types.ts';
+import { Vignette } from './scene/Vignette.tsx';
 import type { Focus, Tier } from './textures/residency.ts';
 import type { CardText } from './textures/textCard.ts';
 import { useCardTextures } from './textures/useCardTextures.ts';
@@ -29,6 +33,7 @@ import { ZoomDim } from './walk/ZoomDim.tsx';
  * 자유 관람 3D 장면 한 벌(ADR-057): 무대 빛·하늘·템플릿 조각·설비·정면 이름판·명판·액자·캐릭터·다른 관람객.
  * 학생 관람 화면과 개발 화면(`/dev/walk`)이 같은 것을 쓴다. Canvas 안에 넣는다.
  * 액자·명판은 캐릭터 둘레의 관만(`visibleParts`, §6.6) — 멀어진 관은 떼어 놓는다.
+ * 연출(V-40): 액자 마우스 올림 빛·크게 볼 때 빛 웅덩이·먼지·빛 흔들림(`MicroMotion`), 가장자리 어둡게(`Vignette`).
  */
 
 export interface VisitorPeers {
@@ -197,6 +202,23 @@ export const VisitorScene = ({
     });
   }, [layout, artworks, visible, partOf]);
   const zoom = useWalk(st => st.api?.zoom);
+  // 빛 웅덩이 세기(작품마다 하나, `MicroMotion`이 바꿈)와 마우스가 올라간 작품
+  const invalidate = useThree(st => st.invalidate);
+  const idsKey = artworks.map(a => a.id).join('|');
+  const boosts = useMemo<Record<string, DimHolder>>(
+    () => Object.fromEntries(idsKey.split('|').map(id => [id, { value: 1 }])),
+    [idsKey],
+  );
+  const hover = useRef<string | null>(null);
+  const hovered = useCallback(() => hover.current, []);
+  const onHover = useCallback(
+    (id: string, on: boolean) => {
+      if (on) hover.current = id;
+      else if (hover.current === id) hover.current = null;
+      invalidate();
+    },
+    [invalidate],
+  );
   // 둘레 사람(보간된 자리) — 내 캐릭터가 겹치지 않게 비켜 간다
   const crowd = useMemo(() => (peers ? () => peers.sample().map((p): P2 => [p.x, p.z]) : undefined), [peers]);
   return (
@@ -219,6 +241,8 @@ export const VisitorScene = ({
             holder={holders[a.id]!}
             onTap={id => (onArtworkTap ? onArtworkTap(id) : zoom?.(id))}
             pool={look.pool}
+            boost={boosts[a.id]}
+            onHover={onHover}
           />
         ))}
       {controller ? (
@@ -244,6 +268,14 @@ export const VisitorScene = ({
         />
       )}
       {!controller && <ZoomDim holders={holders} reducedMotion={reducedMotion ?? false} />}
+      <MicroMotion
+        boosts={boosts}
+        hovered={hovered}
+        tier={tier}
+        reducedMotion={reducedMotion ?? false}
+        color={look.pool.color}
+      />
+      <Vignette strength={vignetteOf(tier)} />
       {peers && (
         <Peers
           sample={peers.sample}

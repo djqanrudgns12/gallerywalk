@@ -1,5 +1,5 @@
 import { copy } from '@gallery/core/copy';
-import type { JSX } from 'react';
+import { type JSX, useId } from 'react';
 import { Icon } from '../../Icon.tsx';
 import s from './MoveButtons.module.css';
 
@@ -23,39 +23,48 @@ export const MoveButtons = ({
   onRunToggle,
   onJump,
   className,
-}: MoveButtonsProps): JSX.Element => (
-  <div className={className ? `${s.cluster} ${className}` : s.cluster}>
-    <button
-      type="button"
-      className={running ? `${s.btn} ${s.on}` : s.btn}
-      aria-pressed={running}
-      aria-label={copy.viewer.run}
-      data-locked={runLocked || undefined}
-      onClick={onRunToggle}
-      data-testid="run-toggle"
-    >
-      <Icon name="run" size={20} />
-      <span className={s.label}>{copy.viewer.run}</span>
-    </button>
-    <button
-      type="button"
-      className={s.btn}
-      aria-label={copy.viewer.jump}
-      onPointerDown={e => {
-        // 누르는 순간 바로(손을 떼기를 기다리지 않음) — 클릭은 키보드로 누를 때만
-        e.preventDefault();
-        onJump();
-      }}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') {
+}: MoveButtonsProps): JSX.Element => {
+  const runLockedId = useId();
+  return (
+    <div className={className ? `${s.cluster} ${className}` : s.cluster}>
+      <button
+        type="button"
+        className={running ? `${s.btn} ${s.on}` : s.btn}
+        aria-pressed={running}
+        aria-label={copy.viewer.run}
+        aria-describedby={runLocked ? runLockedId : undefined}
+        data-locked={runLocked || undefined}
+        onClick={onRunToggle}
+        data-testid="run-toggle"
+      >
+        <Icon name="run" size={20} />
+        <span className={s.label}>{copy.viewer.run}</span>
+      </button>
+      {runLocked ? (
+        <span id={runLockedId} className={s.srOnly}>
+          {copy.viewer.runLocked}
+        </span>
+      ) : null}
+      <button
+        type="button"
+        className={s.btn}
+        aria-label={copy.viewer.jump}
+        onPointerDown={e => {
+          // 누르는 순간 바로(손을 떼기를 기다리지 않음) — 클릭은 키보드로 누를 때만
           e.preventDefault();
           onJump();
-        }
-      }}
-      data-testid="jump"
-    >
-      <Icon name="jump" size={20} />
-      <span className={s.label}>{copy.viewer.jump}</span>
-    </button>
-  </div>
-);
+        }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onJump();
+          }
+        }}
+        data-testid="jump"
+      >
+        <Icon name="jump" size={20} />
+        <span className={s.label}>{copy.viewer.jump}</span>
+      </button>
+    </div>
+  );
+};

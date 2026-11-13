@@ -13,7 +13,7 @@ usage() {
 
   setup-host                 (sudo) 서비스 계정·폴더·sudo 위임·비밀값 준비, 1회
   install-daemons <항목...>  (sudo) server | autodeploy | tunnel 데몬 등록 (--remove로 제거)
-  deploy [--init] [--now] [SHA]  GitHub main의 커밋(기본 최신)을 배포. 평일 08~16시는 거부
+  deploy [--init] [--now] [SHA]  GitHub main의 커밋(기본 최신)을 배포. 시간 제한 없음(2026-11-13 사용자 결정)
                              --now: 맥미니가 바빠도 기다리지 않음(수동 전용)
   rollback                   이전 릴리스로 되돌리기 (자동 배포는 멈춤)
   autodeploy <status|dry-run|retry|pause|resume|run>

@@ -188,6 +188,23 @@ describe('2D 대체 화면 넘기기', () => {
     expect(m.stop()).toBe(order.at(-1));
   });
 
+  it('키보드: 다음 단추로 출구에 닿아 단추가 잠기면 초점은 `처음부터 다시 보기`로, 그것을 누르면 다음 단추로(V-35)', () => {
+    const v = view();
+    const m = mount({ view: v });
+    const next = m.q<HTMLButtonElement>('[data-testid="visit2d-next"]')!;
+    act(() => next.focus());
+    for (let i = 0; i < artworkStops(v).length; i++) m.next();
+    expect(m.kind()).toBe('exit');
+    const restart = byText(m.q('[data-testid="visit2d-exit"]')!, copy.viewer.restart);
+    expect(document.activeElement).toBe(restart);
+    // 첫 작품으로 돌아가면 이전 단추가 잠기므로 초점은 다음 단추
+    click(restart);
+    expect(document.activeElement).toBe(m.q('[data-testid="visit2d-next"]'));
+    // 2D 캡션은 자기 접기(`닫기` → `작품 설명 보기`)가 있어 휴대폰 접힘 줄을 두지 않는다
+    expect(m.q('[data-testid="zoom-fold"]')).toBeNull();
+    expect(m.q('[data-testid="visit2d-tabs"]')?.getAttribute('aria-label')).toBe(copy.view2d.rooms);
+  });
+
   it('출구: 고마움 인사·작품 수 + 처음부터 다시 보기(첫 작품) · 처음으로(onHome)', () => {
     const v = view();
     const onHome = vi.fn();

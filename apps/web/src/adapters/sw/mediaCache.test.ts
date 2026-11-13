@@ -162,12 +162,14 @@ const wholeView = (): ExhibitionView => {
   };
   const sound = v.artworks.find(a => a.id === testArtworkId(1, 1))!;
   sound.kind = 'AUDIO';
+  sound.form = 'SOUND';
   sound.image = null;
   sound.audio = {
     asset: { assetId: uuid(0xf003), variants: [variant('audio', 'mp3', 2_000_000)] },
     durationMs: 60_000,
     analysis: { audibleStartMs: 0, audibleEndMs: 60_000, loudnessDb: null },
-    cover: { assetId: uuid(0xf004), variants: [variant('thumb', 'webp', 20), variant('wall', 'webp', 200)] },
+    // 서버는 같은 소리 에셋에 cover 변형 하나만 만든다(thumb·wall 없음).
+    cover: { assetId: uuid(0xf003), variants: [variant('cover', 'webp', 20)] },
   };
   return v;
 };
@@ -175,34 +177,60 @@ const m = (asset: string, file: string) =>
   `/assets/g/m/${testExhibitionView().exhibition.id}/${asset}/${file}`;
 
 describe('수업 전 미리 불러오기 — 전시 전체(P5-10)', () => {
+  it('첫 관은 대표작·첫 작품이 아닌 소리 표지도 한 번 받고 다른 관·소리는 받지 않는다', () => {
+    const v = wholeView();
+    v.layout.parts.reverse();
+    const soundFrame = v.layout.frames.find(frame => frame.artworkId === testArtworkId(1, 1))!;
+    expect(soundFrame.featured).toBe(false);
+    v.layout.frames.push({ ...soundFrame });
+    const items = planPreload(v, ['/assets/g/core.glb'], 'FIRST_ROOM');
+    expect(items.map(item => item.url)).toEqual([
+      '/assets/g/core.glb',
+      m(testAssetId(1, 0), 'thumb.webp'),
+      m(uuid(0xf003), 'cover.webp'),
+      m(testAssetId(1, 0), 'wall.webp'),
+    ]);
+    expect(items.find(item => item.url === m(uuid(0xf003), 'cover.webp'))?.expectedBytes).toBe(20);
+  });
+
+  it('표지 없는 소리 작품에는 표지 주소를 만들지 않는다', () => {
+    const v = wholeView();
+    const sound = v.artworks.find(art => art.id === testArtworkId(1, 1))!;
+    sound.audio!.cover = null;
+    const urls = planPreload(v, [], 'WHOLE').map(item => item.url);
+    expect(urls.filter(url => url.includes(uuid(0xf003)))).toEqual([m(uuid(0xf003), 'audio.mp3')]);
+  });
+
   it('모든 작품 썸네일·벽용, 배경음악, 소리 작품, 포스터, 템플릿이 목록에 들어간다(글 작품·줌 제외)', () => {
     const v = wholeView();
     const urls = planPreload(v, ['/assets/g/core.glb', '/assets/g/core.glb'], 'WHOLE').map(x => x.url);
     // 1관: 그림 3 + 글 1(번호 3) · 2관: 그림 1 + 소리 1(표지)
     const pictures = [testAssetId(0, 0), testAssetId(0, 1), testAssetId(0, 2), testAssetId(1, 0)];
-    const cover = uuid(0xf004);
-    for (const id of [...pictures, cover]) expect(urls).toContain(m(id, 'thumb.webp'));
+    const cover = uuid(0xf003);
+    for (const id of pictures) expect(urls).toContain(m(id, 'thumb.webp'));
     for (const id of pictures) {
       expect(urls).toContain(m(id, 'wall.webp'));
       expect(urls).toContain(m(id, 'wall-lo.webp'));
     }
-    expect(urls).toContain(m(cover, 'wall.webp'));
+    expect(urls).toContain(m(cover, 'cover.webp'));
+    expect(urls).not.toContain(m(cover, 'thumb.webp'));
+    expect(urls).not.toContain(m(cover, 'wall.webp'));
     expect(urls).toContain(m(uuid(0xf002), 'audio.m4a'));
     expect(urls).toContain(m(uuid(0xf003), 'audio.mp3'));
     expect(urls).toContain(m(uuid(0xf001), 'wall.webp'));
     expect(urls[0]).toBe('/assets/g/core.glb');
     expect(new Set(urls).size).toBe(urls.length);
     expect(urls.some(u => /zoom/.test(u))).toBe(false);
-    // 4 그림 × 3 + 표지 2 + 소리 2 + 포스터 1 + 템플릿 1
-    expect(urls).toHaveLength(4 * 3 + 2 + 2 + 1 + 1);
+    // 4 그림 × 3 + 표지 1 + 소리 2 + 포스터 1 + 템플릿 1
+    expect(urls).toHaveLength(4 * 3 + 1 + 2 + 1 + 1);
     // 첫 전시실만(학생 포스터)은 그대로 — 다른 관·배경음악·소리는 없다
     const first = planPreload(v, ['/assets/g/core.glb']).map(x => x.url);
     expect(first).not.toContain(m(testAssetId(1, 0), 'thumb.webp'));
     expect(first).not.toContain(m(uuid(0xf002), 'audio.m4a'));
   });
-  it('썸네일을 먼저 다 받고, 관 차례대로 벽용 뒤에 그 전시실 배경음악을 받는다', () => {
+  it('썸네일·표지를 먼저 다 받고, 관 차례대로 벽용 뒤에 그 전시실 배경음악을 받는다', () => {
     const urls = planPreload(wholeView(), [], 'WHOLE').map(x => x.url);
-    const lastThumb = Math.max(...urls.flatMap((u, i) => (u.endsWith('/thumb.webp') ? [i] : [])));
+    const lastThumb = Math.max(...urls.flatMap((u, i) => (/\/(thumb|cover)\.webp$/.test(u) ? [i] : [])));
     const firstWall = urls.findIndex(u => u.endsWith('/wall.webp') && !u.includes(uuid(0xf001)));
     expect(lastThumb).toBeLessThan(firstWall);
     const bgm = urls.indexOf(m(uuid(0xf002), 'audio.m4a'));
@@ -223,6 +251,7 @@ describe('수업 전 미리 불러오기 — 전시 전체(P5-10)', () => {
       .mock.calls.flatMap(([msg]) => (msg.type === 'PRELOAD_URL' ? [msg.url] : []));
     expect(sent).toEqual(plan.map(x => x.url));
     expect(sent).toContain(m(uuid(0xf002), 'audio.m4a'));
+    expect(sent).toContain(m(uuid(0xf003), 'cover.webp'));
     expect(sent).toContain(m(testAssetId(1, 0), 'wall.webp'));
     expect(progress[0]).toEqual({ kind: 'LOADING', completed: 0, total: plan.length, bytes: 0 });
     expect(progress.at(-1)).toEqual({

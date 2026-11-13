@@ -343,6 +343,70 @@ def sound_plaque(c):
     return b.finish(), {'textArea': t}
 
 
+def spot_rail(c):
+    """황동 천장 레일과 두 개의 기울어진 등 머리. 유리 발광 재질만 쓰며 실제 광원은 만들지 않는다."""
+    s = c['geometry']['decorations']['spotRail']
+    w, h, d = s['w'], s['h'], s['d']
+    b = Builder('spotRail', ('M_Brass', 'M_Glass'))
+    b.box(-w / 2, w / 2, -d / 8, d / 8, h * 0.84, h, 'M_Brass')
+    for x in (-w / 3, w / 3):
+        b.beam((x, 0, h * 0.9), (x, 0, h * 0.6), w / 80, w / 80, 'M_Brass', up=(1, 0, 0))
+        b.cylinder((x, d * 0.22, h * 0.52), (x, -d * 0.22, h * 0.2), d * 0.24, d * 0.30, 12, 'M_Brass')
+        b.cylinder((x, -d * 0.22, h * 0.2), (x, -d * 0.25, h * 0.16), d * 0.26, d * 0.26, 12, 'M_Glass')
+    return b.finish(), {'static': True}
+
+
+def wall_sconce(c):
+    """세로 유리 벽등. 뒷판·위아래 황동 고리, 발광만 하며 실시간 조명 없음."""
+    s = c['geometry']['decorations']['wallSconce']
+    w, h, d = s['w'], s['h'], s['d']
+    b = Builder('wallSconce', ('M_Brass', 'M_Glass'))
+    b.box(-w / 2, w / 2, d * 0.35, d / 2, 0, h, 'M_Brass')
+    for lo, hi in ((0, h * 0.12), (h * 0.88, h)):
+        b.box(-w / 2, w / 2, -d / 2, d / 2, lo, hi, 'M_Brass')
+    b.box(-w * 0.36, w * 0.36, -d * 0.40, d * 0.35, h * 0.12, h * 0.88, 'M_Glass')
+    return b.finish(), {'static': True}
+
+
+def barrier(c):
+    """좁은 벽 여유 안의 황동 관람 차단봉. 두 기둥과 가로 봉, 바닥 넓이는 계약 안."""
+    s = c['geometry']['decorations']['barrier']
+    w, h, d = s['w'], s['h'], s['d']
+    b = Builder('barrier', ('M_Brass',))
+    r = d / 2
+    x = w / 2 - r
+    for sx in (-x, x):
+        b.lathe([(r, 0), (r, h * 0.04), (r * 0.6, h * 0.08), (r * 0.22, h * 0.12),
+                 (r * 0.22, h * 0.90), (r * 0.38, h * 0.94), (r * 0.30, h), (0, h)],
+                12, 'M_Brass', center=(sx, 0))
+    b.cylinder((-x, 0, h * 0.84), (x, 0, h * 0.84), r * 0.16, r * 0.16, 8, 'M_Brass')
+    return b.finish(), {'static': True}
+
+
+def art_plinth(c):
+    """소개 작품 앞의 얕은 석재 받침. 본체·기단·상판은 한 재질, 보행 제외 여유 안에 둔다."""
+    s = c['geometry']['decorations']['artPlinth']
+    w, h, d = s['w'], s['h'], s['d']
+    b = Builder('artPlinth', ('M_Stone',))
+    b.box(-w / 2, w / 2, -d / 2, d / 2, 0, h * 0.10, 'M_Stone')
+    b.box(-w * 0.44, w * 0.44, -d * 0.42, d * 0.42, h * 0.10, h * 0.90, 'M_Stone')
+    b.box(-w / 2, w / 2, -d / 2, d / 2, h * 0.90, h, 'M_Stone')
+    return b.finish(), {'static': True}
+
+
+def exit_portal(c):
+    """회랑 끝 사인을 둘러싼 짙은 참나무·황동 마감. 닫힌 전시 벽이며 가짜 통로를 만들지 않는다."""
+    s = c['geometry']['decorations']['exitPortal']
+    w, h, d = s['w'], s['h'], s['d']
+    b = Builder('exitPortal', ('M_Oak', 'M_Brass'))
+    # 가운데를 비워 기존 출구 글판·벽과 겹치지 않게 한다.
+    for x in (-w / 2, w / 2 - d):
+        b.box(x, x + d, -d / 2, d / 2, 0, h, 'M_Oak')
+        b.box(x + d * 0.4, x + d * 0.6, -d / 2, -d * 0.4, 0, h, 'M_Brass')
+    b.box(-w / 2, w / 2, -d / 2, d / 2, h - d, h, 'M_Oak')
+    return b.finish(), {'static': True}
+
+
 MODELS = {
     'easel': easel,
     'bench': bench,
@@ -355,6 +419,11 @@ MODELS = {
     'exitSign': exit_sign,
     'corridorNameplate': corridor_nameplate,
     'soundPlaque': sound_plaque,
+    'spotRail': spot_rail,
+    'wallSconce': wall_sconce,
+    'barrier': barrier,
+    'artPlinth': art_plinth,
+    'exitPortal': exit_portal,
 }
 
 # 바닥 그림자 판(구워서): 사각형(x0, x1, y0, y1, Blender 지역), 화소, 해 그림자 여부.
@@ -367,6 +436,6 @@ SHADOWS = {
     'tree': {'rect': (-2.9, 2.9, -8.6, 1.4), 'px': (128, 224), 'sun': True},
 }
 # 꼭짓점 AO를 굽는 설비(판은 납작해 굽지 않음, 나무는 직접 정함)
-AO_BAKE = ('easel', 'bench', 'plant', 'lamp')
+AO_BAKE = ('easel', 'bench', 'plant', 'lamp', 'spotRail', 'wallSconce', 'barrier', 'artPlinth', 'exitPortal')
 
 _ = Matrix

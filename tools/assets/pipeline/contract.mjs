@@ -9,6 +9,8 @@ import { join, resolve } from 'node:path';
 import { config } from '../../../packages/core/src/config.ts';
 import { buildExterior } from '../../../packages/core/src/domain/layout/grammar/exterior.ts';
 import { templateGeometry } from '../../../packages/core/src/domain/templates/geometry.ts';
+import { templateLooks } from '../../../packages/core/src/domain/templates/look.ts';
+import { decorationsFor } from '../../../packages/core/src/domain/layout/grammar/modernHistory.ts';
 
 const outDir = process.argv[2];
 if (!outDir) {
@@ -37,6 +39,31 @@ const contract = () => {
   return {
     template: 'modern-history',
     geometry: g,
+    look: templateLooks['modern-history'],
+    // render.py의 합성 관람 장면에서 쓰는 사인과 같은 자리. 배치 수식은 제품과 공유한다.
+    decorations: decorationsFor(
+      [
+        {
+          kind: 'nameplate',
+          partId: '합성관',
+          pos: [-g.hall.w / 2 + g.fixtures.wallOffsetM, g.fixtures.nameplate.minY, -6],
+          rotY: Math.PI / 2,
+        },
+        {
+          kind: 'introPanel',
+          partId: '합성관',
+          pos: [-g.hall.w / 2 + g.fixtures.wallOffsetM, c.EYE_HEIGHT_M, -2.4],
+          rotY: Math.PI / 2,
+        },
+        {
+          kind: 'exitSign',
+          partId: null,
+          pos: [0, c.EYE_HEIGHT_M + g.fixtures.exitSignLiftM, -g.fixtures.wallOffsetM],
+          rotY: Math.PI,
+        },
+      ],
+      g,
+    ),
     config: {
       WALL_HEIGHT_M: c.WALL_HEIGHT_M,
       WALL_THICKNESS_M: c.WALL_THICKNESS_M,

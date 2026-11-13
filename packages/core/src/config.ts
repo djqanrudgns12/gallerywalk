@@ -224,6 +224,36 @@ export const configDefaults = {
   /** 위 줄 투명도(PLAN §7.3): 움직이는 동안 · 입력 없이 `IDLE_DIM_SEC` 지난 뒤 */
   TOP_BAR_OPACITY: { moving: 0.5, idle: 0.35 },
   MICRO_MOTION_SETTLE_SEC: 2,
+  /** 액자에 마우스를 올리면 그 빛 웅덩이를 `T_HOVER`에 걸쳐 이만큼 밝힌다(PRD 8.2, V-40) */
+  HOVER_POOL_BOOST: 1.22,
+  /**
+   * 작은 움직임(PRD 8.3·10.4, ADR-013, V-40): 이동 중과 도착 뒤 `MICRO_MOTION_SETTLE_SEC`까지만, 실내에서만.
+   * 먼지 수(단계별, '낮음' 0) · 먼지가 되풀이되는 카메라 둘레 상자 한 변(m) · 1m 거리 점 크기(CSS px) · 불투명도 ·
+   * 떠도는 빠르기(m/s) · 빛 흔들림 세기(빛 웅덩이 ±비율)·빠르기(Hz 둘) · 켜질 때 걸리는 시간(초)
+   */
+  MICRO_MOTION: {
+    dustCount: { HIGH: 90, MEDIUM: 40, LOW: 0 },
+    dustBoxM: 7,
+    dustSizePx: 7,
+    dustOpacity: 0.3,
+    dustDriftMps: 0.05,
+    /** 축별 흔들림 빠르기(rad/s), Y·Z축 씨앗 위상(X축은 한 바퀴) */
+    dustWobbleRadPerSec: [1, 0.7, 0.8],
+    dustWobbleSeedPhaseRad: [3.1, 5],
+    /** 떠도는 방향(X·Y·Z)과 상자 가장자리·눈앞에서 사라지는 거리 */
+    dustDriftDirection: [1, -0.6, 0.7],
+    dustFadeBoxRatio: [0.3, 0.5],
+    dustNearFadeM: [0.4, 1],
+    dustMinDepthM: 0.25,
+    shimmerAmp: 0.05,
+    shimmerHz: [0.37, 0.91],
+    /** 두 사인의 혼합 비율과 두 번째 사인의 위상 배율 */
+    shimmerMix: [0.6, 0.4],
+    shimmerPhaseRatio: 1.7,
+    fadeInSec: 0.4,
+  },
+  /** 아주 약한 가장자리 어둡게(PRD 10.3): 단계별 모서리 어둡기('낮음' 끔) · 어두워지기 시작하는 반지름(가운데 0 · 모서리 ≈ 1.41) */
+  VIGNETTE: { strength: { HIGH: 0.2, MEDIUM: 0.2, LOW: 0 }, inner: 0.6 },
   /** PRD 8.2 시간 표(초) */
   T_ENTER: 1.6,
   T_STOP_MIN: 0.9,

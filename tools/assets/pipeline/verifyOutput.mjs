@@ -11,6 +11,7 @@ import { gzipSync } from 'node:zlib';
 import { config } from '../../../packages/core/src/config.ts';
 import { buildExterior } from '../../../packages/core/src/domain/layout/grammar/exterior.ts';
 import { templateGeometry } from '../../../packages/core/src/domain/templates/geometry.ts';
+import { decorationBoundsProblems } from './decorationBounds.mjs';
 
 const [templateId, dirArg] = process.argv.slice(2);
 if (!templateId) {
@@ -146,6 +147,7 @@ const REQUIRED_CORE = {
     'mh_wall_4m',
     'mh_wall_2m',
     'mh_wall_door_2m',
+    'mh_corridor_door_2m',
     'mh_corner_in',
     'mh_corner_out',
     'mh_ceiling_2x2',
@@ -167,6 +169,8 @@ for (const [name, info] of Object.entries(manifest.modules)) {
   }
   const { triangles } = meshInfo('core.glb', name, node, info.lightmap);
   const b = getBounds(node);
+  if (name === 'mh_corridor_door_2m' && b.min[2] < -MM)
+    problems.push(`${name}: 반대편 문과 겹치는 벽 두께 면이 남았습니다`);
   const limit = TRIANGLE_LIMIT[kindOf(name)];
   if (triangles > limit) problems.push(`${name}: 삼각형 ${triangles} > ${limit}`);
   const m = /_(\d)m$/.exec(name);
@@ -286,6 +290,7 @@ else {
       'exitSign',
       'corridorNameplate',
       'soundPlaque',
+      ...Object.keys(g.decorations),
     ];
     for (const name of required)
       if (!fx.models?.[name]) problems.push(`필수 설비가 manifest에 없음: ${name}`);
@@ -299,6 +304,10 @@ else {
       const limit = name === 'tree' ? TREE_TRIANGLES_MAX : FIXTURE_TRIANGLES_MAX;
       if (triangles > limit) problems.push(`${name}: 삼각형 ${triangles} > ${limit}`);
       const b = primBounds(node, 'M_Shadow');
+      if (g.decorations[name]) {
+        problems.push(...decorationBoundsProblems(name, b, g.decorations[name], c.WALKABLE_WALL_MARGIN_M));
+        if (!fx.models[name].vertexAO) problems.push(`${name}: 구운 꼭짓점 그늘 없음`);
+      }
       console.log(
         `  ${name.padEnd(18)} 삼각형 ${String(triangles).padStart(6)}  x ${fmt(b.min[0])}..${fmt(b.max[0])}  y ${fmt(b.min[1])}..${fmt(b.max[1])}  z ${fmt(b.min[2])}..${fmt(b.max[2])}`,
       );

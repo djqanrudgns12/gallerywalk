@@ -1,5 +1,5 @@
 import { copy, fill } from '@gallery/core/copy';
-import { type JSX, useState } from 'react';
+import { type JSX, useId, useState } from 'react';
 import { Icon } from '../../Icon.tsx';
 import s from './ZoomCaption.module.css';
 
@@ -17,6 +17,11 @@ export interface ZoomCaptionProps {
   reactPending?: boolean | undefined;
   /** 캡션 위 `닫기`를 숨김(걷기 화면은 화면 오른쪽 위에 따로 둔다, PRD 9.2) */
   hideClose?: boolean | undefined;
+  /**
+   * 휴대폰 세로에서 한 줄로 접었다 펴기(PRD 9.5 "접힘 1줄 → 펼침", V-15). 기본 켬 — 처음엔 접힌 한 줄(제목·작가·반응 단추)만.
+   * 접힘 줄과 카드 숨김은 CSS가 휴대폰 세로에서만 적용하므로 넓은 화면은 늘 펼친 카드다. 2D 화면처럼 자기 접기가 있으면 끈다
+   */
+  foldable?: boolean | undefined;
   className?: string | undefined;
 }
 
@@ -32,10 +37,16 @@ export const ZoomCaption = ({
   onReact,
   hideClose = false,
   reactPending = false,
+  foldable = true,
   className,
 }: ZoomCaptionProps): JSX.Element => {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const [folded, setFolded] = useState(true);
+  const cardId = useId();
   const hasDescription = Boolean(description && description.trim().length > 0);
+  const pendingDot = reactPending ? (
+    <span className={s.pendingDot} role="img" aria-label={copy.viewer.reactPending} />
+  ) : null;
 
   return (
     <section
@@ -43,6 +54,7 @@ export const ZoomCaption = ({
       role="dialog"
       aria-label={title}
       data-testid="zoom-caption"
+      data-folded={foldable ? (folded ? '1' : '0') : undefined}
     >
       {hideClose ? null : (
         <div className={s.topRow}>
@@ -59,7 +71,43 @@ export const ZoomCaption = ({
         </div>
       )}
 
-      <div className={s.card}>
+      {foldable ? (
+        <div className={s.foldRow}>
+          <button
+            type="button"
+            className={s.foldBtn}
+            aria-expanded={!folded}
+            aria-controls={cardId}
+            onClick={() => setFolded(prev => !prev)}
+            data-testid="zoom-fold"
+          >
+            {folded ? (
+              <span className={s.foldText}>
+                <span className={s.foldTitle}>{title}</span>
+                {author ? <span className={s.foldAuthor}>{author}</span> : null}
+              </span>
+            ) : null}
+            <span className={folded ? s.foldHint : `${s.foldHint} ${s.foldHintOpen}`}>
+              {folded ? copy.viewer.captionUnfold : copy.viewer.captionFold}
+              <Icon name="chevron-right" size={16} className={s.foldIcon} />
+            </span>
+          </button>
+          {folded && onReact ? (
+            <button
+              type="button"
+              className={s.reactBtn}
+              onClick={onReact}
+              data-testid="zoom-fold-react"
+              data-pending={reactPending ? '1' : undefined}
+            >
+              <span>{copy.viewer.react}</span>
+              {pendingDot}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className={s.card} id={cardId} data-testid="zoom-card">
         <div className={s.text}>
           {featured || pageInfo ? (
             <p className={s.eyebrow}>
@@ -107,9 +155,7 @@ export const ZoomCaption = ({
                 data-pending={reactPending ? '1' : undefined}
               >
                 <span>{copy.viewer.react}</span>
-                {reactPending ? (
-                  <span className={s.pendingDot} role="img" aria-label={copy.viewer.reactPending} />
-                ) : null}
+                {pendingDot}
               </button>
             ) : null}
           </div>

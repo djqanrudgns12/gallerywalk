@@ -1,6 +1,7 @@
 import type { ThreeEvent } from '@react-three/fiber';
-import { useEffect, useMemo } from 'react';
-import { BoxGeometry, type BufferGeometry, MeshStandardMaterial } from 'three';
+import { useEffect, useMemo, useRef } from 'react';
+import { BoxGeometry, type BufferGeometry, MeshStandardMaterial, type Texture } from 'three';
+import { coverCrop } from '../textures/coverCrop.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   artMaterial,
@@ -17,18 +18,26 @@ import { artPlaneOffsetOf, FRAME_DEPTH, hangOf, outerOf, type ViewerArtwork } fr
  * 액자 한 점: 접촉 그림자 → 빛 웅덩이 → 테 → 매트 → 그림 면(PLAN §6.3·§6.4).
  * 실시간 그림자 없이 액자가 벽에 붙어 보이게 하는 것이 접촉 그림자, 스포트 조명 대신이 빛 웅덩이다.
  * P4-2에서는 관 단위로 테·매트를 한 기하로 합치고 `aArtworkIndex`로 줌 대상을 가른다(뼈대는 작품마다 따로).
+ * 마우스를 올리면 `onHover`로 알리고, 빛 웅덩이 세기(`boost`)는 바깥(`MicroMotion`)이 `T_HOVER`에 걸쳐 바꾼다(V-40).
+ * `fit: cover`(소리 명판 표지)는 그림을 판에 늘이지 않고 가운데를 잘라 채운다.
  */
 export const ArtworkFrame = ({
   artwork,
   holder,
   onTap,
   pool,
+  boost,
+  onHover,
 }: {
   artwork: ViewerArtwork;
   holder: DimHolder;
   onTap: (id: string) => void;
   /** 빛 웅덩이 모양(템플릿 `look.pool`). 없으면 기본 */
   pool?: PoolStyle | undefined;
+  /** 빛 웅덩이 세기 배율(마우스 올림·크게 보기·빛 흔들림). 없으면 1 */
+  boost?: DimHolder | undefined;
+  /** 마우스가 이 액자에 올라옴(true)·떠남(false) — 손가락 누르기는 알리지 않는다 */
+  onHover?: ((id: string, on: boolean) => void) | undefined;
 }) => {
   const outer = outerOf(artwork);
   const depth = FRAME_DEPTH;
@@ -48,13 +57,14 @@ export const ArtworkFrame = ({
       mat: standard({ color: artwork.matColor, roughness: 0.92 }, holder),
       // 텍스처를 받는 중이면 매트 색 판(빈 벽처럼 보이지 않게, 받으면 바꿔 끼움)
       art: artwork.texture
-        ? artMaterial(artwork.texture, holder)
+        ? artMaterial(fitted(artwork.texture, artwork), holder)
         : standard({ color: artwork.matColor, roughness: 0.9 }, holder),
-      pool: lightPoolMaterial(holder, pool),
+      pool: lightPoolMaterial(holder, pool, boost),
       shadow: contactShadowMaterial(holder),
       back: standard({ color: '#3a2a1e', roughness: 0.85 }, holder),
     }),
-    [artwork.matColor, artwork.texture, holder, pool],
+    // `fitted`가 읽는 `fit`·판 크기도 함께 본다
+    [artwork.matColor, artwork.texture, artwork.fit, artwork.art.w, artwork.art.h, holder, pool, boost],
   );
   useEffect(
     () => () => {
@@ -69,6 +79,26 @@ export const ArtworkFrame = ({
     e.stopPropagation();
     onTap(artwork.id);
   };
+  // 테·매트·그림 면이 한 광선에 함께 걸리므로 몇 개에 올라 있는지 센다 — 0 ↔ 1일 때만 알린다
+  const hits = useRef(0);
+  const hoverRef = useRef(onHover);
+  hoverRef.current = onHover;
+  const over = (e: ThreeEvent<PointerEvent>) => {
+    if (e.pointerType !== 'mouse') return;
+    if (hits.current++ === 0) hoverRef.current?.(artwork.id, true);
+  };
+  const out = (e: ThreeEvent<PointerEvent>) => {
+    if (e.pointerType !== 'mouse' || hits.current === 0) return;
+    if (--hits.current === 0) hoverRef.current?.(artwork.id, false);
+  };
+  useEffect(
+    () => () => {
+      if (hits.current > 0) hoverRef.current?.(artwork.id, false);
+      hits.current = 0;
+    },
+    [],
+  );
+  const pointer = { onClick: tap, onPointerOver: over, onPointerOut: out };
   const innerW = outer.w - 2 * artwork.frame;
   const innerH = outer.h - 2 * artwork.frame;
 
@@ -91,20 +121,33 @@ export const ArtworkFrame = ({
             <planeGeometry args={[outer.w * 1.12, outer.h * 1.12]} />
           </mesh>
         )}
-        <mesh geometry={frameGeometry} material={materials.frame} onClick={tap} />
+        <mesh geometry={frameGeometry} material={materials.frame} {...pointer} />
         {/* 테 안쪽 황동 띠 */}
         <mesh position={[0, 0, depth - 0.012]} material={materials.lip}>
           <planeGeometry args={[innerW + 0.012, innerH + 0.012]} />
         </mesh>
-        <mesh position={[0, 0, depth - 0.008]} material={materials.mat} onClick={tap}>
+        <mesh position={[0, 0, depth - 0.008]} material={materials.mat} {...pointer}>
           <planeGeometry args={[innerW, innerH]} />
         </mesh>
-        <mesh position={[0, 0, artPlaneOffsetOf(artwork) - hang]} material={materials.art} onClick={tap}>
+        <mesh position={[0, 0, artPlaneOffsetOf(artwork) - hang]} material={materials.art} {...pointer}>
           <planeGeometry args={[artwork.art.w, artwork.art.h]} />
         </mesh>
       </group>
     </group>
   );
+};
+
+/** `fit: cover`면 그림 크기와 판 비율로 가운데 자르기를 텍스처 UV 변환에 넣는다(같은 값이면 몇 번 불러도 같음) */
+const fitted = (tex: Texture, a: ViewerArtwork): Texture => {
+  if (a.fit !== 'cover') return tex;
+  const img = tex.image as { width?: unknown; height?: unknown } | null;
+  const w = typeof img?.width === 'number' ? img.width : 0;
+  const h = typeof img?.height === 'number' ? img.height : 0;
+  if (w <= 0 || h <= 0) return tex;
+  const crop = coverCrop({ w, h }, a.art, tex.repeat.y < 0);
+  tex.repeat.set(crop.repeat[0], crop.repeat[1]);
+  tex.offset.set(crop.offset[0], crop.offset[1]);
+  return tex;
 };
 
 /** 테: 네 변을 상자로 만들어 한 기하로 합친다(그리기 1회). 앞면이 그림 면보다 살짝 앞에 온다. */

@@ -9,6 +9,8 @@ import type { ResidentArt, Variant } from '../textures/residency.ts';
  * - 액자 자리·크기는 배치(`layout.frames`), 글·작가는 작품 공개 정보, 매트 색은 가장자리 밝기(PRD 6.5)
  * - 상주 관리(§6.5)가 쓸 변형별 화소 크기와 미디어 주소
  * 그림 없는 작품(글·소리)은 그림 텍스처 대신 화면이 그린다(글 카드·소리 명판) — 여기서는 `media: null`.
+ * 단, 표지 그림(`audio.cover`, MP3 태그에서 꺼냄)이 있는 소리 작품은 그 표지를 썸네일 자리로 상주 관리에 올려
+ * 벽에 건다(PRD 6.4 표 "작은 명판 + 표지 이미지", V-23). 표지는 썸네일 크기 하나뿐이라 벽용 변형은 없다.
  */
 
 export interface SceneArtwork {
@@ -30,6 +32,8 @@ export interface SceneArtwork {
   readonly featured: boolean;
   /** 벽에 걸 그림(여러 쪽이면 첫 쪽). 없으면 null */
   readonly media: { readonly assetId: string; readonly variants: readonly MediaVariant[] } | null;
+  /** 소리 작품의 표지 그림을 벽에 건다(명판 판에 가운데를 잘라 채움) */
+  readonly cover: boolean;
 }
 
 export interface ExhibitionScene {
@@ -42,6 +46,14 @@ export interface ExhibitionScene {
 }
 
 const VARIANTS: readonly Variant[] = ['thumb', 'wall', 'wall-lo'];
+
+/** 소리 표지(`cover` 변형 하나, 썸네일 크기) — 상주 관리에는 썸네일 자리로 올린다 */
+const coverOf = (
+  ref: { readonly assetId: string; readonly variants: readonly MediaVariant[] } | null,
+): { assetId: string; variant: MediaVariant } | null => {
+  const v = ref?.variants.find(x => x.name === 'cover');
+  return ref && v ? { assetId: ref.assetId, variant: v } : null;
+};
 
 export const sceneOf = (view: ExhibitionView): ExhibitionScene => {
   const layout = view.layout;
@@ -58,12 +70,15 @@ export const sceneOf = (view: ExhibitionView): ExhibitionScene => {
   const artworks: SceneArtwork[] = [];
   const resident: ResidentArt[] = [];
   const media = new Map<string, { assetId: string; variants: readonly MediaVariant[] }>();
+  const covers = new Map<string, { assetId: string; variant: MediaVariant }>();
   for (const f of layout.frames) {
     const a = byId.get(f.artworkId);
     if (!a) continue;
     const img = a.image ?? a.pages?.[0] ?? null;
     const m = img ? { assetId: img.asset.assetId, variants: img.asset.variants } : null;
     if (m) media.set(a.id, m);
+    const cover = a.kind === 'AUDIO' && !m ? coverOf(a.audio?.cover ?? null) : null;
+    if (cover) covers.set(a.id, cover);
     artworks.push({
       id: a.id,
       partId: f.partId,
@@ -82,8 +97,17 @@ export const sceneOf = (view: ExhibitionView): ExhibitionScene => {
       mount: f.mount,
       featured: f.featured,
       media: m,
+      cover: cover !== null,
     });
-    if (m) {
+    if (cover) {
+      const { w, h } = cover.variant;
+      resident.push({
+        id: a.id,
+        partId: f.partId,
+        order: orderInPart.get(a.id) ?? 0,
+        sizes: { thumb: { w, h } },
+      });
+    } else if (m) {
       const sizes: ResidentArt['sizes'] = {};
       for (const v of VARIANTS) {
         const found = m.variants.find(x => x.name === v);
@@ -98,6 +122,8 @@ export const sceneOf = (view: ExhibitionView): ExhibitionScene => {
     artworks,
     resident,
     urlOf: (id, variant) => {
+      const cover = covers.get(id);
+      if (cover) return variant === 'thumb' ? mediaPath(exhibitionId, cover.assetId, cover.variant) : null;
       const m = media.get(id);
       const v = m?.variants.find(x => x.name === variant);
       return m && v ? mediaPath(exhibitionId, m.assetId, v) : null;

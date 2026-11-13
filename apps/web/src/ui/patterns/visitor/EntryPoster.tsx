@@ -1,7 +1,8 @@
 import { config } from '@gallery/core/config';
 import { copy, fill } from '@gallery/core/copy';
-import { type JSX, useId } from 'react';
+import { type JSX, useId, useRef } from 'react';
 import { Icon } from '../../Icon.tsx';
+import { radioKeyStep } from '../radioKeys.ts';
 import { formatFacadeTitle } from './LoadingMuseum.tsx';
 import s from './EntryPoster.module.css';
 
@@ -124,6 +125,7 @@ export const EntryPoster = ({
 }: EntryPosterProps): JSX.Element => {
   const inputId = useId();
   const charLabelId = useId();
+  const charRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const maxChars = config().NICKNAME_MAX_CHARS;
   const displayTitle = formatFacadeTitle(title);
 
@@ -144,8 +146,8 @@ export const EntryPoster = ({
     togetherCount === undefined
       ? copy.poster.togetherNotice
       : togetherCount > 0
-        ? fill(copy.poster.togetherCount, { n: togetherCount })
-        : copy.live.alone;
+        ? fill(copy.viewer.liveCount, { n: togetherCount })
+        : null;
 
   // 포스터 그림이 있으면 그것만 크게, 없으면 작품들, 둘 다 없으면(받기 전·작품 없음) 단색 판
   const hung = posterImageUrl ? [] : hangOrder(artworks ?? []);
@@ -202,7 +204,7 @@ export const EntryPoster = ({
                 />
                 <span className={s.nicknameCount} aria-hidden="true">{`${nickname.length}/${maxChars}`}</span>
               </div>
-              <p className={s.together}>{togetherLine}</p>
+              {togetherLine ? <p className={s.together}>{togetherLine}</p> : null}
               {onFreshStart ? (
                 <div className={s.freshRow}>
                   <button
@@ -227,7 +229,7 @@ export const EntryPoster = ({
                 {copy.poster.characterLabel}
               </span>
               <div className={s.charRow} role="radiogroup" aria-labelledby={charLabelId}>
-                {studentOptions.map(opt => {
+                {studentOptions.map((opt, i) => {
                   const selected = character === opt.id;
                   const imgSrc = characterImage?.[opt.id];
                   return (
@@ -237,8 +239,20 @@ export const EntryPoster = ({
                       role="radio"
                       aria-checked={selected}
                       aria-label={opt.label}
+                      tabIndex={selected ? 0 : -1}
+                      ref={el => {
+                        charRefs.current[i] = el;
+                      }}
                       className={selected ? `${s.charBtn} ${s.charBtnSelected}` : s.charBtn}
                       onClick={() => onCharacterChange(opt.id)}
+                      onKeyDown={e => {
+                        const to = radioKeyStep(e.key, i, studentOptions.length);
+                        const target = to === null ? undefined : studentOptions[to];
+                        if (to === null || !target) return;
+                        e.preventDefault();
+                        onCharacterChange(target.id);
+                        charRefs.current[to]?.focus();
+                      }}
                       data-testid={`char-${opt.id}`}
                     >
                       {imgSrc ? (

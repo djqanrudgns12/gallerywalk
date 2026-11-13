@@ -42,8 +42,8 @@ const dedupe = (items: readonly PreloadItem[]): readonly PreloadItem[] => {
 };
 
 /**
- * 받을 목록. `FIRST_ROOM`(기본): 템플릿 + 첫 관 액자 썸네일 전부 + 대표작·첫 작품 벽용(§2.5).
- * `WHOLE`(교사 수업 전 미리 불러오기, P5-10): 템플릿 → 포스터 → 모든 액자 썸네일 → 관 차례대로 [그 관의 벽용(`wall`·`wall-lo`)
+ * 받을 목록. `FIRST_ROOM`(기본): 템플릿 + 첫 관 액자 썸네일·소리 표지 전부 + 대표작·첫 작품 벽용(§2.5).
+ * `WHOLE`(교사 수업 전 미리 불러오기, P5-10): 템플릿 → 포스터 → 모든 액자 썸네일·소리 표지 → 관 차례대로 [그 관의 벽용(`wall`·`wall-lo`)
  * → 그 전시실 배경음악] → 소리 작품의 소리. 줌 그림(`zoom`·`zoom-hi`)은 크게 볼 때만 받으므로 넣지 않는다.
  */
 export const planPreload = (
@@ -79,7 +79,11 @@ export const planPreload = (
         return asset ? [asset] : [];
       }),
     }));
-    for (const { assets } of parts) for (const asset of assets) append(asset, 'thumb');
+    for (const { assets } of parts)
+      for (const asset of assets) {
+        append(asset, 'thumb');
+        append(asset, 'cover');
+      }
     const bgmOf = new Map(view.rooms.map(room => [room.id, room.bgm]));
     for (const { part, assets } of parts) {
       for (const asset of assets) {
@@ -102,7 +106,10 @@ export const planPreload = (
     const asset = wallAssetOf(artOf.get(frame.artworkId));
     if (asset) assets.push({ asset, featured: frame.featured });
   }
-  for (const { asset } of assets) append(asset, 'thumb');
+  for (const { asset } of assets) {
+    append(asset, 'thumb');
+    append(asset, 'cover');
+  }
   const featured = assets.find(item => item.featured);
   if (featured) append(featured.asset, 'wall');
   if (assets[0]) append(assets[0].asset, 'wall');

@@ -48,6 +48,18 @@
   line-height: 1;
 }
 
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media (max-width: 540px) {
   .btn {
     width: 52px;
@@ -59,4 +71,10 @@
   .btn:active {
     transform: none;
   }
+}
+
+/* 키보드 초점 링(V-35) — 판 바깥 놋쇠 2px */
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

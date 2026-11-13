@@ -89,10 +89,12 @@ describe('운영 스크립트', () => {
     }
   });
 
-  it('배포는 수업 시간에 우회 없이 75로 거부한다', () => {
+  it('배포는 시간 제한이 없다 — 평일 수업 시간에도 바쁨·비밀값 관문까지 간다(2026-11-13 사용자 결정)', () => {
     const r = sh([join(scripts, 'deploy.sh'), '--sha', SHA], { GW_TEST_KST_DOW_HOUR: '2:10' });
-    expect(r.status).toBe(75);
-    expect(r.stderr).toContain('수업 시간');
+    // 시간 관문이 없으므로 다음 관문(비밀값 파일 없음)에서 멈춘다
+    expect(r.status).toBe(1);
+    expect(r.stderr).not.toContain('수업 시간');
+    expect(r.stderr).toContain('app.env');
     expect(sh([join(scripts, 'deploy.sh'), '--force', '--sha', SHA]).status).toBe(1);
   });
 
@@ -105,16 +107,13 @@ describe('운영 스크립트', () => {
     expect(r.status).toBe(75);
   });
 
-  it('--now는 바쁨만 건너뛰고, 수업 시간과 자동 배포에서는 통하지 않는다', () => {
+  it('--now는 바쁨만 건너뛰고, 자동 배포에서는 통하지 않는다', () => {
     const busy = { GW_TEST_KST_DOW_HOUR: '6:10', GW_TEST_LOAD: '100', GW_TEST_NCPU: '4' };
     // 바쁨을 지나 다음 관문(비밀값 파일 없음)에서 멈추면 바쁨 판정을 건너뛴 것이다
     const passed = sh([join(scripts, 'deploy.sh'), '--now', '--sha', SHA], busy);
     expect(passed.status).toBe(1);
     expect(passed.stdout).toContain('기다리지 않고');
     expect(passed.stderr).toContain('app.env');
-    expect(
-      sh([join(scripts, 'deploy.sh'), '--now', '--sha', SHA], { GW_TEST_KST_DOW_HOUR: '2:10' }).status,
-    ).toBe(75);
     const auto = sh([join(scripts, 'deploy.sh'), '--now', '--sha', SHA], { ...busy, GW_AUTODEPLOY_RUN: '1' });
     expect(auto.status).toBe(1);
     expect(auto.stderr).toContain('수동 배포에서만');
@@ -126,10 +125,16 @@ describe('운영 스크립트', () => {
     expect(r.stdout + r.stderr).not.toContain('저장했습니다');
   });
 
-  it('자동 배포는 수업 시간에 아무것도 받지 않고 기다린다', () => {
+  it('자동 배포는 수업 시간에도 기다리지 않는다(시간 제한 없음, 2026-11-13 사용자 결정)', () => {
     const r = sh([join(scripts, 'auto-deploy.sh'), '--run'], { GW_TEST_KST_DOW_HOUR: '4:09' });
-    expect(r.status).toBe(0);
-    expect(readFileSync(join(home, 'state/autodeploy-status'), 'utf8')).toContain('수업 시간');
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stderr).toBe('');
+    const status = readFileSync(join(home, 'state/autodeploy-status'), 'utf8');
+    // 격리된 시험 홈에는 운영 SHA가 없다. 시간 관문을 지나 첫 배포 확인에서 정상 대기해야 한다.
+    expect(status).toMatch(
+      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} 첫 배포 전 — sh ops\/gw\.sh deploy --init\n$/,
+    );
+    expect(status).not.toContain('수업 시간');
   });
 
   it('자동 배포는 pull 방식이고 CI verify를 기다린다', () => {

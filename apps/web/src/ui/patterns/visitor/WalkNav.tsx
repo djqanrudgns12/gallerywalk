@@ -40,7 +40,7 @@ export const WalkNav = ({
   return (
     <nav
       className={className ? `${s.navCluster} ${className}` : s.navCluster}
-      aria-label={copy.viewer.nextArtwork}
+      aria-label={copy.viewer.walkNav}
     >
       {hasQuickTools ? (
         <div className={s.quickTools}>

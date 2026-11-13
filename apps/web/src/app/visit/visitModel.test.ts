@@ -73,3 +73,43 @@ describe('명판 셋째 줄(PRD 6.4, V-23)', () => {
     expect(note(plain!.id)).toBeUndefined();
   });
 });
+
+describe('소리 명판 표지(V-23)', () => {
+  it('표지가 있는 소리 작품은 벽 그림을 가운데 잘라 채우고(`fit: cover`), 크게 보기 그림 주소는 없음(재생 명판)', () => {
+    const v = testExhibitionView([2]);
+    const [audio, plain] = v.artworks;
+    const assetId = audio!.image!.asset.assetId;
+    const view = {
+      ...v,
+      artworks: [
+        {
+          ...audio!,
+          kind: 'AUDIO' as const,
+          form: 'SOUND' as const,
+          image: null,
+          audio: {
+            asset: {
+              assetId,
+              variants: [{ name: 'audio', ext: 'm4a' as const, w: 0, h: 0, bytes: 900_000 }],
+            },
+            durationMs: 60_000,
+            analysis: { audibleStartMs: 0, audibleEndMs: 60_000, loudnessDb: -14 },
+            cover: {
+              assetId,
+              variants: [{ name: 'cover', ext: 'webp' as const, w: 512, h: 512, bytes: 40_000 }],
+            },
+          },
+        },
+        plain!,
+      ],
+    };
+    const m = visitModelOf(view);
+    const a = m.artworks.find(x => x.id === audio!.id)!;
+    expect(a.fit).toBe('cover');
+    expect(a.imageSrc).toBeNull();
+    expect(m.textures.urlOf(a.id, 'thumb')).toBe(`/assets/g/m/${TEST_EXHIBITION_ID}/${assetId}/cover.webp`);
+    // 크게 보기 재생 명판·표지를 받기 전 벽에는 지금 카드를 그대로 쓴다
+    expect(m.cards.get(a.id)?.kind).toBe('AUDIO');
+    expect(m.artworks.find(x => x.id === plain!.id)!.fit).toBeUndefined();
+  });
+});

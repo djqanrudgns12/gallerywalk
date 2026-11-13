@@ -321,3 +321,17 @@
     flex: 1;
   }
 }
+
+/* 키보드 초점 링(V-35) — 놋쇠 2px */
+.closeBtn:focus-visible,
+.charCard:focus-visible,
+.cancelBtn:focus-visible,
+.saveBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.labelInput:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

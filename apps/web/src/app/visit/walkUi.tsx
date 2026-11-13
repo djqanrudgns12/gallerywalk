@@ -177,6 +177,8 @@ export interface WalkOverlayProps {
   /** 크게 보기에서 HTML로 보일 글·소리 작품(P4-4) */
   readonly cards?: ReadonlyMap<string, CardText> | undefined;
   readonly tracks?: ReadonlyMap<string, Track> | undefined;
+  /** 지도 단추 목록에 쓸 관 이름(관 ID → "봄 전시실" 등). 없으면 목록 없이 그림만 */
+  readonly partName?: ((partId: string) => string) | undefined;
   /** 소리 단추 옆 닫기(교사 3D 미리 보기, P5-6). 없으면 숨김 */
   readonly onClose?: { readonly label: string; readonly run: () => void } | undefined;
 }
@@ -200,6 +202,7 @@ export const WalkOverlay = ({
   reducedMotion,
   pages,
   onClose,
+  partName,
 }: WalkOverlayProps) => {
   // 크게 보는 동안은 오른쪽 위 `닫기`만(PRD 9.2) — 위 줄·소리·지도는 숨긴다
   const zoomed = useWalk(st => st.mode === 'zoom');
@@ -264,7 +267,7 @@ export const WalkOverlay = ({
         reactions={reactions}
         pages={pages}
       />
-      {!zoomed && <WalkMap layout={layout} />}
+      {!zoomed && <WalkMap layout={layout} partName={partName} />}
       {hud && <Hud />}
       <PerfMarks />
     </>
@@ -617,7 +620,13 @@ const Zoom = ({
  * 전시실 지도(작게, 위 왼쪽): 내 자리 점. 광장에 있으면 지도 아래 끝(입구 쪽)에 붙인다.
  * 전시실(관)을 누르면 그 관의 첫 정지 지점(소개 → 첫 작품)으로 걸어간다(G-05 `goToPart`) — 지도는 닫는다.
  */
-const WalkMap = ({ layout }: { layout: Layout }) => {
+const WalkMap = ({
+  layout,
+  partName,
+}: {
+  layout: Layout;
+  partName?: ((partId: string) => string) | undefined;
+}) => {
   const map = layout.map;
   const open = useMapOpen(st => st.open);
   const me = useWalk(st => st.me);
@@ -632,30 +641,44 @@ const WalkMap = ({ layout }: { layout: Layout }) => {
     api?.goTo(i);
     useMapOpen.setState({ open: false });
   };
+  // 지도 그림(마우스·손가락) + 전시실 단추 목록(키보드·화면 읽기, PRD 14, V-22)
   return (
-    <svg
-      className={`${s.plate} ${s.map}`}
-      viewBox={view.viewBox}
-      data-testid="walk-map"
-      aria-label={copy.viewer.map}
-    >
-      {view.outline.map(points => (
-        <polygon key={points} points={points} className={s.mapOutline} />
-      ))}
-      {view.parts.map(p => (
-        <polygon
-          key={p.partId}
-          points={p.points}
-          className={s.mapPart}
-          data-part={p.partId}
-          onClick={() => goToPart(p.partId)}
-        />
-      ))}
-      {view.doors.map(d => (
-        <line key={`${d.x1},${d.y1}`} {...d} className={s.mapDoor} />
-      ))}
-      {view.here && <circle cx={view.here.x} cy={view.here.y} r={0.9} className={s.mapHere} />}
-    </svg>
+    <section className={`${s.plate} ${s.map}`} data-testid="walk-map" aria-label={copy.viewer.map}>
+      <svg className={s.mapSvg} viewBox={view.viewBox} aria-hidden="true">
+        {view.outline.map(points => (
+          <polygon key={points} points={points} className={s.mapOutline} />
+        ))}
+        {view.parts.map(p => (
+          <polygon
+            key={p.partId}
+            points={p.points}
+            className={s.mapPart}
+            data-part={p.partId}
+            onClick={() => goToPart(p.partId)}
+          />
+        ))}
+        {view.doors.map(d => (
+          <line key={`${d.x1},${d.y1}`} {...d} className={s.mapDoor} />
+        ))}
+        {view.here && <circle cx={view.here.x} cy={view.here.y} r={0.9} className={s.mapHere} />}
+      </svg>
+      {partName ? (
+        <ul className={s.mapList}>
+          {view.parts.map(p => (
+            <li key={p.partId}>
+              <button
+                type="button"
+                className={s.mapListBtn}
+                data-testid={`map-part-${p.partId}`}
+                onClick={() => goToPart(p.partId)}
+              >
+                {partName(p.partId)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   );
 };
 

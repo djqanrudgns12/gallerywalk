@@ -157,4 +157,42 @@ describe('ui/patterns/teacher 부품', () => {
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('TeacherCharacterDialog 키보드: 열면 고른 칸에 초점, 화살표로 고르기, Esc로 닫고 연 단추로 초점(V-35)', () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    const onCharacterChange = vi.fn();
+    const onClose = vi.fn();
+    const ui = (open: boolean) => (
+      <TeacherCharacterDialog
+        open={open}
+        character="teacher-m"
+        onCharacterChange={onCharacterChange}
+        displayName=""
+        onDisplayNameChange={() => {}}
+        onSave={() => {}}
+        onClose={onClose}
+      />
+    );
+    render(ui(true));
+    const m = container.querySelector('[data-testid="char-teacher-m"]') as HTMLButtonElement;
+    const f = container.querySelector('[data-testid="char-teacher-f"]') as HTMLButtonElement;
+    expect(document.activeElement).toBe(m);
+    expect(m.tabIndex).toBe(0);
+    expect(f.tabIndex).toBe(-1);
+    act(() => {
+      m.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    });
+    expect(onCharacterChange).toHaveBeenLastCalledWith('teacher-f');
+    expect(document.activeElement).toBe(f);
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    render(ui(false));
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
 });

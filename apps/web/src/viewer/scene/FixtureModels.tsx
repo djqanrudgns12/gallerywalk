@@ -1,4 +1,5 @@
 import { config } from '@gallery/core/config';
+import { templateGeometry } from '@gallery/core/templates';
 import type { Fixture } from '@gallery/core/types';
 import { useEffect, useMemo } from 'react';
 import {
@@ -16,6 +17,7 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { decorationsFor } from '../../../../../packages/core/src/domain/layout/grammar/modernHistory.ts';
 import { withDim } from './materials.ts';
 import type { ModulePart } from './TemplateModules.tsx';
 
@@ -126,8 +128,11 @@ export const FixtureModels = ({
     const q = new Quaternion();
     const up = new Vector3(0, 1, 0);
     const one = new Vector3(1, 1, 1);
-    for (const kind of [...KINDS, ...BOARD_KINDS]) {
-      const list = fixtures.filter(f => f.kind === kind);
+    const decorations = decorationsFor(fixtures, templateGeometry['modern-history']);
+    const placements = [...fixtures, ...decorations];
+    const kinds = [...KINDS, ...BOARD_KINDS, ...new Set(decorations.map(f => f.kind))];
+    for (const kind of kinds) {
+      const list = placements.filter(f => f.kind === kind);
       if (list.length === 0) continue;
       const real = models?.get(kind);
       if (real && real.length > 0) {

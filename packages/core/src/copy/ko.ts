@@ -60,7 +60,6 @@ export const copy = {
     studentMale: '학생 A',
     studentFemale: '학생 B',
     togetherNotice: '같은 전시관에 들어온 친구들과 별명을 보며 함께 걸어요',
-    togetherCount: '친구 {n}명 관람 중',
   },
   viewer: {
     collection: '모아 보기',
@@ -113,6 +112,7 @@ export const copy = {
     loadingSubhint: '첫 전시실이 준비되면 바로 광장으로 들어갈 수 있어요',
     joystick: '걷기 조이스틱',
     run: '뛰기',
+    runLocked: '잠깐 뛰기를 쉬고 있어요. 천천히 걸어 주세요',
     jump: '점프',
     /** 관람 예절 말풍선(놀이) — 실내에서 오래 뛰거나 자꾸 뛰어오를 때 */
     docent: '도슨트',
@@ -121,12 +121,16 @@ export const copy = {
     /** 소리 작품 명판(크게 보기) */
     playSound: '소리 듣기',
     stopSound: '멈추기',
+    /** 걷기 화면 아래 이동 단추 묶음의 이름(화면 읽기, V-35) */
+    walkNav: '작품 사이 이동',
+    /** 휴대폰 세로 크게 보기 캡션: 한 줄로 접힌 판 펼치기·접기(PRD 9.5, V-15) */
+    captionUnfold: '펼치기',
+    captionFold: '접기',
   },
   /** 함께 관람(ADR-057): 다른 관람객 이름표 */
   live: {
     anonymous: '관람객 {n}',
     teacher: '선생님',
-    together: '함께 보는 친구 {n}명',
     alone: '혼자 둘러보는 중',
   },
   /** 2D 대체 화면(P4-10, ADR-019): 3D로 볼 수 없는 기기에서 액자를 하나씩 넘겨 본다. 나머지 글은 `viewer`의 것을 함께 쓴다 */
@@ -135,6 +139,8 @@ export const copy = {
     notice: '이 기기에서는 사진으로 둘러봐요',
     /** 캡션을 `닫기`로 접은 뒤 다시 펴는 단추 */
     showCaption: '작품 설명 보기',
+    /** 위 줄 아래 전시실 바로 가기 묶음의 이름(화면 읽기, V-35) */
+    rooms: '전시실 고르기',
   },
   reaction: {
     stickers: {
@@ -193,7 +199,7 @@ export const copy = {
   consent: {
     title: '반응을 남기기 전에 읽어 주세요',
     /** 입장 때(별명을 적었을 때) — 별명이 함께 관람 이름표로 보이므로 PRD 13.2 같은 내용을 들어가기 전에 */
-    titleEnter: '들어가기 전에 읽어 주세요',
+    titleEnter: '입장하기 전에 읽어 주세요',
     storedStrong: '별명과 내가 남긴 반응',
     storedRest: '만 저장해요.',
     teacherOnly: '반응은 선생님만 볼 수 있어요.',
@@ -205,7 +211,7 @@ export const copy = {
     start: '시작하기',
     back: '돌아가기',
     offline: '잠깐 연결이 끊겨서 별명을 남기지 못했어요. 별명 없이 먼저 둘러볼 수 있어요',
-    skipNickname: '별명 없이 들어가기',
+    skipNickname: '별명 없이 입장하기',
   },
   /** 자동 투어(P5-9, G-16) — 교사가 교실 화면에 띄운다 */
   tour: {
@@ -483,11 +489,11 @@ export const copy = {
       reopen: '다시 열기',
       reopened: '전시를 다시 열었어요',
       deleteNow: '지금 삭제',
-      deleteTitle: '이 전시를 지금 지울까요?',
+      deleteTitle: '이 전시를 지금 삭제할까요?',
       deleteBody: '작품·반응·입장 코드·PIN이 모두 지워지고 되살릴 수 없어요',
       deleteWait: '{n}초 뒤에 누를 수 있어요',
       deleteConfirm: '지금 삭제',
-      deleting: '지우고 있어요',
+      deleting: '삭제하고 있어요',
       /** 포스터(V-02) */
       posterPick: '포스터 이미지 고르기',
       posterChange: '포스터 바꾸기',
@@ -589,7 +595,8 @@ export const copy = {
       pasteText: '글 붙여넣기',
       trayTitle: '올리는 작품',
       trayCount: '올리기 {done}/{total}',
-      clear: '끝난 것 지우기',
+      /** 올리는 작품 목록에서 끝난 줄만 치운다(작품은 그대로 — `삭제`와 헷갈리지 않게, V-37) */
+      clear: '끝난 것 목록에서 빼기',
       bgm: '배경음악',
       checking: '살펴보는 중',
       waiting: '차례를 기다리는 중',
@@ -614,6 +621,8 @@ export const copy = {
         offline: '연결되면 다시 올려 주세요',
         fileTypeWithPdf: 'PNG·JPG·WebP·GIF·HEIC 그림, PDF, MP3·M4A·WAV 소리를 올려 주세요',
         pdfBroken: '암호를 풀거나 다시 저장한 PDF를 올려 주세요',
+        /** `E_HEIC_UNSUPPORTED`(PRD 6장 "JPG로 다시 올려 주세요") 옆 이유·방법 — HEIC는 보통 받지만 바꾸지 못한 파일만(V-37) */
+        heic: '이 HEIC 사진은 JPG로 바꾸지 못했어요. 아이폰 설정 → 카메라 → 포맷에서 높은 호환성을 고르면 JPG로 찍혀요',
       },
     },
     /** 작품 패널(P5-5, G-11) */
@@ -654,9 +663,9 @@ export const copy = {
       bgmReplace: '바꾸기',
       bgmRemove: '빼기',
       bgmPreview: '배경음악 미리 듣기',
-      deleteRoom: '이 전시실 지우기',
+      deleteRoom: '이 전시실 삭제',
       deleteConfirm: '작품 {n}개는 {room}{ro} 옮겨져요',
-      deleteYes: '지우기',
+      deleteYes: '삭제',
       deleteNo: '그대로 두기',
       lastRoom: '전시실이 하나뿐이라 작품이 있으면 지울 수 없어요',
     },

@@ -19,6 +19,8 @@ export const problemFix = (problem: UploadProblem, about: { readonly pdf?: boole
       return fill(fix.tooLarge, { image: cfg.MAX_IMAGE_MB, audio: cfg.MAX_AUDIO_MB });
     case 'E_FILE_TYPE':
       return fix.fileTypeWithPdf;
+    case 'E_HEIC_UNSUPPORTED':
+      return fix.heic;
     case 'E_FILE_BROKEN':
       return about.pdf === true ? fix.pdfBroken : fix.broken;
     case 'E_TEXT_LENGTH':

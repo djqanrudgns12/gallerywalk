@@ -158,13 +158,28 @@ export const Visit2DScreen = ({
     if (reactingId && art?.id !== reactingId) setReactingId(null);
   }, [art, reactingId]);
 
+  // 넘긴 단추가 잠기거나(처음·출구에 닿음) 사라지면(출구의 `처음부터 다시 보기`) 초점이 사라지지 않게 옆 단추로(V-35)
+  const prevBtn = useRef<HTMLButtonElement>(null);
+  const nextBtn = useRef<HTMLButtonElement>(null);
+  const restartBtn = useRef<HTMLButtonElement>(null);
+  const focusFrom = useRef<'prev' | 'next' | 'restart' | null>(null);
+  const focusedButton = (): 'prev' | 'next' | 'restart' | null => {
+    const el = document.activeElement;
+    if (el === null) return null;
+    if (el === prevBtn.current) return 'prev';
+    if (el === nextBtn.current) return 'next';
+    return el === restartBtn.current ? 'restart' : null;
+  };
+
   const move = (dir: 1 | -1): void => {
     const next = step2d(slides.length, { index, page }, dir, pages);
     if (next.index === index && next.page === page) return;
+    focusFrom.current = focusedButton();
     setNotice(false);
     setPos({ target: targetOf(slides[next.index] ?? EXIT_SLIDE), page: next.page });
   };
   const restart = (): void => {
+    focusFrom.current = focusedButton();
     setNotice(false);
     setPos({ target: targetOf(slides[0] ?? EXIT_SLIDE), page: 0 });
   };
@@ -234,6 +249,14 @@ export const Visit2DScreen = ({
   const atStart = index === 0 && page === 0;
   const atEnd = index >= slides.length - 1;
 
+  useEffect(() => {
+    const from = focusFrom.current;
+    focusFrom.current = null;
+    if (from === null) return;
+    if (atEnd && from === 'next') restartBtn.current?.focus();
+    else if (atStart && from !== 'next') nextBtn.current?.focus();
+  }, [atStart, atEnd, index]);
+
   return (
     <div
       className={s.stage}
@@ -247,13 +270,14 @@ export const Visit2DScreen = ({
       <div className={s.wainscot} aria-hidden />
 
       <header className={s.top}>
-        <div className={`${s.plate} ${s.titlePlate}`} aria-label={model.facade}>
+        <div className={`${s.plate} ${s.titlePlate}`}>
           <span className={s.accentBar} aria-hidden />
           <span className={s.title}>{model.facade}</span>
           {place ? (
             <>
               <span className={s.sep} aria-hidden />
-              <span className={s.place} data-testid="visit2d-place">
+              {/* 넘길 때마다 자리(전시실 · 3/6)를 화면 읽기 도구가 읽는다 — 넘김은 늘 사용자 누름이라 시끄럽지 않다 */}
+              <span className={s.place} data-testid="visit2d-place" aria-live="polite">
                 {place}
               </span>
             </>
@@ -272,7 +296,7 @@ export const Visit2DScreen = ({
         </button>
       </header>
       {roomTabs.length > 1 && (
-        <nav className={s.tabs} aria-label={copy.viewer.collection} data-testid="visit2d-tabs">
+        <nav className={s.tabs} aria-label={copy.view2d.rooms} data-testid="visit2d-tabs">
           {roomTabs.map(t => {
             const cur = slides[index];
             const on = cur?.kind === 'artwork' && !!cur.partId && roomOfPart.get(cur.partId) === t.id;
@@ -330,6 +354,7 @@ export const Visit2DScreen = ({
           type="button"
           className={`${s.side} ${s.prev}`}
           aria-label={copy.viewer.prevArtwork}
+          ref={prevBtn}
           disabled={atStart}
           data-testid="visit2d-prev"
           onClick={() => move(-1)}
@@ -347,7 +372,7 @@ export const Visit2DScreen = ({
                 <p className={s.exitTitle}>{copy.viewer.exitThanks}</p>
                 <p className={s.exitSub}>{fill(copy.viewer.exitCount, { n: model.artworks.length })}</p>
                 <div className={s.exitActions}>
-                  <button type="button" className={s.primary} onClick={restart}>
+                  <button type="button" className={s.primary} onClick={restart} ref={restartBtn}>
                     {copy.viewer.restart}
                   </button>
                   <button type="button" className={s.secondary} onClick={onHome}>
@@ -379,6 +404,7 @@ export const Visit2DScreen = ({
           type="button"
           className={`${s.side} ${s.next}`}
           aria-label={copy.viewer.nextArtwork}
+          ref={nextBtn}
           disabled={atEnd}
           data-testid="visit2d-next"
           onClick={() => move(1)}
@@ -409,6 +435,7 @@ export const Visit2DScreen = ({
                 description={fact?.description ?? null}
                 featured={fact?.featured ?? false}
                 onClose={() => setFolded(slide.stopId)}
+                foldable={false}
                 onReact={canReact ? () => setReactingId(art.id) : undefined}
               />
               {services ? <PublicReactionsFor view={view} artworkId={art.id} /> : null}

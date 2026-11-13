@@ -1,7 +1,7 @@
 import { config } from '../../../config.ts';
 import type { Fixture, LayoutModule } from '../../../types/layout.ts';
-import type { TemplateGeometry } from '../../templates/geometry.ts';
-import { type Frame2, type P2, type Rect, rectOf, rectPolygon, wallRun } from '../geom.ts';
+import type { DecorationKind, TemplateGeometry } from '../../templates/geometry.ts';
+import { type Frame2, mm, type P2, type Rect, rectOf, rectPolygon, wallRun } from '../geom.ts';
 import { cornerIn, cornerOut, fillWall, single, tiles } from '../modules.ts';
 import { type DoorPoints, facing, type P3, type StopAnchor } from '../part.ts';
 
@@ -207,3 +207,50 @@ export const outlineOf = (shell: Shell): P2[][] => [
   rectPolygon(shell.hallRect),
   rectPolygon(shell.corridorRect),
 ];
+
+export interface DecorationPlacement {
+  readonly kind: DecorationKind;
+  readonly pos: readonly [number, number, number];
+  readonly rotY: number;
+}
+
+/**
+ * F9: 기존 사인을 기준으로 한 정적 장식. 저장된 배치·공용 Fixture 스키마를 바꾸지 않는다.
+ * 바닥 물체 전체가 벽의 보행 제외 여유 안에 있어 기존 경로·충돌 영역을 침범하지 않는다.
+ * 지역 +Z가 방 안쪽이며, 장식 기준점은 깊이 한가운데다. 설비가 없는 관은 장식도 없다.
+ */
+export const decorationsFor = (fixtures: readonly Fixture[], g: TemplateGeometry): DecorationPlacement[] => {
+  const c = config();
+  const out: DecorationPlacement[] = [];
+  const add = (f: Fixture, kind: DecorationKind, y: number): void => {
+    const inward = c.WALKABLE_WALL_MARGIN_M / 2 - g.fixtures.wallOffsetM;
+    out.push({
+      kind,
+      pos: [mm(f.pos[0] + Math.sin(f.rotY) * inward), mm(y), mm(f.pos[2] + Math.cos(f.rotY) * inward)],
+      rotY: f.rotY,
+    });
+  };
+  for (const f of fixtures) {
+    if (f.kind === 'nameplate') {
+      add(f, 'spotRail', c.WALL_HEIGHT_M - g.decorations.spotRail.h);
+      add(f, 'barrier', 0);
+    } else if (f.kind === 'introPanel') {
+      add(f, 'artPlinth', 0);
+      add(
+        f,
+        'wallSconce',
+        c.WALL_HEIGHT_M - g.fixtures.nameplate.ceilingMarginM - g.decorations.wallSconce.h,
+      );
+    } else if (f.kind === 'exitSign') {
+      add(f, 'exitPortal', 0);
+      add(f, 'wallSconce', g.decorations.exitPortal.h - g.decorations.wallSconce.h);
+    }
+  }
+  return out.sort((a, b) =>
+    a.kind < b.kind
+      ? -1
+      : a.kind > b.kind
+        ? 1
+        : a.pos[0] - b.pos[0] || a.pos[1] - b.pos[1] || a.pos[2] - b.pos[2] || a.rotY - b.rotY,
+  );
+};
