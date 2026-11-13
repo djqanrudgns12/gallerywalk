@@ -441,3 +441,9 @@ test('CLI 입력 실패는 stdout 없이 끝 코드 1과 단계·코드를 출�
   assert.equal(error.stage, '옵션 검사');
   assert.equal(error.code, 'E_VALIDATION');
 });
+
+test('합성 그림은 30장이 넘어도 서로 다르다(글꼴이 없어 글자가 빠지는 러너에서도 크기·색 되풀이로 겹치지 않게)', async () => {
+  const hashes = new Set();
+  for (let index = 0; index <= 30; index++) hashes.add(hash(await generateImage(index)));
+  assert.equal(hashes.size, 31);
+});

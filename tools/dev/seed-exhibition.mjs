@@ -129,10 +129,16 @@ export async function generateImage(index) {
   const colors = ['#a65f43', '#507a77', '#b28a42', '#676786', '#8b6951'];
   const [width, height] = sizes[index % sizes.length];
   const color = colors[index % colors.length];
+  // 서버는 그림 모양으로 중복을 가린다(글자만 다른 그림은 같은 그림). 크기·색이 15장마다 되풀이되므로
+  // 도형 자리도 번호마다 옮겨 21·30장 이상 만들어도 서로 다르게 한다.
+  const shift = Math.floor(index / (sizes.length * colors.length));
+  const rx = 100 + ((shift * 130) % 340);
+  const cx = 650 - ((shift * 150) % 380);
+  const cy = 420 + ((shift * 70) % 220);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
     <rect width="1000" height="1000" fill="#eee5d4"/>
-    <rect x="100" y="140" width="540" height="610" fill="${color}"/>
-    <circle cx="650" cy="420" r="220" fill="#d6c6aa"/>
+    <rect x="${rx}" y="140" width="540" height="610" fill="${color}"/>
+    <circle cx="${cx}" cy="${cy}" r="220" fill="#d6c6aa"/>
     <path d="M160 800 L500 440 L840 800 Z" fill="#3e5552"/>
     <text x="100" y="910" font-family="sans-serif" font-size="54" fill="#493f37">STUDY ${index + 1}</text>
   </svg>`;
