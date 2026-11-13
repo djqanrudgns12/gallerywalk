@@ -201,8 +201,6 @@ const Model = forwardRef<CharacterHandle, { loaded: Loaded; character: Character
       };
     }, [parts, invalidate]);
     useFrame((_, dtIn) => {
-      // 멈춤 뒤 첫 프레임의 간격은 쉰 시간 전체라 자른다(흔들기·섞기가 한 프레임에 끝나지 않게)
-      const dt = Math.min(dtIn, 0.1);
       const g = root.current;
       if (!g) return;
       g.position.set(pose.x, pose.y, pose.z);
@@ -210,6 +208,9 @@ const Model = forwardRef<CharacterHandle, { loaded: Loaded; character: Character
       const c = config();
       const ground =
         pose.speed < 0.05 ? 'idle' : pose.speed > (c.CHAR_WALK_MPS + c.CHAR_RUN_MPS) / 2 ? 'run' : 'walk';
+      const want = pose.air > 0.02 && parts.actions.has('jump') ? 'jump' : ground;
+      // 새 동작 첫 프레임의 쉰 시간만 빼고, 진행 중인 동작은 실제 시간대로 끝낸다.
+      const dt = pose.wave !== parts.lastWave || want !== parts.current ? 0 : dtIn;
       // 손 흔들기: 번호가 바뀌면 가만히 서 있는 동안 앞 `CHAR_WAVE_SEC`만 — 걸으면 바로 멈춤
       if (pose.wave !== parts.lastWave) {
         parts.lastWave = pose.wave;
@@ -218,7 +219,6 @@ const Model = forwardRef<CharacterHandle, { loaded: Loaded; character: Character
       }
       if (parts.waveLeft > 0) parts.waveLeft = ground === 'idle' ? Math.max(0, parts.waveLeft - dt) : 0;
       // 떠 있으면 `jump` 동작(있으면)
-      const want = pose.air > 0.02 && parts.actions.has('jump') ? 'jump' : ground;
       if (want !== parts.current && parts.actions.has(want)) {
         const from = parts.actions.get(parts.current);
         const to = parts.actions.get(want)!;

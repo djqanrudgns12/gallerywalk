@@ -1,5 +1,32 @@
-import type { BrowserContext, Request } from '@playwright/test';
+import type { BrowserContext, Request, Response } from '@playwright/test';
 import { config } from '../../../packages/core/src/config.ts';
+
+const validSize = (n: number): boolean => Number.isSafeInteger(n) && n >= 0;
+
+/** CDP의 encodedDataLength 누락 시에도 0으로 성공시키지 않는다. Content-Length는 압축된 전송 본문 길이다. */
+async function responseSize(request: Request, response: Response) {
+  const size = await request.sizes().catch(() => null);
+  if (size && validSize(size.responseBodySize) && validSize(size.responseHeadersSize))
+    return { body: size.responseBodySize, headers: size.responseHeadersSize, fallback: false };
+  const headers = await response.headersArray();
+  const lengths = headers.filter(h => h.name.toLowerCase() === 'content-length');
+  const length = lengths.length === 1 ? lengths[0]!.value : '';
+  if (!/^\d+$/.test(length) || !validSize(Number(length))) throw new Error('전송 크기 근거 없음');
+  // HTTP/1.1 머리 표현의 보수적 상계. 인증 머리·URL·본문은 반환하거나 기록하지 않는다.
+  const headerBytes = Buffer.byteLength(
+    `HTTP/1.1 ${response.status()} ${response.statusText()}\r\n` +
+      headers.map(h => `${h.name}: ${h.value}\r\n`).join('') +
+      '\r\n',
+  );
+  return {
+    body: Number(length),
+    headers: Math.max(
+      headerBytes,
+      size && validSize(size.responseHeadersSize) ? size.responseHeadersSize : 0,
+    ),
+    fallback: true,
+  };
+}
 
 /** HTTP 응답의 인코딩된 본문과 머리. SW가 화면에 전달한 응답은 실제 네트워크 요청 쪽에서만 센다. */
 export function measureReceivedBytes(context: BrowserContext) {
@@ -13,6 +40,7 @@ export function measureReceivedBytes(context: BrowserContext) {
     workerScriptRequests: 0,
     forwardedResponses: 0,
     failedRequests: 0,
+    sizeFallbacks: 0,
     errors: [] as string[],
   };
   const begin = (request: Request): void => {
@@ -37,16 +65,10 @@ export function measureReceivedBytes(context: BrowserContext) {
         result.forwardedResponses++;
         return;
       }
-      const size = await request.sizes();
-      if (
-        !Number.isFinite(size.responseBodySize) ||
-        !Number.isFinite(size.responseHeadersSize) ||
-        size.responseBodySize < 0 ||
-        size.responseHeadersSize < 0
-      )
-        throw new Error('크기 형식');
-      result.bodyBytes += size.responseBodySize;
-      result.headerBytes += size.responseHeadersSize;
+      const size = await responseSize(request, response);
+      if (size.fallback) result.sizeFallbacks++;
+      result.bodyBytes += size.body;
+      result.headerBytes += size.headers;
       result.totalBytes = result.bodyBytes + result.headerBytes;
       result.networkRequests++;
       if (request.serviceWorker()) result.workerRequests++;

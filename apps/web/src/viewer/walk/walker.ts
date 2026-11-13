@@ -206,8 +206,17 @@ export class Walker {
 
   /** 한 프레임. 움직였거나 아직 멈추는 중이면 true(다시 그려야 함) */
   step(dtIn: number, input: WalkInput): boolean {
+    if (!Number.isFinite(dtIn) || dtIn <= 0) return !this.settled;
+    const steps = Math.ceil(dtIn / config().WALK_PHYSICS_STEP_SEC);
+    const dt = dtIn / steps;
+    let moving = false;
+    // 시간을 버리면 저속 기기에서 걷기·안내·점프가 모두 느려진다. 벽 검사만 작은 간격으로 나눈다.
+    for (let i = 0; i < steps; i++) moving = this.stepSlice(dt, input) || moving;
+    return moving;
+  }
+
+  private stepSlice(dt: number, input: WalkInput): boolean {
     const c = config();
-    const dt = Math.min(dtIn, 0.1); // 탭이 멈췄다 돌아오면 큰 dt — 벽을 건너뛰지 않게 자른다
     this.runLockLeft = Math.max(0, this.runLockLeft - dt);
     const airMoving = this.stepAir(dt);
 

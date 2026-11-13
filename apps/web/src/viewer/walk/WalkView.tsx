@@ -1,8 +1,8 @@
 import { config } from '@gallery/core/config';
 import { type CameraPose, floorAt, frameCamera, type P2, standable, zoomFraming } from '@gallery/core/layout';
 import type { CharacterId, Layout, Pose } from '@gallery/core/types';
-import { useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { addAfterEffect, useFrame, useThree } from '@react-three/fiber';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { type PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three';
 import { Character } from '../scene/Character.tsx';
 import type { CharacterHandle } from '../scene/CharacterFigure.tsx';
@@ -126,7 +126,8 @@ export const WalkView = ({
     fpsFrames: 0,
     fpsSince: 0,
     totalFrames: 0,
-    wasActive: true,
+    wasActive: false,
+    wokeAt: null as number | null,
     /** 벽 부딪힘 흔들림 세기 1 → 0 */
     shake: 0,
     /** 지난 프레임의 걸음 상태(동작 줄이기에서 바뀌는 순간을 알려고) */
@@ -136,6 +137,10 @@ export const WalkView = ({
   }).current;
 
   const aspect = size.width / Math.max(1, size.height);
+  const wake = useCallback(() => {
+    if (!st.wasActive && st.wokeAt === null) st.wokeAt = performance.now();
+    invalidate();
+  }, [st, invalidate]);
 
   useEffect(() => {
     // 처음 붙을 때·배치가 바뀔 때 부르는 쪽이 정한 정지 지점(없으면 첫 지점). StrictMode가 두 번 돌려도 같은 값
@@ -145,8 +150,45 @@ export const WalkView = ({
   }, [layout]);
   // 들어오면 다시 그리기를 깨워 첫 인사 시계를 돌린다
   useEffect(() => {
-    if (!paused) invalidate();
-  }, [paused, invalidate]);
+    if (!paused) wake();
+  }, [paused, wake]);
+
+  useEffect(() => {
+    // 숨긴 탭에서 지난 시간과 demand 정지 시간은 새 동작에 더하지 않는다.
+    const reset = () => {
+      st.wasActive = false;
+      st.wokeAt = null;
+    };
+    document.addEventListener('visibilitychange', reset);
+    return () => document.removeEventListener('visibilitychange', reset);
+  }, [st]);
+
+  useEffect(() => {
+    let observed = -1;
+    return addAfterEffect(() => {
+      if (observed === st.totalFrames) return;
+      observed = st.totalFrames;
+      const store = useWalk.getState();
+      // useFrame은 WalkView 뒤에도 실행된다. 실제 렌더 뒤에 모든 연출의 예약을 함께 본다.
+      if (get().internal.frames > 0) {
+        if (store.idleFrameMark !== 0) store.set({ idleFrameMark: 0 });
+        return;
+      }
+      const pose = walker.pose;
+      const me = store.me;
+      const moved = me.x !== pose.x || me.y !== pose.y || me.z !== pose.z || me.yaw !== pose.yaw;
+      store.set({
+        perf: {
+          ...store.perf,
+          calls: gl.info.render.calls,
+          triangles: gl.info.render.triangles,
+          framesRendered: st.totalFrames,
+        },
+        idleFrameMark: st.totalFrames,
+        ...(moved ? { me: { x: pose.x, y: pose.y, z: pose.z, yaw: pose.yaw } } : {}),
+      });
+    });
+  }, [get, gl, st, walker]);
 
   useEffect(() => {
     const s = useWalk.getState();
@@ -163,11 +205,11 @@ export const WalkView = ({
           st.view = spot.camera;
           useWalk.getState().set({ mode: 'view' });
         } else onCancelled();
-        invalidate();
+        wake();
       });
       if (walker.guiding) useWalk.getState().set({ stopIndex: i, mode: 'guiding', zoomId: null });
       else useWalk.getState().set({ stopIndex: i, zoomId: null });
-      invalidate();
+      wake();
     };
     /** 안내가 손 입력·새 안내로 끊기면: 새 안내가 없으면 직접 걷기로 */
     const onCancelled = (): void => {
@@ -199,18 +241,18 @@ export const WalkView = ({
             else onCancelled();
           });
           if (walker.guiding) useWalk.getState().set({ mode: 'guiding', zoomId: null });
-          invalidate();
+          wake();
         },
         orbit: (dYaw, dPitch) => {
           leaveView();
           st.orbit = clampOrbit({ ...st.orbit, yaw: st.orbit.yaw + dYaw, pitch: st.orbit.pitch + dPitch });
           st.lastOrbitAt = st.clock;
-          invalidate();
+          wake();
         },
         dolly: scale => {
           leaveView();
           st.orbit = clampOrbit({ ...st.orbit, distance: st.orbit.distance * scale });
-          invalidate();
+          wake();
         },
         zoom: id => {
           const a = byId.get(id);
@@ -226,17 +268,17 @@ export const WalkView = ({
           }
           walker.cancel();
           useWalk.getState().set({ mode: 'zoom', zoomId: id });
-          invalidate();
+          wake();
         },
         close: () => {
           const m = useWalk.getState().mode;
           if (m === 'zoom') useWalk.getState().set({ mode: st.view ? 'view' : 'free', zoomId: null });
-          invalidate();
+          wake();
         },
         jump: () => {
           if (useWalk.getState().mode === 'zoom') return;
           leaveView();
-          if (walker.jump()) invalidate();
+          if (walker.jump()) wake();
         },
       },
     });
@@ -253,19 +295,24 @@ export const WalkView = ({
     const unsub = useWalk.subscribe((next, prev) => {
       if (next.keys !== prev.keys || next.stick !== prev.stick || next.runToggle !== prev.runToggle) {
         if (Math.hypot(combinedInput(next).forward, combinedInput(next).strafe) > 0) leaveView();
-        invalidate();
+        wake();
       }
     });
-    invalidate();
+    wake();
     return () => {
       unsub();
       useWalk.getState().set({ api: null });
     };
-  }, [layout, walk, map, walker, byId, get, invalidate, st]);
+  }, [layout, walk, map, walker, byId, get, wake, st]);
 
   useFrame((state, dtIn) => {
     const c = config();
-    const dt = Math.min(dtIn, 0.1);
+    const dt = st.wasActive
+      ? dtIn
+      : st.wokeAt === null
+        ? 0
+        : Math.max(0, (performance.now() - st.wokeAt) / 1000);
+    st.wokeAt = null;
     st.clock += dt;
     if (paused) st.welcomeFrom = st.clock + c.CHAR_WAVE_DELAY_SEC;
     const store = useWalk.getState();
@@ -489,6 +536,8 @@ export const WalkView = ({
     }
 
     const active =
+      input.forward !== 0 ||
+      input.strafe !== 0 ||
       moving ||
       settling ||
       pose.speed > 0 ||
@@ -500,17 +549,10 @@ export const WalkView = ({
       (!st.wave.welcomed && !paused);
     if (active) invalidate();
     else if (st.wasActive) {
-      // 멈춘 순간: 지금까지 그린 수와 자리를 남긴다(이 뒤로 늘면 "멈춘 채 다시 그림" — HUD·e2e가 본다)
+      // 자리는 멈춘 순간 한 번만 갱신한다. 정지 표시는 장면 전체 렌더 뒤에 기록한다.
       store.set({
-        perf: { ...store.perf, framesRendered: st.totalFrames },
-        idleFrameMark: st.totalFrames,
         me: { x: pose.x, y: pose.y, z: pose.z, yaw: pose.yaw },
       });
-    } else if (store.idleFrameMark !== st.totalFrames) {
-      // 멈춘 뒤 바깥 사건(그림·글 카드가 올라옴, 다른 관람객)으로 한 번 그린 때: 그린 수만 남긴다.
-      // 자리(`me`)는 다시 쓰지 않는다 — 장면이 그것을 읽어 다시 그리기를 부르면 멈춘 채 계속 그리는 고리가 된다.
-      // 저절로 계속 그리면 프레임 수가 시간에 따라 늘어난다 — HUD·e2e는 몇 초 동안 늘지 않는지를 본다
-      store.set({ perf: { ...store.perf, framesRendered: st.totalFrames }, idleFrameMark: st.totalFrames });
     }
     st.wasActive = active;
   });

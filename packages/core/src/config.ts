@@ -339,6 +339,8 @@ export const configDefaults = {
    * 작품 앞에 서는 자리: 화면 맞춤 카메라 자리에서 작품 쪽으로 `VIEW_STAND_FORWARD_M`, 옆으로 `VIEW_STAND_SIDE_M`.
    */
   CHAR_WALK_MPS: 1.15,
+  /** 느린 프레임의 경과 시간은 보존하되 충돌 계산은 이 간격 이하로 나눈다(초). */
+  WALK_PHYSICS_STEP_SEC: 0.1,
   CHAR_RUN_MPS: 3.2,
   CHAR_ACCEL_MPS2: 9,
   CHAR_DECEL_MPS2: 12,

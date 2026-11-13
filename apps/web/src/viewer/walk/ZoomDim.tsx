@@ -19,6 +19,7 @@ export const ZoomDim = ({
   const invalidate = useThree(st => st.invalidate);
   const zoomId = useWalk(st => (st.mode === 'zoom' ? st.zoomId : null));
   const level = useRef(1);
+  const animating = useRef(false);
   const target = useRef<string | null>(null);
   if (zoomId !== null) target.current = zoomId;
   useEffect(() => {
@@ -35,12 +36,16 @@ export const ZoomDim = ({
     const c = config();
     const want = zoomId !== null ? c.ZOOM_DIM : 1;
     const cur = level.current;
-    if (cur === want) return;
+    if (cur === want) {
+      animating.current = false;
+      return;
+    }
     const span = 1 - c.ZOOM_DIM;
     const sec = zoomId !== null ? c.T_ZOOM : c.T_UNZOOM;
-    const step = reducedMotion ? span : (Math.min(dtIn, 0.1) / sec) * span;
+    const step = reducedMotion ? span : ((animating.current ? dtIn : 0) / sec) * span;
     const next = want < cur ? Math.max(want, cur - step) : Math.min(want, cur + step);
     level.current = next;
+    animating.current = next !== want;
     sceneDim.value = next;
     // 크게 보는(보던) 작품만 밝게 두고 나머지는 장면 값을 따른다
     for (const [id, h] of Object.entries(holders)) h.value = id === target.current ? 1 : next;

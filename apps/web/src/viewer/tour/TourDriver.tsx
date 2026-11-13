@@ -18,6 +18,8 @@ export interface TourClock {
   /** 지금 시각(s). 조종기가 재생 중에 늘린다. 바깥(진행 막대)이 바꿔도 된다 */
   t: number;
   playing: boolean;
+  /** 재생 시작·탐색·직전 프레임의 단조 시각(ms). 정지한 시간은 재생 시간에 더하지 않는다. */
+  updatedAt: number | null;
 }
 
 export const TourDriver = ({
@@ -53,8 +55,18 @@ export const TourDriver = ({
     [],
   );
 
-  useFrame((_, dtIn) => {
-    const dt = Math.min(dtIn, 0.1);
+  useEffect(() => {
+    const reset = () => {
+      clock.updatedAt = null;
+    };
+    document.addEventListener('visibilitychange', reset);
+    return () => document.removeEventListener('visibilitychange', reset);
+  }, [clock]);
+
+  useFrame(() => {
+    const now = performance.now();
+    const dt = clock.updatedAt === null ? 0 : Math.max(0, (now - clock.updatedAt) / 1000);
+    clock.updatedAt = now;
     if (clock.playing) clock.t = Math.min(cam.totalSec, clock.t + dt);
     if (clock.t >= cam.totalSec) clock.playing = false;
     const f = cam.at(clock.t);

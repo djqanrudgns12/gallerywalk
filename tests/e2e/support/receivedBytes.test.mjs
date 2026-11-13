@@ -57,3 +57,43 @@ test('크기를 못 읽거나 요청이 실패하면 0바이트 성공으로 숨
   assert.equal(result.failedRequests, 1);
   assert.equal(result.errors.length, 1);
 });
+
+test('CDP가 음수 본문 크기를 주면 응답의 인코딩된 Content-Length로 보수적으로 센다', async () => {
+  const context = new EventEmitter();
+  const meter = measureReceivedBytes(context);
+  const req = {
+    ...request({ bytes: -20, worker: true }),
+    response: async () => ({
+      fromServiceWorker: () => false,
+      status: () => 200,
+      statusText: () => 'OK',
+      headersArray: async () => [
+        { name: 'Content-Length', value: '123' },
+        { name: 'Content-Encoding', value: 'gzip' },
+      ],
+    }),
+  };
+  context.emit('request', req);
+  context.emit('requestfinished', req);
+  const result = await meter.stop();
+  assert.equal(result.bodyBytes, 123);
+  assert.ok(result.headerBytes >= 20);
+  assert.equal(result.workerRequests, 1);
+  assert.equal(result.sizeFallbacks, 1);
+  assert.deepEqual(result.errors, []);
+});
+
+test('CDP 크기도 Content-Length도 없으면 압축 본문을 0으로 세지 않고 실패한다', async () => {
+  const context = new EventEmitter();
+  const meter = measureReceivedBytes(context);
+  const req = {
+    ...request({ bytes: -20 }),
+    response: async () => ({
+      fromServiceWorker: () => false,
+      headersArray: async () => [{ name: 'Content-Encoding', value: 'gzip' }],
+    }),
+  };
+  context.emit('request', req);
+  context.emit('requestfinished', req);
+  assert.equal((await meter.stop()).errors.length, 1);
+});

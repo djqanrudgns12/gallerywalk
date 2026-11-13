@@ -170,6 +170,26 @@ describe('자동 투어 조작(V-16, PRD G-16·15.4-7)', () => {
     expect(screen()?.getAttribute('data-playing')).toBe('1');
   });
 
+  it('조작판에 마우스나 초점이 있으면 느린 클릭 도중 조작판을 숨기지 않는다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      await startTour(twoRooms());
+      const bar = mounted!.q('[data-testid="tour-bar"]')!;
+      act(() => bar.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })));
+      act(() => vi.advanceTimersByTime(config().IDLE_DIM_SEC * 2000));
+      expect(screen()?.getAttribute('data-idle')).toBe('0');
+      click(mounted!.q('[data-testid="tour-toggle"]'));
+      expect(screen()?.getAttribute('data-playing')).toBe('0');
+      press('Space');
+      act(() => mounted!.q<HTMLButtonElement>('[data-testid="tour-toggle"]')!.focus());
+      act(() => bar.dispatchEvent(new MouseEvent('pointerout', { bubbles: true })));
+      act(() => vi.advanceTimersByTime(config().IDLE_DIM_SEC * 2000));
+      expect(screen()?.getAttribute('data-idle')).toBe('0');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('재생 중 입력이 없으면 조작판·커서를 숨기고, 움직이거나 누르면 다시 보인다. 멈춘 동안은 숨기지 않는다', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {

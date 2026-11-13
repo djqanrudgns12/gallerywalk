@@ -188,6 +188,9 @@ test('데스크톱 · 만들기 → 그림·제목 → 열기 → 학생 반응 
     await expect(savedMemo.getByTestId('memo-hide')).toHaveText(copy.teacher.reactionsTab.unhide);
     await captureTeacher(page, 'desktop-06-hidden-memo');
 
+    // 크게 보기 중에는 상단 인원 줄을 숨긴다(PRD 9.2). 함께 관람 확인 전에 관람 화면으로 돌아간다.
+    await student.getByTestId('zoom-close').click();
+    await expect(student.getByTestId('walk-perf')).toHaveAttribute('data-mode', 'view');
     // 열린 전시의 3D 미리 보기는 함께 관람에 "선생님"으로 들어간다(PRD 15.8, V-05) — 학생 화면 인원이 늘었다 준다
     await page.getByTestId('open-preview').click();
     await expect(page.getByTestId('preview-layer').getByTestId('visit-screen')).toHaveAttribute(

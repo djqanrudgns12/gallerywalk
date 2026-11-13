@@ -102,7 +102,7 @@ const TourPlayer = ({
   }, [layout, bgmOf, tour]);
   const stops = useMemo(() => tourStops(plan), [plan]);
   const range = useRef<HTMLInputElement>(null);
-  const clock = useRef<TourClock>({ t: 0, playing: false }).current;
+  const clock = useRef<TourClock>({ t: 0, playing: false, updatedAt: null }).current;
   const [started, setStarted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [now, setNow] = useState(0);
@@ -115,6 +115,7 @@ const TourPlayer = ({
     (on: boolean) => {
       if (on && clock.t >= plan.totalSec) clock.t = 0;
       clock.playing = on;
+      clock.updatedAt = performance.now();
       setPlaying(on);
       setNow(clock.t);
     },
@@ -123,6 +124,7 @@ const TourPlayer = ({
   const seek = useCallback(
     (t: number) => {
       clock.t = Math.max(0, Math.min(plan.totalSec, t));
+      clock.updatedAt = performance.now();
       setNow(clock.t);
     },
     [clock, plan.totalSec],
@@ -160,12 +162,15 @@ const TourPlayer = ({
   // 조작판·커서 숨김: 재생 중 입력 없이 `IDLE_DIM_SEC`초가 지나면. 멈춘 동안·시작 전에는 늘 보인다
   const [idle, setIdle] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const controls = useRef<HTMLDivElement>(null);
+  const overControls = useRef(false);
   const live = started && playing;
   const wake = useCallback(() => {
     if (idleTimer.current !== null) clearTimeout(idleTimer.current);
     idleTimer.current = null;
     setIdle(false);
-    if (live) idleTimer.current = setTimeout(() => setIdle(true), config().IDLE_DIM_SEC * MS_PER_SEC);
+    if (live && !overControls.current && !controls.current?.contains(document.activeElement))
+      idleTimer.current = setTimeout(() => setIdle(true), config().IDLE_DIM_SEC * MS_PER_SEC);
   }, [live]);
   useEffect(() => {
     wake();
@@ -298,7 +303,21 @@ const TourPlayer = ({
           </button>
         </div>
       ) : (
-        <div className={s.bar} data-testid="tour-bar">
+        <div
+          ref={controls}
+          className={s.bar}
+          data-testid="tour-bar"
+          onPointerEnter={() => {
+            overControls.current = true;
+            wake();
+          }}
+          onPointerLeave={() => {
+            overControls.current = false;
+            wake();
+          }}
+          onFocus={wake}
+          onBlur={wake}
+        >
           <button
             type="button"
             className={s.round}

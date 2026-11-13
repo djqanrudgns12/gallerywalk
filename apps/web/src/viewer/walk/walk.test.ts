@@ -48,6 +48,15 @@ describe('Walker', () => {
   const layout = layoutOf([5, 9]);
   const spawn = layout.walk.spawn;
 
+  it('2fps에서도 실제 1.5초 동안 걷고, 긴 프레임은 나눠 계산해 벽을 통과하지 않는다', () => {
+    const w = new Walker(layout.walk, { x: spawn.pos[0], z: spawn.pos[2], yaw: spawn.yaw });
+    for (let i = 0; i < 3; i++) w.step(0.5, ahead());
+    expect(w.pose.z - spawn.pos[2]).toBeGreaterThan(1);
+    w.step(9, { ...still, strafe: 1 });
+    expect(Math.abs(w.pose.x)).toBeGreaterThan(5);
+    expect(standable(layout.walk, [w.pose.x, w.pose.z])).toBe(true);
+  });
+
   it('처음 자리는 광장 땅 높이, 앞으로 걸으면 가속해 걷기 속도에 닿는다', () => {
     const w = new Walker(layout.walk, { x: spawn.pos[0], z: spawn.pos[2], yaw: spawn.yaw });
     expect(w.pose.y).toBeCloseTo(layout.exterior.groundY, 6);

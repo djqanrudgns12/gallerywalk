@@ -39,8 +39,6 @@ export interface MicroMotionProps {
 
 /** 작품마다 빛 흔들림 위상을 고르게 흩는다(황금각) */
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
-/** 멈춰 있다가 처음 그리는 프레임의 시간 상한(초): 오래 쉬고 온 큰 간격으로 한 번에 건너뛰지 않게 */
-const FIRST_DT = 1 / 60;
 
 export const MicroMotion = ({ boosts, hovered, tier, reducedMotion, color }: MicroMotionProps) => {
   const invalidate = useThree(s => s.invalidate);
@@ -79,7 +77,8 @@ export const MicroMotion = ({ boosts, hovered, tier, reducedMotion, color }: Mic
   useFrame((state, dtIn) => {
     const c = config();
     const s = st.current;
-    const dt = s.animating ? Math.min(dtIn, 0.1) : Math.min(dtIn, FIRST_DT);
+    // 첫 프레임 이전의 정지 시간만 제외하고, 진행 중인 연출은 실제 경과 시간을 모두 쓴다.
+    const dt = s.animating ? dtIn : 0;
     const now = state.clock.elapsedTime;
     const cam = state.camera;
     if (!s.primed) {
