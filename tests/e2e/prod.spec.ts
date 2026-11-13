@@ -171,11 +171,32 @@ test('운영 빌드 · 첫 받기 6MB · 전체 미리 받기 · 연결 없이 �
         typeof frame.payload === 'string' ? Buffer.byteLength(frame.payload) : frame.payload.byteLength;
     }),
   );
+  // 운영 CSP 안에서만 깨지는 것(ADR-069: 변환기의 문자열 실행으로 캐릭터·템플릿 glb가 끝내 안 읽힘)을 잡는다
+  const cspProblems: string[] = [];
+  const isCspProblem = (text: string): boolean => /Content Security Policy|EvalError/.test(text);
+  page.on('console', message => {
+    if (message.type() === 'error' && isCspProblem(message.text()))
+      cspProblems.push(message.text().slice(0, 300));
+  });
+  page.on('pageerror', error => {
+    if (isCspProblem(String(error))) cspProblems.push(String(error).slice(0, 300));
+  });
+  const isGet = (method: string): boolean => method === 'GET';
+  const characterGlb = page.waitForResponse(
+    response =>
+      /\/assets\/g\/chr-\d+\/[\w-]+\.glb$/.test(response.url()) && isGet(response.request().method()),
+    { timeout: READY_MS },
+  );
+  const transcoderWasm = page.waitForResponse(response => response.url().endsWith('/basis_transcoder.wasm'), {
+    timeout: READY_MS,
+  });
   await page.goto(`/${seed.entryCode}`);
   await expect(page.getByTestId('entry-poster')).toBeVisible();
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: READY_MS });
   const enteredAt = Date.now();
   await enter(page);
+  expect((await characterGlb).status()).toBe(200);
+  expect((await transcoderWasm).status()).toBe(200);
   const entranceMs = Date.now() - enteredAt;
   const entranceSocketBytes = socketBytes;
   const received = await meter.stop();
@@ -198,6 +219,9 @@ test('운영 빌드 · 첫 받기 6MB · 전체 미리 받기 · 연결 없이 �
   appendFileSync('.local/perf/prod-first-receive.jsonl', `${JSON.stringify(firstReceive)}\n`);
   console.log('운영 첫 받기', JSON.stringify(firstReceive));
   expect(received.errors).toEqual([]);
+  // 변환기 일꾼이 wasm을 받은 뒤 시작할 때 위반이 찍힌다. 정지 화면은 다시 그리지 않으므로(프레임 수로 기다릴 수 없음) 잠깐 둔다
+  await page.waitForTimeout(2_000);
+  expect(cspProblems).toEqual([]);
   expect(received.failedRequests).toBe(0);
   expect(received.workerRequests).toBeGreaterThan(0);
   expect(received.bodyBytes).toBeGreaterThan(0);

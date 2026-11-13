@@ -1,0 +1,68 @@
+# 화면 시험(e2e)을 GitHub 호스트 macOS에서 돌린다(2026-11-13). 맥미니는 다른 작업으로 자원이 막히는 일이 잦고,
+# 운영 서버 CSP처럼 개발 서버에 없는 조건은 운영 빌드 e2e로만 잡힌다(ADR-069). 운영 기기와 비밀값은 쓰지 않는다
+# (개발 서버는 고정 이름표로 만든 가짜 비밀값). 수동 실행만 — 결과 화면 캡처·성능 기록은 아티팩트로 올린다.
+name: e2e
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dev:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install chromium webkit
+      - run: npx playwright test tests/e2e/student.spec.ts tests/e2e/teacher.spec.ts tests/e2e/walk-dev.spec.ts tests/e2e/layout-hash.spec.ts --workers=1
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-dev
+          path: |
+            .local/screens/
+            .local/perf/
+            .local/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  prod:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install chromium
+      # run-prod.mjs는 맥미니에서 resource-guard 안에서만 돌게 표시를 확인한다. 호스트 러너에는 그 도구가 없다.
+      - run: node tests/e2e/support/run-prod.mjs
+        env:
+          RESOURCE_GUARD_ACTIVE: '1'
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-prod
+          path: |
+            .local/screens/
+            .local/perf/
+            .local/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
