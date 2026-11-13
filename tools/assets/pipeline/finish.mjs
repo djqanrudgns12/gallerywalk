@@ -6,14 +6,18 @@ import { join, resolve } from 'node:path';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { addCorridorDoor } from './corridorDoor.mjs';
+import { finishRuntime } from './finishRuntime.mjs';
 
-if (process.env.RESOURCE_GUARD_ACTIVE !== '1') {
-  console.error('resource-guard run --profile build 아래에서 실행하세요.');
+let runtime;
+try {
+  runtime = finishRuntime();
+} catch (error) {
+  console.error(error.message);
   process.exit(2);
 }
 const root = resolve(import.meta.dirname, '../../..');
 const original = resolve(root, process.argv[2] ?? '.local/art/build/modern-history');
-const blender = '/Applications/Blender.app/Contents/MacOS/Blender';
+const { blender, rebuildAll } = runtime;
 const published = join(root, 'apps/web/src/tpl/modern-history');
 for (const path of [
   blender,
@@ -34,7 +38,8 @@ for (const file of ['core.glb', 'exterior.glb', 'fixtures.glb', 'manifest.json']
   copyFileSync(join(published, file), join(before, file));
   copyFileSync(join(published, file), join(candidate, file));
 }
-copyFileSync(join(published, 'manifest.json'), join(raw, 'manifest.json'));
+// CI의 전체 재생성은 새 원본의 공통 노출·외관 기록을 쓴다. 로컬 기본 실행은 기존 외관을 보존한다.
+copyFileSync(join(rebuildAll ? original : published, 'manifest.json'), join(raw, 'manifest.json'));
 for (const part of ['core', 'exterior'])
   copyFileSync(join(original, `modern-history-${part}.glb`), join(raw, `modern-history-${part}.glb`));
 const call = (bin, args) => execFileSync(bin, args, { cwd: root, stdio: 'inherit' });
@@ -42,6 +47,8 @@ call(process.execPath, ['tools/assets/pipeline/contract.mjs', raw]);
 call(blender, [
   '-b',
   '--factory-startup',
+  '--python-exit-code',
+  '1',
   '-P',
   'tools/assets/blender/build.py',
   '--',
@@ -62,12 +69,14 @@ call(process.execPath, [
   raw,
   'modern-history',
   candidate,
-  'core,fixtures',
+  rebuildAll ? 'core,exterior,fixtures' : 'core,fixtures',
 ]);
 call(process.execPath, ['tools/assets/pipeline/verifyOutput.mjs', 'modern-history', candidate]);
 call(blender, [
   '-b',
   '--factory-startup',
+  '--python-exit-code',
+  '1',
   '-P',
   'tools/assets/blender/render.py',
   '--',
@@ -81,8 +90,9 @@ call(blender, [
 const manifest = JSON.parse(readFileSync(join(candidate, 'manifest.json'), 'utf8'));
 manifest.images = { poster: 'poster.png', templateCard: 'template-card.png' };
 writeFileSync(join(candidate, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-// 어느 단계든 실패하면 기존 앱 산출물은 그대로다. 실내 표면은 재사용하고 외관은 다시 굽지 않는다.
-for (const file of ['core.glb', 'fixtures.glb', 'manifest.json', 'poster.png', 'template-card.png'])
-  copyFileSync(join(candidate, file), join(published, file));
+// 어느 단계든 실패하면 기존 앱 산출물은 그대로다. CI 전체 재생성에서만 새 외관도 반영한다.
+const files = ['core.glb', 'fixtures.glb', 'manifest.json', 'poster.png', 'template-card.png'];
+if (rebuildAll) files.push('exterior.glb');
+for (const file of files) copyFileSync(join(candidate, file), join(published, file));
 console.log(`[에셋] 예산 검사 뒤 반영 완료: ${published}`);
 console.log(`[에셋] 장식 검수 그림: ${join(candidate, 'decorations.png')}`);
