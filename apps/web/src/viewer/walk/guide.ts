@@ -1,7 +1,6 @@
 import { config } from '@gallery/core/config';
 import {
   type CameraPose,
-  type FrameAnchor,
   frameAnchorOf,
   frameCamera,
   type FramingOptions,
@@ -11,7 +10,6 @@ import {
   standable,
 } from '@gallery/core/layout';
 import type { Layout, Stop } from '@gallery/core/types';
-import { labelAwayOf } from '../scene/labelAway.ts';
 import { yawOf } from './walker.ts';
 import type { WalkMode } from './walkStore.ts';
 
@@ -147,25 +145,6 @@ export interface StandSpot {
   readonly camera: CameraPose;
 }
 
-/** 저장된 배치는 그대로 두고, 화면별 정지 시야에는 실제로 그리는 옆 명판의 바깥 끝까지 포함한다. */
-const viewAnchorOf = (layout: Layout, stop: Stop): FrameAnchor => {
-  const anchor = frameAnchorOf(stop.anchor);
-  if (stop.kind !== 'artwork') return anchor;
-  const frame = layout.frames.find(f => f.artworkId === stop.artworkId);
-  const label = layout.labels.find(l => l.artworkId === stop.artworkId);
-  if (!label || !frame || frame.mount === 'EASEL') return anchor;
-  const c = config();
-  const away = labelAwayOf(label.pos, anchor.center, label.normal, false);
-  const dx = label.pos[0] + away[0] * c.LABEL_FRAME_GAP_M - anchor.center.x;
-  const dz = label.pos[2] + away[1] * c.LABEL_FRAME_GAP_M - anchor.center.z;
-  const side = Math.abs(dx * anchor.normal.z - dz * anchor.normal.x);
-  // 목표는 작품 한가운데에 둔다. 한쪽 명판이 들어오도록 반대쪽에도 같은 여유를 남긴다.
-  return {
-    ...anchor,
-    outer: { ...anchor.outer, w: Math.max(anchor.outer.w, 2 * side + c.LABEL_PLATE_SIZE_M.w) },
-  };
-};
-
 /**
  * 정지 지점 앞에 설 자리: 화면 맞춤 카메라 자리에서 작품 쪽으로 조금, 옆으로 조금(카메라에 캐릭터가 화면 오른쪽 아래에 보이게).
  * 그 자리가 설 수 없으면 옆 비킴 없이 → 카메라 자리 → 법선 위를 작품 쪽으로 당기며 찾는다.
@@ -173,7 +152,7 @@ const viewAnchorOf = (layout: Layout, stop: Stop): FrameAnchor => {
 export const standSpot = (layout: Layout, stop: Stop, aspect: number): StandSpot => {
   const c = config();
   const a = stop.anchor;
-  const camera = frameCamera(viewAnchorOf(layout, stop), { aspect }, viewFraming(a.floorY));
+  const camera = frameCamera(frameAnchorOf(a), { aspect }, viewFraming(a.floorY));
   const p: P2 = [camera.position.x, camera.position.z];
   const fwd: P2 = [-a.normal[0], -a.normal[1]];
   // 작품을 볼 때 화면 오른쪽(+Z를 볼 때 −X)

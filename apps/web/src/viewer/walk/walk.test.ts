@@ -3,8 +3,6 @@ import { computeLayout, floorAt, footFloorAt, type P2, standable } from '@galler
 import { templateGeometry } from '@gallery/core/templates';
 import type { ArtworkForm, LayoutInput } from '@gallery/core/types';
 import { describe, expect, it } from 'vitest';
-import { PerspectiveCamera, Vector3 } from 'three';
-import { labelAwayOf } from '../scene/labelAway.ts';
 import { cameraSpace, defaultOrbit, followPose } from './followCamera.ts';
 import { buildGuideMap, pathBetween, standSpot, stepTarget } from './guide.ts';
 import { type MannerInput, type MannerNotice, MannerWatch } from './manners.ts';
@@ -362,44 +360,6 @@ describe('안내 이동 길(guide)', () => {
     const spot = standSpot(layout, stop, 16 / 10);
     expect(spot.yaw).toBeCloseTo(yawOf(-stop.anchor.normal[0], -stop.anchor.normal[1]), 6);
     expect(spot.camera.achievedFill).toBeGreaterThan(config().STOP_FILL);
-  });
-
-  it('휴대폰·태블릿 작품 앞에서 액자와 옆 명판의 네 모서리가 모두 가로 시야에 든다', () => {
-    for (const aspect of [390 / 844, 820 / 1180]) {
-      for (const stop of layout.stops.filter(s => s.kind === 'artwork')) {
-        const frame = layout.frames.find(f => f.artworkId === stop.artworkId)!;
-        if (frame.mount === 'EASEL') continue;
-        const label = layout.labels.find(l => l.artworkId === stop.artworkId);
-        if (!label) continue;
-        const { camera: pose } = standSpot(layout, stop, aspect);
-        const camera = new PerspectiveCamera(pose.fov, aspect, 0.05, 120);
-        camera.position.set(pose.position.x, pose.position.y, pose.position.z);
-        camera.lookAt(pose.target.x, pose.target.y, pose.target.z);
-        camera.updateMatrixWorld(true);
-        const away = labelAwayOf(label.pos, pose.target, label.normal, false);
-        const right = [label.normal[1], -label.normal[0]];
-        for (const side of [-1, 1]) {
-          for (const up of [-1, 1]) {
-            const corner = new Vector3(
-              label.pos[0] +
-                away[0] * config().LABEL_FRAME_GAP_M +
-                (right[0]! * side * config().LABEL_PLATE_SIZE_M.w) / 2,
-              label.pos[1] + (up * config().LABEL_PLATE_SIZE_M.h) / 2,
-              label.pos[2] +
-                away[1] * config().LABEL_FRAME_GAP_M +
-                (right[1]! * side * config().LABEL_PLATE_SIZE_M.w) / 2,
-            ).project(camera);
-            expect(Math.abs(corner.x), `${stop.id} 명판, 비율 ${aspect}`).toBeLessThan(1);
-            const edge = new Vector3(
-              frame.center[0] + (right[0]! * side * frame.outer.w) / 2,
-              frame.center[1] + (up * frame.outer.h) / 2,
-              frame.center[2] + (right[1]! * side * frame.outer.w) / 2,
-            ).project(camera);
-            expect(Math.abs(edge.x), `${stop.id} 액자, 비율 ${aspect}`).toBeLessThan(1);
-          }
-        }
-      }
-    }
   });
 });
 

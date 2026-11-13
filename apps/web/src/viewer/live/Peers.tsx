@@ -29,7 +29,6 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { blobShadowMaterial, withDim } from '../scene/materials.ts';
 import { loadPeerBody, type PeerBody, vatFrame } from './peerBody.ts';
 import { type PeerView, splitVisible } from './peerBuffer.ts';
-import { placePeerTags } from './peerTags.ts';
 
 /**
  * 다른 관람객(ADR-057, R-6). 그리기 호출을 사람 수와 상관없이 일정하게:
@@ -60,6 +59,9 @@ export interface PeersProps {
 const KINDS: readonly CharacterId[] = ['student-m', 'student-f', 'teacher-m', 'teacher-f'];
 const MAX_PER_KIND = 40;
 const TAG_SLOTS = 128;
+/** 겹친 이름표를 올리는 한 칸 높이(m)와 최대 칸 수 */
+const TAG_STACK_STEP_M = 0.22;
+const TAG_STACK_MAX = 3;
 const ATLAS_W = 2048;
 const SLOT_H = 64;
 const SLOT_W = 512;
@@ -149,14 +151,12 @@ const tagMaterial = (atlas: CanvasTexture): ShaderMaterial =>
       attribute vec3 aCenter;
       attribute vec2 aSize;
       attribute float aSlot;
-      attribute float aLift;
       uniform float uCols;
       uniform float uRows;
       varying vec2 vUv;
       void main() {
         vec4 mv = modelViewMatrix * vec4(aCenter, 1.0);
         mv.xy += position.xy * aSize;
-        mv.y += aLift;
         gl_Position = projectionMatrix * mv;
         float col = mod(aSlot, uCols);
         float row = floor(aSlot / uCols);
@@ -201,11 +201,9 @@ export const Peers = ({ sample, busy, me, maxFull, labelOf, invalidate }: PeersP
     );
     const size = new InstancedBufferAttribute(new Float32Array(TAG_SLOTS * 2), 2).setUsage(DynamicDrawUsage);
     const slot = new InstancedBufferAttribute(new Float32Array(TAG_SLOTS), 1).setUsage(DynamicDrawUsage);
-    const lift = new InstancedBufferAttribute(new Float32Array(TAG_SLOTS), 1).setUsage(DynamicDrawUsage);
     geo.setAttribute('aCenter', center);
     geo.setAttribute('aSize', size);
     geo.setAttribute('aSlot', slot);
-    geo.setAttribute('aLift', lift);
     geo.instanceCount = 0;
     const tagMat = tagMaterial(atlas);
     const tags = new Mesh(geo, tagMat);
@@ -239,10 +237,11 @@ export const Peers = ({ sample, busy, me, maxFull, labelOf, invalidate }: PeersP
       center,
       size,
       slot,
-      lift,
       tagMat,
       tags,
       slots: new Map<string, { slot: number; text: string }>(),
+      /** 사람마다 이름표를 올린 칸 수(부드럽게) */
+      tagLift: new Map<string, number>(),
     };
   }, []);
   useEffect(
@@ -421,38 +420,11 @@ export const Peers = ({ sample, busy, me, maxFull, labelOf, invalidate }: PeersP
       TAG_SLOTS,
     );
     const seen = new Set<string>();
-    // 셰이더와 같은 카메라 평면에서 사각형을 계산한다. 카메라가 기울어도 같은 위치에 놓인다.
+    // 화면에서 겹치는 이름표는 가까운 사람 것부터 두고 뒤의 것을 한 칸씩 위로(최대 TAG_STACK_MAX칸, 부드럽게 옮김)
     const cam = state.camera as PerspectiveCamera;
-    // 앞선 걷기 콜백이 바꾼 자세를 이번 프레임의 투영에도 쓴다(renderer의 행렬 갱신은 이 콜백 뒤다).
-    cam.updateMatrixWorld();
-    const fx = cam.projectionMatrix.elements[0]!;
-    const fy = cam.projectionMatrix.elements[5]!;
-    const projected = all.map(({ p, small }, index) => {
-      const tall = p.character.startsWith('teacher') ? c.CHAR_HEIGHT_M.teacher : c.CHAR_HEIGHT_M.student;
-      const scale = small ? c.PEER_TAG_SMALL_SCALE : 1;
-      const baseY = p.y + tall + c.PEER_TAG_HEAD_GAP_M;
-      view.set(p.x, baseY, p.z).applyMatrix4(cam.matrixWorldInverse);
-      const depth = -view.z;
-      return {
-        id: p.sid,
-        index,
-        depth,
-        baseY,
-        scale,
-        x: (view.x * fx) / depth,
-        y: (view.y * fy) / depth,
-        hw: (c.PEER_TAG_SIZE_M.w * scale * fx) / (2 * depth),
-        hh: (c.PEER_TAG_SIZE_M.h * scale * fy) / (2 * depth),
-      };
-    });
-    const shown = placePeerTags(projected, {
-      x: (c.PEER_TAG_GAP_PX * 2) / state.size.width,
-      y: (c.PEER_TAG_GAP_PX * 2) / state.size.height,
-    });
-    // 먼 표부터 그려 같은 인스턴스 묶음에서도 가까운 표가 앞에 온다. 추가 그리기 호출은 없다.
-    shown.reverse().forEach((tag, i) => {
-      const source = projected.find(p => p.id === tag.id)!;
-      const { p } = all[source.index]!;
+    const tanH = Math.tan((cam.fov * Math.PI) / 360);
+    const placed: { x: number; y: number; hw: number; hh: number }[] = [];
+    all.forEach(({ p, small }, i) => {
       const label = labelOf(p);
       const key = `${label.teacher ? 't' : 'v'}:${label.text}`;
       const prev = parts.slots.get(p.sid);
@@ -464,14 +436,36 @@ export const Peers = ({ sample, busy, me, maxFull, labelOf, invalidate }: PeersP
         parts.slots.set(p.sid, { slot: i, text: key });
       }
       seen.add(p.sid);
-      parts.center.setXYZ(i, p.x, source.baseY, p.z);
-      parts.size.setXY(i, c.PEER_TAG_SIZE_M.w * source.scale, c.PEER_TAG_SIZE_M.h * source.scale);
-      parts.lift.setX(i, (tag.lift * tag.depth) / fy);
+      const tall = p.character.startsWith('teacher')
+        ? config().CHAR_HEIGHT_M.teacher
+        : config().CHAR_HEIGHT_M.student;
+      const s = small ? 0.75 : 1;
+      const baseY = p.y + tall + 0.28;
+      let target = 0;
+      view.set(p.x, baseY, p.z).applyMatrix4(cam.matrixWorldInverse);
+      const dist = -view.z;
+      if (dist > 0.1) {
+        const k = 1 / (dist * tanH);
+        const x = (view.x * k) / cam.aspect;
+        const hw = (0.8 * s * k) / cam.aspect;
+        const hh = 0.1 * s * k;
+        const step = TAG_STACK_STEP_M * s * k;
+        const hit = (y: number): boolean =>
+          placed.some(r => Math.abs(r.x - x) < r.hw + hw && Math.abs(r.y - y) < r.hh + hh);
+        while (target < TAG_STACK_MAX && hit(view.y * k + target * step)) target++;
+        placed.push({ x, y: view.y * k + target * step, hw, hh });
+      }
+      const lift = parts.tagLift.get(p.sid) ?? target;
+      const next = lift + (target - lift) * Math.min(1, dtIn * 8);
+      parts.tagLift.set(p.sid, Math.abs(next - target) < 0.01 ? target : next);
+      if (Math.abs(next - target) >= 0.01) moving = true;
+      parts.center.setXYZ(i, p.x, baseY + next * TAG_STACK_STEP_M * s, p.z);
+      parts.size.setXY(i, 1.6 * s, 0.2 * s);
       parts.slot.setX(i, i);
     });
     for (const sid of [...parts.slots.keys()]) if (!seen.has(sid)) parts.slots.delete(sid);
-    parts.geo.instanceCount = shown.length;
-    parts.lift.needsUpdate = true;
+    for (const sid of [...parts.tagLift.keys()]) if (!seen.has(sid)) parts.tagLift.delete(sid);
+    parts.geo.instanceCount = all.length;
     parts.center.needsUpdate = true;
     parts.size.needsUpdate = true;
     parts.slot.needsUpdate = true;

@@ -34,6 +34,9 @@ const SLOT_W = 512;
 const SLOT_H = 256;
 const COLS = 4;
 const MAX = 48;
+/** 판 크기(m) */
+const PLATE_W = 0.3;
+const PLATE_H = 0.15;
 /** 벽에서 띄우는 거리(m) */
 const LIFT = 0.012;
 
@@ -111,7 +114,7 @@ export const ArtworkLabels = ({ items }: { items: readonly LabelItem[] }) => {
         uAtlas: { value: atlas },
         uCols: { value: COLS },
         uRows: { value: rows },
-        uSize: { value: [config().LABEL_PLATE_SIZE_M.w, config().LABEL_PLATE_SIZE_M.h] },
+        uSize: { value: [PLATE_W, PLATE_H] },
         uTint: bakedLight.tint,
       },
       vertexShader: /* glsl */ `

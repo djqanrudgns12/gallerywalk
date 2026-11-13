@@ -167,8 +167,6 @@ export const configDefaults = {
    * 13cm 떠 있어 비스듬히 보면 명판 안쪽을 가렸다(V-57). 이젤 명판은 받침 아래라 옮기지 않는다.
    */
   LABEL_FRAME_GAP_M: 0.08,
-  /** 벽 명판 크기 — 그리기와 작품 앞 카메라의 시야 계산이 같은 크기를 쓴다 */
-  LABEL_PLATE_SIZE_M: { w: 0.3, h: 0.15 },
   /** 정지 지점: 전시실 소개는 들어가는 문 안쪽, 입구 홀은 홀 입구 안쪽(§4.7) */
   INTRO_STOP_INSIDE_M: 1.2,
   HALL_STOP_INSIDE_M: 1.5,
@@ -429,12 +427,6 @@ export const configDefaults = {
   PEER_VAT_TEX_W: 1024,
   /** 다른 관람객이 서기 ↔ 걷기로 바뀔 때 섞는 빠르기(1/s) */
   PEER_VAT_BLEND_PER_S: 6,
-  /** 이름표: 화면에서 두 단까지, 그 뒤에도 겹치면 먼 사람 것을 숨긴다 */
-  PEER_TAG_ROWS: 2,
-  PEER_TAG_SIZE_M: { w: 1.6, h: 0.2 },
-  PEER_TAG_SMALL_SCALE: 0.75,
-  PEER_TAG_HEAD_GAP_M: 0.28,
-  PEER_TAG_GAP_PX: 3,
   /**
    * 점프(놀이): 뛰어오르는 빠르기(m/s)와 중력(m/s²) — 높이 = v²/2g ≈ 0.46m, 떠 있는 시간 ≈ 0.51초.
    * 벽 부딪힘: 벽 쪽으로 막힌 빠르기가 `CHAR_BUMP_MIN_MPS` 이상이고 가려던 빠르기의 `CHAR_BUMP_MIN_RATIO` 이상이면(거의 정면)
