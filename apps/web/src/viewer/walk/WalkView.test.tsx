@@ -13,6 +13,7 @@ import { sceneDim } from '../scene/materials.ts';
 import { TourDriver } from '../tour/TourDriver.tsx';
 import { tourInputOf } from '../tour/tourCamera.ts';
 import { WalkView } from './WalkView.tsx';
+import { useWalkKeyboard } from './input.ts';
 import { useWalk } from './walkStore.ts';
 import { ZoomDim } from './ZoomDim.tsx';
 
@@ -189,3 +190,46 @@ it('정지 뒤 입력부터 첫 느린 프레임 사이의 이동 시간도 보�
   expect(distance).toBeGreaterThan(1);
   expect(distance).toBeLessThan(config().CHAR_WALK_MPS * 2);
 });
+
+it.each(['keyboard', 'stick'] as const)(
+  '%s 입력 즉시 정지 표시를 해제하고, 첫 프레임 전에 뗀 입력의 이동 시간도 보존한다',
+  source => {
+    const model = visitModelOf(testExhibitionView([2]));
+    const Keyboard = () => {
+      useWalkKeyboard();
+      return null;
+    };
+    const press = (forward: number) =>
+      act(() => {
+        if (source === 'stick') useWalk.getState().setStick({ forward, strafe: 0, run: false });
+        else window.dispatchEvent(new KeyboardEvent(forward ? 'keydown' : 'keyup', { code: 'KeyW' }));
+      });
+    act(() =>
+      root.render(
+        <>
+          <Keyboard />
+          <WalkView
+            layout={model.layout}
+            artworks={model.artworks}
+            character="student-m"
+            placeOf={model.placeOf}
+            paused
+          />
+        </>,
+      ),
+    );
+    for (let i = 0; i < 100 && loop.state!.internal.frames > 0; i++) frame(0.5);
+    const before = useWalk.getState().me.z;
+    loop.state!.clock.elapsedTime += 60;
+    press(1);
+    expect(useWalk.getState().idleFrameMark).toBe(0);
+    loop.state!.clock.elapsedTime += 1.5;
+    press(0);
+    frame(62, 0.5);
+    for (let i = 0; i < 100 && loop.state!.internal.frames > 0; i++) frame(0.5);
+    const distance = useWalk.getState().me.z - before;
+    expect(distance).toBeGreaterThan(1);
+    expect(distance).toBeLessThan(config().CHAR_WALK_MPS * 2);
+    expect(useWalk.getState().idleFrameMark).toBe(useWalk.getState().perf.framesRendered);
+  },
+);

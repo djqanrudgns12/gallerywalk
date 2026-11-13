@@ -1,4 +1,4 @@
-import { constants } from 'node:fs';
+import { constants, type Stats } from 'node:fs';
 import { open, type FileHandle } from 'node:fs/promises';
 import { extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { Readable } from 'node:stream';
@@ -33,7 +33,55 @@ export interface FileReply {
   readonly path: string;
   readonly contentType: string;
   readonly cacheControl: string;
+  /** 앱 빌드 파일에만 적용한다. 작품 미디어는 기존 원본 응답을 유지한다. */
+  readonly precompressed?: boolean;
 }
+
+type ContentEncoding = 'br' | 'gzip';
+const ENCODINGS: readonly ContentEncoding[] = ['br', 'gzip'];
+const ENCODING_SUFFIX: Readonly<Record<ContentEncoding, string>> = { br: '.br', gzip: '.gz' };
+/** RFC 9110 qvalue: 0~1, 소수 세 자리까지. 잘못 쓴 가중치는 허용하지 않는다. */
+const QUALITY = /^q=(0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/;
+
+/** 높은 q부터 고르고, 같은 q면 br을 우선한다. 명시한 값은 `*`보다 우선하며 q=0은 제외한다. */
+const acceptedEncodings = (header: string | undefined): readonly ContentEncoding[] => {
+  if (header === undefined) return [];
+  const qualities = new Map<string, number>();
+  for (const part of header.toLowerCase().split(',')) {
+    const [coding = '', ...parameters] = part.trim().split(/\s*;\s*/);
+    const match = parameters.length === 1 ? QUALITY.exec(parameters[0] ?? '') : null;
+    qualities.set(coding, parameters.length === 0 ? 1 : match ? Number(match[1]) : 0);
+  }
+  return ENCODINGS.map(encoding => ({
+    encoding,
+    quality: qualities.get(encoding) ?? qualities.get('*') ?? 0,
+  }))
+    .filter(item => item.quality > 0)
+    .sort((a, b) => b.quality - a.quality)
+    .map(item => item.encoding);
+};
+
+/** 원본과 압축 사본 모두 같은 링크·정규 파일 검사를 거친다. */
+const openRegularFile = async (
+  path: string,
+): Promise<{ readonly handle: FileHandle; readonly stat: Stats } | null> => {
+  let handle: FileHandle;
+  try {
+    handle = await open(path, OPEN_FLAGS);
+  } catch (err) {
+    if (isMissing(err)) return null;
+    throw err;
+  }
+  try {
+    const stat = await handle.stat();
+    if (stat.isFile()) return { handle, stat };
+  } catch (err) {
+    await handle.close();
+    throw err;
+  }
+  await handle.close();
+  return null;
+};
 
 type ByteRange = { readonly start: number; readonly end: number };
 
@@ -82,24 +130,34 @@ const rangeAllowed = (header: string | undefined, etag: string): boolean =>
  * 그 밖의 디스크 오류는 던진다(오류 봉투 → 500, CDN은 `stale-if-error`로 이미 가진 사본을 낸다).
  */
 export async function sendFile(c: Context<AppEnv>, reply: FileReply): Promise<Response | null> {
-  let handle: FileHandle;
-  try {
-    handle = await open(reply.path, OPEN_FLAGS);
-  } catch (err) {
-    if (isMissing(err)) return null;
-    throw err;
-  }
+  let file = await openRegularFile(reply.path);
+  if (file === null) return null;
   let streaming = false;
   try {
-    const stat = await handle.stat();
-    if (!stat.isFile()) return null;
+    let encoding: ContentEncoding | undefined;
+    // Range가 잘못 쓰였거나 If-Range가 맞지 않아도 원본을 보낸다. 바이트 구간의 기준을 바꾸지 않는다.
+    if (reply.precompressed && c.req.header('range') === undefined) {
+      for (const candidate of acceptedEncodings(c.req.header('accept-encoding'))) {
+        const compressed = await openRegularFile(`${reply.path}${ENCODING_SUFFIX[candidate]}`);
+        if (compressed === null) continue;
+        const original = file;
+        file = compressed;
+        await original.handle.close();
+        encoding = candidate;
+        break;
+      }
+    }
+    const { handle, stat } = file;
     const size = stat.size;
-    const etag = `"${size.toString(HEX)}-${Math.trunc(stat.mtimeMs).toString(HEX)}"`;
+    // 같은 크기·시각의 원본과 사본도 서로 다른 강한 ETag를 가진다.
+    const etag = `"${size.toString(HEX)}-${Math.trunc(stat.mtimeMs).toString(HEX)}${encoding ? `-${encoding}` : ''}"`;
     const headers: Record<string, string> = {
       'Cache-Control': reply.cacheControl,
       ETag: etag,
       'Accept-Ranges': 'bytes',
     };
+    if (reply.precompressed) headers['Vary'] = 'Accept-Encoding';
+    if (encoding) headers['Content-Encoding'] = encoding;
     if (noneMatch(c.req.header('if-none-match'), etag)) return c.body(null, 304, headers);
 
     const plan = rangeAllowed(c.req.header('if-range'), etag)
@@ -126,7 +184,7 @@ export async function sendFile(c: Context<AppEnv>, reply: FileReply): Promise<Re
     streaming = true;
     return c.body(Readable.toWeb(stream), status, headers);
   } finally {
-    if (!streaming) await handle.close();
+    if (!streaming) await file.handle.close();
   }
 }
 
@@ -218,6 +276,7 @@ export const staticRoutes = (options: StaticRouteOptions): Hono<AppEnv> => {
       path: indexPath,
       contentType: contentTypeOf(indexPath),
       cacheControl: 'no-cache',
+      precompressed: true,
     })) ?? notFound(c);
 
   const app = new Hono<AppEnv>();
@@ -226,6 +285,7 @@ export const staticRoutes = (options: StaticRouteOptions): Hono<AppEnv> => {
       path: swPath,
       contentType: contentTypeOf(swPath),
       cacheControl: 'no-cache',
+      precompressed: true,
     });
     return reply ?? notFound(c);
   });
@@ -236,7 +296,10 @@ export const staticRoutes = (options: StaticRouteOptions): Hono<AppEnv> => {
     const cacheControl =
       `public, max-age=${cfg.STATIC_ASSET_MAX_AGE_SEC}, immutable, ` +
       `stale-if-error=${cfg.STATIC_STALE_IF_ERROR_SEC}`;
-    return (await sendFile(c, { path, contentType: contentTypeOf(path), cacheControl })) ?? notFound(c);
+    return (
+      (await sendFile(c, { path, contentType: contentTypeOf(path), cacheControl, precompressed: true })) ??
+      notFound(c)
+    );
   });
   app.get('/', html);
   app.get(`/:code{[0-9]{${config().ENTRY_CODE_DIGITS}}}`, html);

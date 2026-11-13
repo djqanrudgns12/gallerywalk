@@ -6,7 +6,7 @@
   "description": "갤러리 화면: Vite + React + three(R3F)",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/precompress.ts",
     "preview": "vite preview",
     "test": "vitest run"
   },

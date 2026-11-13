@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
+import { copy, fill } from '../../packages/core/src/copy/ko.ts';
 
 /**
  * R-1 끝 조건(PLAN §15.11a, ADR-057): `/dev/walk` 자유 관람 — 휴대폰·태블릿·데스크톱 세 크기에서
@@ -66,11 +67,11 @@ const settle = async (page: Page): Promise<Snap> => {
   let prev = -1;
   for (let i = 0; i < 60; i++) {
     const s = await snap(page);
-    if (s.frames === prev && s.mark === s.frames) return s;
+    if (s.frames > 0 && s.frames === prev && s.mark === s.frames) return s;
     prev = s.frames;
     await page.waitForTimeout(400);
   }
-  return snap(page);
+  throw new Error(`관람 장면이 정지하지 않았습니다: ${JSON.stringify(await snap(page))}`);
 };
 
 const waitMode = async (page: Page, mode: string, timeout = 40_000): Promise<void> => {
@@ -117,10 +118,11 @@ for (const size of SIZES) {
       const art = await settle(page);
       expect(art.near).not.toBeNull();
       await expect(page.getByTestId('near-card')).toBeVisible();
-      await page.screenshot({ path: `${SHOTS}/${size.name}-03-artwork.png` });
-      // 멈춘 뒤 2초 동안 다시 그리지 않는다
+      // PRD 10.1·15.5: 멈춘 뒤 2초 동안 다시 그리지 않는다. 캡처는 측정 뒤에 한다.
+      // CI trace에서 캡처 자체가 약 5초 걸렸다. 캡처의 화면 준비 작업을 정지 구간에 끼우지 않는다.
       await page.waitForTimeout(2000);
       expect((await snap(page)).frames).toBe(art.frames);
+      await page.screenshot({ path: `${SHOTS}/${size.name}-03-artwork.png` });
 
       await page.getByTestId('near-card').getByRole('button').click();
       await waitMode(page, 'zoom', 10_000);
@@ -185,7 +187,11 @@ test.describe('함께 관람 · 가짜 관람객 30명(태블릿 820×1180)', ()
     const alone = await settle(page);
 
     await page.goto('/dev/walk?rooms=2&peers=30');
-    await expect(page.getByTestId('top-bar')).toContainText('31');
+    // 가짜 관람객은 Canvas의 LiveDriver가 붙을 때 시작한다. DOM 위 줄만 먼저 뜬 상태와 구분한다.
+    await expect.poll(async () => (await snap(page)).stopCount, { timeout: 20_000 }).toBeGreaterThan(4);
+    const count = page.getByTestId('top-bar').getByTestId('live-count');
+    await expect(count).toBeVisible();
+    await expect(count).toHaveText(fill(copy.viewer.liveCount, { n: 31 }));
     await callApi(page, 'goTo', 1);
     // 헤드리스 소프트웨어 렌더링에서 30명을 그리면 프레임이 낮아 걷기가 실시간보다 느리다(프레임당 0.1초 상한) — 도착만 넉넉히 기다린다
     await waitMode(page, 'view', 90_000);

@@ -128,6 +128,8 @@ export const WalkView = ({
     totalFrames: 0,
     wasActive: false,
     wokeAt: null as number | null,
+    /** 느린 프레임 사이에 누르고 뗀 입력도 그 유지 시간만큼 걷는다. */
+    inputEnds: [] as { until: number; input: ReturnType<typeof combinedInput> }[],
     /** 벽 부딪힘 흔들림 세기 1 → 0 */
     shake: 0,
     /** 지난 프레임의 걸음 상태(동작 줄이기에서 바뀌는 순간을 알려고) */
@@ -139,6 +141,8 @@ export const WalkView = ({
   const aspect = size.width / Math.max(1, size.height);
   const wake = useCallback(() => {
     if (!st.wasActive && st.wokeAt === null) st.wokeAt = performance.now();
+    const store = useWalk.getState();
+    if (store.idleFrameMark !== 0) store.set({ idleFrameMark: 0 });
     invalidate();
   }, [st, invalidate]);
 
@@ -158,6 +162,7 @@ export const WalkView = ({
     const reset = () => {
       st.wasActive = false;
       st.wokeAt = null;
+      st.inputEnds.length = 0;
     };
     document.addEventListener('visibilitychange', reset);
     return () => document.removeEventListener('visibilitychange', reset);
@@ -294,6 +299,7 @@ export const WalkView = ({
     // 손 입력이 바뀌면 깨운다
     const unsub = useWalk.subscribe((next, prev) => {
       if (next.keys !== prev.keys || next.stick !== prev.stick || next.runToggle !== prev.runToggle) {
+        st.inputEnds.push({ until: performance.now(), input: combinedInput(prev) });
         if (Math.hypot(combinedInput(next).forward, combinedInput(next).strafe) > 0) leaveView();
         wake();
       }
@@ -322,7 +328,20 @@ export const WalkView = ({
 
     // ── 캐릭터 ────────────────────────────────────────────────
     walker.setCrowd(crowd?.() ?? []);
-    const moving = walker.step(dt, { ...input, cameraYaw: st.orbit.yaw });
+    const now = performance.now();
+    let from = now - dt * 1000;
+    let moving = false;
+    for (const ended of st.inputEnds) {
+      const until = Math.min(now, Math.max(from, ended.until));
+      moving =
+        walker.step((until - from) / 1000, {
+          ...(mode === 'zoom' ? STILL : ended.input),
+          cameraYaw: st.orbit.yaw,
+        }) || moving;
+      from = until;
+    }
+    st.inputEnds.length = 0;
+    moving = walker.step((now - from) / 1000, { ...input, cameraYaw: st.orbit.yaw }) || moving;
     const pose = walker.pose;
     let jumped = false;
     for (const fx of walker.drainEvents()) {
