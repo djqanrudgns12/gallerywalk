@@ -17,7 +17,7 @@
       "triangles": 186,
       "lightmap": true,
       "lightmapPx": 1024,
-      "lightmapMean": 0.3617,
+      "lightmapMean": 0.3614,
       "bounds": {
         "min": [
           0,
@@ -41,7 +41,7 @@
       "triangles": 144,
       "lightmap": true,
       "lightmapPx": 512,
-      "lightmapMean": 0.3097,
+      "lightmapMean": 0.3093,
       "bounds": {
         "min": [
           0,
@@ -65,7 +65,7 @@
       "triangles": 80,
       "lightmap": true,
       "lightmapPx": 512,
-      "lightmapMean": 0.2749,
+      "lightmapMean": 0.2744,
       "bounds": {
         "min": [
           0,
@@ -87,7 +87,7 @@
       "triangles": 12,
       "lightmap": true,
       "lightmapPx": 512,
-      "lightmapMean": 0.1374,
+      "lightmapMean": 0.1366,
       "bounds": {
         "min": [
           0,
@@ -130,7 +130,7 @@
       "triangles": 42,
       "lightmap": true,
       "lightmapPx": 512,
-      "lightmapMean": 0.2348,
+      "lightmapMean": 0.111,
       "bounds": {
         "min": [
           0,
@@ -172,7 +172,7 @@
       "triangles": 327,
       "lightmap": true,
       "lightmapPx": 1024,
-      "lightmapMean": 0.3082,
+      "lightmapMean": 0.286,
       "bounds": {
         "min": [
           0,
@@ -185,12 +185,37 @@
           4
         ]
       }
+    },
+    "mh_corridor_door_2m": {
+      "slots": [
+        "M_Plaster",
+        "M_Panel",
+        "M_Molding",
+        "M_Brass"
+      ],
+      "triangles": 72,
+      "lightmap": true,
+      "lightmapPx": 512,
+      "lightmapMean": 0.2744,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          0
+        ],
+        "max": [
+          2,
+          4,
+          0.6349999904632568
+        ]
+      },
+      "derivedFrom": "mh_wall_door_2m"
     }
   },
   "baked": true,
   "exposure": {
-    "reference": 1.0005214728860774,
-    "gain": 0.967079720408837,
+    "reference": 1.000520727573297,
+    "gain": 0.9670804408105793,
     "referenceOut": 0.62,
     "curve": "1-exp(-gain*x)"
   },
@@ -209,9 +234,9 @@
         "lightmap": true,
         "lightmapPx": 2048,
         "lightmapMean": [
-          0.222,
-          0.2304,
-          0.2496
+          0.2194,
+          0.2275,
+          0.2462
         ],
         "bounds": {
           "min": [
@@ -234,9 +259,9 @@
         "lightmap": true,
         "lightmapPx": 1024,
         "lightmapMean": [
-          0.3436,
-          0.3543,
-          0.3753
+          0.2871,
+          0.2945,
+          0.3108
         ],
         "bounds": {
           "min": [
@@ -260,9 +285,9 @@
         "lightmap": true,
         "lightmapPx": 512,
         "lightmapMean": [
-          0.3375,
-          0.3493,
-          0.3742
+          0.3323,
+          0.3436,
+          0.3676
         ],
         "bounds": {
           "min": [
@@ -286,9 +311,9 @@
         "lightmap": true,
         "lightmapPx": 512,
         "lightmapMean": [
-          0.2918,
-          0.3039,
-          0.3291
+          0.2901,
+          0.302,
+          0.3271
         ],
         "bounds": {
           "min": [
@@ -312,7 +337,7 @@
         "lightmapPx": 16,
         "lightmapMean": [
           0.602,
-          0.6292,
+          0.6291,
           0.6855
         ],
         "bounds": {
@@ -356,8 +381,8 @@
       }
     },
     "exposure": {
-      "reference": 1.1925516313976712,
-      "gain": 0.8113560878933993,
+      "reference": 1.1926030768288507,
+      "gain": 0.8113210883494665,
       "referenceOut": 0.62,
       "curve": "1-exp(-gain*x)",
       "color": true
@@ -700,7 +725,114 @@
             0.175
           ]
         }
+      },
+      "spotRail": {
+        "static": true,
+        "slots": [
+          "M_Brass",
+          "M_Glass"
+        ],
+        "vertexAO": true,
+        "triangles": 212,
+        "bounds": {
+          "min": [
+            -0.8,
+            -0.1125,
+            0.0011
+          ],
+          "max": [
+            0.8,
+            0.0901,
+            0.28
+          ]
+        }
+      },
+      "wallSconce": {
+        "static": true,
+        "slots": [
+          "M_Brass",
+          "M_Glass"
+        ],
+        "vertexAO": true,
+        "triangles": 48,
+        "bounds": {
+          "min": [
+            -0.09,
+            -0.09,
+            0
+          ],
+          "max": [
+            0.09,
+            0.09,
+            0.42
+          ]
+        }
+      },
+      "barrier": {
+        "static": true,
+        "slots": [
+          "M_Brass"
+        ],
+        "vertexAO": true,
+        "triangles": 364,
+        "bounds": {
+          "min": [
+            -0.8,
+            -0.12,
+            0
+          ],
+          "max": [
+            0.8,
+            0.12,
+            0.72
+          ]
+        }
+      },
+      "artPlinth": {
+        "static": true,
+        "slots": [
+          "M_Stone"
+        ],
+        "vertexAO": true,
+        "triangles": 36,
+        "bounds": {
+          "min": [
+            -0.4,
+            -0.12,
+            0
+          ],
+          "max": [
+            0.4,
+            0.12,
+            0.72
+          ]
+        }
+      },
+      "exitPortal": {
+        "static": true,
+        "slots": [
+          "M_Oak",
+          "M_Brass"
+        ],
+        "vertexAO": true,
+        "triangles": 60,
+        "bounds": {
+          "min": [
+            -1.2,
+            -0.12,
+            0
+          ],
+          "max": [
+            1.2,
+            0.12,
+            3.2
+          ]
+        }
       }
     }
+  },
+  "images": {
+    "poster": "poster.png",
+    "templateCard": "template-card.png"
   }
 }
