@@ -6,6 +6,7 @@ import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { create } from 'zustand';
 import {
   DocentBubble,
+  DocentCard,
   Joystick,
   MoveButtons,
   NearArtworkCard,
@@ -22,6 +23,9 @@ import { PageZoom } from './PageZoom.tsx';
 import { AudioZoom, TextZoom } from './TextZoom.tsx';
 import { mapView } from '../../viewer/map/mapView.ts';
 import { combinedInput, useWalk, type WalkNotice } from '../../viewer/walk/walkStore.ts';
+import { useDocentSpeech } from '../../viewer/npc/docentStore.ts';
+import { characterFaceUrl } from '../../viewer/scene/characterFiles.ts';
+import { docentAtSpot } from '@gallery/core/types';
 import s from './walkUi.module.css';
 
 /**
@@ -258,7 +262,10 @@ export const WalkOverlay = ({
       <Hint touch={touch} />
       <NearCard artworks={artworks} />
       {touch && <Moves />}
+      {!touch && <ActionKeyHint />}
       <Docent />
+      <DocentHead />
+      <DocentTalk />
       <Nav layout={layout} />
       <Zoom
         layout={layout}
@@ -490,13 +497,13 @@ const Stick = () => {
 };
 
 /**
- * 오른쪽, 이동 단추 위: 뛰기(켜고 끄기)·점프. 크게 보는 중과 정지 지점에 서 있는 동안(작품 앞·출구)에는 숨김 —
- * 작품 앞 아래쪽에 같은 무게의 상자가 몰리지 않게(V-57). 조이스틱으로 걷기 시작하면(free) 다시 보인다
+ * 오른쪽, 이동 단추 위: 뛰기(켜고 끄기)·행동(점프 → 도슨트 앞 말걸기 · 대문 앞 나가기, W-01). 크게 보는 중과 정지 지점에
+ * 서 있는 동안(작품 앞·출구)에는 숨김 — 작품 앞 아래쪽에 같은 무게의 상자가 몰리지 않게(V-57). 조이스틱으로 걷기 시작하면(free) 다시 보인다
  */
 const Moves = () => {
-  const api = useWalk(st => st.api);
   const running = useWalk(st => st.runToggle);
   const locked = useWalk(st => st.runLocked);
+  const action = useWalk(st => st.action);
   const still = useWalk(st => st.mode === 'zoom' || st.mode === 'view');
   if (still) return null;
   return (
@@ -504,8 +511,71 @@ const Moves = () => {
       <MoveButtons
         running={running}
         runLocked={locked}
+        action={action}
         onRunToggle={() => useWalk.setState(st => ({ runToggle: !st.runToggle }))}
-        onJump={() => api?.jump()}
+        onJump={() => useWalk.getState().act()}
+      />
+    </div>
+  );
+};
+
+/**
+ * 데스크톱(마우스 기기): 도슨트·대문 가까이에서 아래 가운데 작은 표시 "스페이스 말걸기"·"스페이스 나가기"(W-01).
+ * 점프일 때·크게 보는 중·나가기 창이 열린 동안은 없음. 가까운 작품 이름 줄이 떠 있으면 그 위로 올린다
+ */
+const ActionKeyHint = () => {
+  const action = useWalk(st => st.action);
+  const hidden = useWalk(st => st.mode === 'zoom' || st.exitOpen);
+  const raised = useWalk(st => st.nearArtworkId !== null);
+  if (action === 'jump' || hidden) return null;
+  const label = action === 'talk' ? copy.museumWalk.actionTalk : copy.museumWalk.actionExit;
+  return (
+    <div
+      className={`${s.plate} ${s.keyHint}`}
+      data-raised={raised || undefined}
+      data-action={action}
+      data-testid="action-key-hint"
+      role="status"
+    >
+      {fill(copy.museumWalk.keyHint, { action: label })}
+    </div>
+  );
+};
+
+/** 말풍선 문구: 관람 예절(뛰기·뛰어오르기)·광장 경계·사람끼리 부딪힘 */
+const NOTICE_TEXT: Readonly<Record<WalkNotice['kind'], string>> = {
+  run: copy.viewer.mannerRun,
+  jump: copy.viewer.mannerJump,
+  boundary: copy.museumWalk.boundary,
+  bump: copy.museumWalk.bump,
+};
+
+/**
+ * 3D 도슨트 머리 위 말풍선(이따금 예절 한마디, W-10): 화면 좌표는 장면이 카메라가 움직일 때만 적는다.
+ * 말걸기 대사는 아래 카드가 보이므로 머리 위에는 띄우지 않는다(같은 글이 두 번 보이지 않게)
+ */
+const DocentHead = () => {
+  const b = useDocentSpeech(st => st.bubble);
+  if (!b?.onScreen || b.kind === 'talk') return null;
+  return (
+    <div className={s.docentHead} style={{ left: b.x, top: b.y }}>
+      <DocentBubble text={b.text} />
+    </div>
+  );
+};
+
+/** 도슨트 대사 카드(`말걸기`, W-10): 크게 보는 동안은 숨김 */
+const DocentTalk = () => {
+  const talk = useDocentSpeech(st => st.talk);
+  const zoomed = useWalk(st => st.mode === 'zoom');
+  if (!talk || zoomed) return null;
+  return (
+    <div className={s.docentCard}>
+      <DocentCard
+        key={talk.at}
+        text={talk.text}
+        src={characterFaceUrl(docentAtSpot(talk.npcId)) ?? undefined}
+        onClose={() => useDocentSpeech.getState().closeTalk()}
       />
     </div>
   );
@@ -524,7 +594,7 @@ const Docent = () => {
   if (!shown) return null;
   return (
     <div className={s.docent}>
-      <DocentBubble text={shown.kind === 'run' ? copy.viewer.mannerRun : copy.viewer.mannerJump} />
+      <DocentBubble text={NOTICE_TEXT[shown.kind]} />
     </div>
   );
 };

@@ -44,7 +44,7 @@
 
 ## 6. 최적화 순서(gltf-transform)
 
-Tripo에서: 멀티뷰(앞·왼·오른·뒤) H3.1 최고 품질·30,000면·비공개 → Auto Rig(Humanoid·Mixamo) → Animate 프리셋 `idle`·`walk`·`run`·`wave_goodbye_01` → Export GLB·2k·Export Skeleton·Animation stay in Place 켬.
+Tripo에서: 멀티뷰(R-4 실제는 앞·오른·뒤 3장, v2 15명은 앞·왼·오른·뒤 4장 — 그림 세션 시험으로 비교) H3.1 최고 품질·30,000면·비공개 → Auto Rig(Humanoid·Mixamo) → Animate 프리셋 `idle`·`walk`·`run`·`wave_goodbye_01` → Export GLB·2k·Export Skeleton·Animation stay in Place 켬.
 
 
 `준비(키를 자료에 굽기·금속 맵 버림·클립 이름·제자리) → dedup → prune → weld → resample → simplify(3만 넘을 때만) → resize 1024/법선 512 → etc1s/uastc → meshopt`, LOD는 같은 준비본에서 `idle` 첫 키만·simplify(3k)·512. 키·발밑은 양자화 전에 잰다(스킨 메시는 양자화 배율이 역바인드 행렬로 감). 검수 화면 `/dev/characters`.

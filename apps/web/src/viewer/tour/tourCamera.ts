@@ -279,7 +279,8 @@ export const buildTourCamera = (layout: Layout, plan: TourPlan, aspect: number):
       }
       case 'DOOR': {
         const partId = partIdOf(seg.roomIndex, seg.partIndex);
-        const lastArt = artStops(partId).at(-1);
+        const arts = artStops(partId);
+        const lastArt = arts[arts.length - 1];
         const nextSeg = plan.segments[i + 1];
         const nextId =
           seg.to === 'EXIT' || !nextSeg || nextSeg.kind !== 'NAMEPLATE'

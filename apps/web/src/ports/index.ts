@@ -9,6 +9,7 @@ import type {
   CreateJsonArtworkSchema,
   CreatePdfArtworkSchema,
   CreateRoomSchema,
+  DiagBody,
   ExhibitionTeacher,
   ExhibitionView,
   LiveServerMessage,
@@ -126,6 +127,11 @@ export interface StudentApi {
   myReactions(target: VisitTarget, opts?: CallOptions): Promise<readonly ReactionView[]>;
   /** `PUT /api/e/{code}/reactions/{artworkId}` — 남기기·고치기(멱등) */
   putReaction(target: VisitTarget, artworkId: string, body: ReactionBodyInput): Promise<ReactionView>;
+  /**
+   * `POST /api/e/{code}/diag` — 익명 기기 보고(G-24·G-25, ADR-070): 가벼운 화면으로 내려간 까닭 하나 또는 관람 한 번의
+   * 반응성. 토큰을 싣지 않는다. 화면이 숨는 때에도 가도록 `keepalive`로 보낸다. 실패는 부른 쪽이 버린다(관람을 막지 않음).
+   */
+  diag(code: string, body: DiagBody): Promise<void>;
 }
 
 /**
@@ -350,6 +356,8 @@ export interface LiveJoin {
 export interface LiveHandlers {
   readonly onMessage: (msg: LiveServerMessage, receivedAt: number) => void;
   readonly onStatus: (status: LiveStatus, code?: string) => void;
+  /** 받은 글 길이(바이트, 검사 전) — 실기기 반응성 재기(받는 양)에만 쓴다 */
+  readonly onBytes?: ((bytes: number) => void) | undefined;
 }
 
 /**
@@ -359,5 +367,7 @@ export interface LiveHandlers {
 export interface LiveChannel {
   join(join: LiveJoin, handlers: LiveHandlers): void;
   sendPose(pose: Pose): void;
+  /** 내 점프가 뜨는 순간 한 번(PRD_V2 W-05, ADR-073). 판 2 연결이 이어져 있을 때만 보낸다 */
+  sendJump(): void;
   leave(): void;
 }

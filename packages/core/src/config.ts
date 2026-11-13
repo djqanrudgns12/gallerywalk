@@ -61,12 +61,16 @@ export const configDefaults = {
   START_CODE_REQUIRED: true,
   /**
    * 학생 경로 속도 칸(PLAN §9.2 학생 표, ADR-062): `[한도, 창 초]`. 한 반이 한 IP(학교 공용)로 들어와도 막히지 않게 IP 칸은 넉넉히.
-   * 틀린 입장 코드는 IP마다 세어 넘으면 그 IP의 입장 조회를 막는다(열린 전시 캐내기).
+   * 틀린 입장 코드는 기기마다 먼저 세어 그 기기만 막고(`badCodeDevice`), 학교 전체가 함께 쓰는 IP 칸은 넉넉히 둔다(`badCodeIp`,
+   * G-24 — 한 학생의 연타가 학교 전체를 막지 않게, ADR-070). 진단·기기 보고(`diag*`)는 기기 하나가 관람마다 두어 번 보낸다.
    */
   PUBLIC_RATE: {
     viewDevice: [30, 60],
     viewIp: [600, 60],
-    badCodeIp: [60, 600],
+    badCodeDevice: [20, 600],
+    badCodeIp: [300, 600],
+    diagDevice: [6, 600],
+    diagIp: [1200, 600],
     versionDevice: [10, 60],
     registerIp: [200, 600],
     renameVisitor: [10, 600],
@@ -167,6 +171,13 @@ export const configDefaults = {
    * 13cm 떠 있어 비스듬히 보면 명판 안쪽을 가렸다(V-57). 이젤 명판은 받침 아래라 옮기지 않는다.
    */
   LABEL_FRAME_GAP_M: 0.08,
+  /** 명판 판 크기(m, 그리기·작품 앞 카메라 맞춤이 함께 씀) */
+  LABEL_PLATE_M: { w: 0.3, h: 0.15 },
+  /**
+   * 작품 앞 카메라: 명판 먼 끝이 보이는 가로의 이 비율 밖이면 액자와 명판을 함께 감싸 다시 맞춘다
+   * (휴대폰·태블릿 세로에서 명판이 화면 끝에서 잘리던 것, 2026-11-14 e2e 캡처). 가로가 넉넉한 화면은 그대로
+   */
+  LABEL_FIT_MARGIN: 0.94,
   /** 정지 지점: 전시실 소개는 들어가는 문 안쪽, 입구 홀은 홀 입구 안쪽(§4.7) */
   INTRO_STOP_INSIDE_M: 1.2,
   HALL_STOP_INSIDE_M: 1.5,
@@ -350,10 +361,11 @@ export const configDefaults = {
   CHAR_ACCEL_MPS2: 9,
   CHAR_DECEL_MPS2: 12,
   CHAR_TURN_RAD_S: 11,
+  /** 키 틀별(`domain/characters.ts` `buildOf`: 학생 / 어른 = 교사·도슨트). 캐릭터 파일이 이 키로 만들어진다 */
   CHAR_HEIGHT_M: { student: 1.15, teacher: 1.45 },
   /**
-   * 위팔을 몸 바깥으로 더 벌리는 각(rad, 캐릭터별): Tripo 동작 프리셋은 손을 엉덩이 옆에 붙여 퍼진 치마를 뚫는다.
-   * 동작을 적용한 뒤 어깨에서 몸 앞쪽 축으로 돌린다(`Character.tsx`).
+   * 위팔을 몸 바깥으로 더 벌리는 각(rad, 몸 틀별 — `domain/characters.ts` `bodyOf`, 같은 틀의 사람은 같은 값): Tripo 동작 프리셋은
+   * 손을 엉덩이 옆에 붙여 퍼진 치마를 뚫는다. 동작을 적용한 뒤 어깨에서 몸 앞쪽 축으로 돌린다(`Character.tsx`).
    */
   CHAR_ARM_SPREAD_RAD: { 'student-m': 0, 'student-f': 0.16, 'teacher-m': 0, 'teacher-f': 0 },
   /**
@@ -492,6 +504,322 @@ export const configDefaults = {
   WHEEL_DOLLY_RETURN_SEC: 2,
   FAR_JUMP_FADE_SEC: 0.3,
 
+  // ── 관람 조작 v2 (PRD 19장 G-27, PRD_V2 W-01·W-05·W-06·W-07·W-08) ─
+  /**
+   * 행동 키(Space·터치 행동 단추, W-01): 도슨트가 `NPC_TALK_RADIUS_M` 안이고 내 앞쪽 `NPC_TALK_ARC_DEG` 안이면 말걸기,
+   * 대문이 `GATE_RADIUS_M` 안이면 나가기, 그 밖은 점프. 단추 글·아이콘이 바뀌는 시간은 `ACTION_SWAP_SEC`.
+   */
+  NPC_TALK_RADIUS_M: 2.5,
+  NPC_TALK_ARC_DEG: 120,
+  GATE_RADIUS_M: 3,
+  ACTION_SWAP_SEC: 0.2,
+  /**
+   * 내 점프 몸 연출(W-05, 클립 없이 엔진이): 웅크림 → 도약 늘림 → 공중 자세 → 착지 눌림 → 되튐.
+   * `*Y`는 키 배율, `*XZ`는 폭 배율. 높이·체공은 `CHAR_JUMP_SPEED_MPS`·`CHAR_GRAVITY_MPS2` 그대로.
+   */
+  CHAR_JUMP_SQUASH: {
+    crouchSec: 0.08,
+    crouchY: 0.9,
+    crouchXZ: 1.06,
+    launchSec: 0.12,
+    launchY: 1.08,
+    launchXZ: 0.96,
+    landSec: 0.1,
+    landY: 0.86,
+    landXZ: 1.08,
+    reboundSec: 0.15,
+  },
+  /**
+   * 공중 자세(뼈 겨누기, 캐릭터 기준 각 rad): 넓적다리는 수직에서 앞으로, 정강이는 뒤로(무릎을 조금 접음), 위팔은 아래에서 옆으로
+   */
+  CHAR_JUMP_POSE: { thighRad: 0.45, shinRad: 0.35, armOutRad: 1 },
+  /**
+   * 착지 먼지(인스턴스 판 하나에 조각 `count`개): 퍼지는 반지름(m)·보이는 시간(초)·밝은 흙빛·처음 짙기·
+   * 조각 지름 = 반지름 × 비율(`puffFrom` → `puffTo`)·바닥 위로 띄우는 높이(m). 동작 줄이기면 끈다
+   */
+  JUMP_DUST: {
+    count: 6,
+    radiusM: 0.45,
+    sec: 0.45,
+    color: '#e6dac4',
+    opacity: 0.55,
+    puffFrom: 0.35,
+    puffTo: 0.8,
+    liftM: 0.02,
+  },
+  /**
+   * 광장 경계(W-06): 경계 `BOUNDARY_SOFT_M` 앞부터 바깥 쪽 입력을 줄이고, 닿으면 `BOUNDARY_PUSH_SEC` 동안 `BOUNDARY_PUSH_M`
+   * 부드럽게 안쪽으로 밀어 낸다(벽 부딪힘과 달리 몸 눌림 없음). 같은 알림은 `BOUNDARY_TOAST_SEC`에 한 번.
+   */
+  BOUNDARY_SOFT_M: 0.6,
+  BOUNDARY_PUSH_M: 0.3,
+  BOUNDARY_PUSH_SEC: 0.3,
+  BOUNDARY_TOAST_SEC: 5,
+  /**
+   * 사람끼리 부딪힘(W-07): 닿은 채 다가가는 빠르기가 `CROWD_BUMP_MPS` 이상이면 각자 기기에서 `CROWD_BUMP_PUSH_SEC` 동안
+   * `CROWD_BUMP_PUSH_M` 밀려나고 알림(같은 알림은 `CROWD_TOAST_SEC`에 한 번). 그보다 느리면 지금처럼 부드럽게 비켜 감.
+   */
+  CROWD_BUMP_MPS: 0.8,
+  CROWD_BUMP_PUSH_M: 0.35,
+  CROWD_BUMP_PUSH_SEC: 0.25,
+  CROWD_TOAST_SEC: 8,
+  /** 사람 부딪힘 몸 연출 세기(벽 부딪힘 = 1) · 상대 빠르기 어림에서 뛰기 빠르기 × 이 배보다 빠르면 같은 사람이 아님 */
+  CROWD_BUMP_BODY_GAIN: 0.5,
+  CROWD_PEER_MATCH_RUN_RATIO: 1.5,
+  /** 멈춰 서 있는데 다른 사람 몸이 겹쳐 올 때 걷기 엔진에 주는 한 프레임 시간 상한(초) */
+  CROWD_WAKE_DT_MAX_SEC: 0.1,
+  /** 광장 경계에 '닿았다'고 보는 남은 거리(m) — 입력을 비례로 줄이면 끝까지 닿지 않으므로 */
+  BOUNDARY_TOUCH_M: 0.05,
+  /** 함께 관람 연결이 이만큼(초) 넘게 끊기면 위 줄에 작은 띠 + `재접속하기`(W-08) */
+  LIVE_LOST_BANNER_SEC: 6,
+  /**
+   * 남의 점프(M1b, ADR-073): 서버가 한 연결의 점프를 1초에 이만큼까지 중계(넘는 것은 조용히 버림 — 정상 기기는 착지 전에 다시 못 뛰어
+   * 초당 2번을 넘지 않음) · 받는 쪽은 점프 시작 ~ 착지 + `PEER_JUMP_TAINT_MS` 사이 서버 표본을 높이 보간에서 뺀다(공중 y가 섞임) ·
+   * 공중에서 둘 뛰기 클립 위상(0..1, 두 넓적다리 사이 각이 가장 큰 곳 — chr-1 GLB 회전 키로 잼, 캐릭터 판이 바뀌면 다시 잰다)
+   */
+  LIVE_JUMP_MAX_PER_SEC: 2,
+  PEER_JUMP_TAINT_MS: 600,
+  PEER_JUMP_RUN_PHASE: 0.4,
+  /**
+   * 도슨트(W-10): `NPC_LOOK_RADIUS_M` 안의 학생 쪽으로 고개·몸을 돌린다(몸은 `NPC_LOOK_MAX_DEG`까지, 돌리는 빠르기 `NPC_TURN_RAD_PER_S`).
+   * `NPC_TIP_RADIUS_M` 안에 학생이 있으면 `NPC_TIP_SEC`(무작위 간격) 마다 예절 한마디를 `NPC_TIP_SHOW_SEC` 동안 머리 위에.
+   * `말걸기` 대사는 `NPC_TALK_SHOW_SEC` 동안(멀어지거나 걸으면 닫음).
+   */
+  NPC_LOOK_RADIUS_M: 4,
+  NPC_LOOK_MAX_DEG: 60,
+  NPC_TURN_RAD_PER_S: 2.5,
+  NPC_TIP_RADIUS_M: 10,
+  NPC_TIP_SEC: { min: 25, max: 45 },
+  NPC_TIP_SHOW_SEC: 4.5,
+  NPC_TALK_SHOW_SEC: 6,
+  /**
+   * 안내판 v4(M3-3, PRD_V2 W-03): 줄 아틀라스 화소·품질별 아틀라스 크기·글 덩이 여백·금속 결·눌린 그늘·띄움·그리는 순서·글 밝기·
+   * 포털 레터링 번호 배율·줄 간격·판 치수·판 재질. 글은 가로로 누르거나 자르지 않는다(`fitSign`)
+   */
+  SIGN_V4: {
+    /** 글꼴 크기 1em에 줄 아틀라스 화소 */
+    emPx: { title: 72, body: 40 },
+    /** 품질 단계별 아틀라스 폭·높이 상한(px). 넘치면 모든 덩이 해상도를 같은 비율로 낮춘다 */
+    atlas: {
+      width: { HIGH: 2048, MEDIUM: 2048, LOW: 1024 },
+      maxHeight: { HIGH: 2048, MEDIUM: 1024, LOW: 1024 },
+      gutterPx: 4,
+    },
+    /** 글 덩이 둘레 여백(글자 크기 배수) — 획이 앞폭 밖으로 나가도 잘리지 않게 */
+    inkMargin: 0.14,
+    /** 금속 글자 결(위 밝기 → 아래 밝기) · 눌린 그늘(밝기, 오른쪽·아래 어긋남 = 글자 크기 배수) */
+    metal: { top: 1, bottom: 0.7 },
+    relief: { shade: 0.22, dx: 0.025, dy: 0.045 },
+    /** 글을 판·벽 면에서 띄우는 거리(m) · 그리는 순서(불투명 다음, 캐릭터 그늘 2·이름표 10보다 앞) */
+    lift: 0.004,
+    renderOrder: 1,
+    /** 글 색 밝기(톤 매핑 없이 그리는 글자가 어두운 방에서 튀지 않게) */
+    letterLight: 0.92,
+    /** 포털 레터링: 번호 크기 = 이름 상한 × 이 배(상자 높이 안) · 번호와 이름 사이(번호 크기 배수) */
+    numberRatio: 1.9,
+    rowGap: 0.32,
+    plate: {
+      blade: { depth: 0.05, trim: 0.025, rod: 0.035 },
+      totem: { plinthH: 0.85, plinthW: 0.56, plinthD: 0.36, cap: 0.025, depth: 0.07, trim: 0.025 },
+      banner: { depth: 0.02, rod: 0.05, rodOver: 0.12 },
+      rail: { rod: 0.03 },
+    },
+    /** 판 재질(조명 받음) */
+    plateFinish: { roughness: 0.62, metalness: 0.12 },
+  },
+  /** 안내판 종류별 모양(판 종류·양면·여백·맞춤·키우는 쪽·글 덩이별 글꼴 크기 상한·하한·줄 수·줄 높이·색 결) */
+  SIGN_V4_KINDS: {
+    // ① 외관 프리즈: 엔타블러처 띠에 청동 글자
+    frieze: {
+      plate: 'none',
+      doubleSided: false,
+      pad: 0,
+      align: 'center',
+      valign: 'middle',
+      growY: 'center',
+      growX: 'center',
+      arrange: 'stack',
+      headShare: 1,
+      gap: 0,
+      title: { face: 'title', max: 0.62, min: 0.22, maxLines: 2, lineHeight: 1.15, tone: 'bronze' },
+    },
+    // ② 현수막: 숯색 천 + 놋쇠 봉, 상아 글자(위쪽부터)
+    banner: {
+      plate: 'banner',
+      doubleSided: false,
+      pad: 0.26,
+      align: 'center',
+      valign: 'top',
+      growY: 'top',
+      growX: 'center',
+      arrange: 'stack',
+      headShare: 1,
+      gap: 0,
+      title: { face: 'title', max: 0.4, min: 0.22, maxLines: 6, lineHeight: 1.2, tone: 'ivory' },
+    },
+    // ③ 포털 위 레터링: 큰 번호 + 전시실 이름, 놋쇠 글자, 판 없음
+    portalLettering: {
+      plate: 'none',
+      doubleSided: false,
+      pad: 0,
+      align: 'center',
+      valign: 'middle',
+      growY: 'center',
+      growX: 'center',
+      arrange: 'row',
+      headShare: 1,
+      gap: 0,
+      number: { face: 'title', max: 0.8, min: 0.22, maxLines: 1, lineHeight: 1, tone: 'brass' },
+      title: { face: 'title', max: 0.42, min: 0.22, maxLines: 2, lineHeight: 1.15, tone: 'brass' },
+    },
+    // ④ 돌출 사인: 숯색 판 + 놋쇠 테·봉, 양면. 번호(놋쇠) + 이름(상아). 넘치면 벽에서 먼 쪽·아래로 키운다
+    blade: {
+      plate: 'blade',
+      doubleSided: true,
+      pad: 0.08,
+      align: 'center',
+      valign: 'middle',
+      growY: 'top',
+      growX: 'wall',
+      arrange: 'stack',
+      headShare: 0.42,
+      gap: 0.03,
+      number: { face: 'title', max: 0.26, min: 0.16, maxLines: 1, lineHeight: 1.1, tone: 'brass' },
+      title: { face: 'title', max: 0.16, min: 0.12, maxLines: 3, lineHeight: 1.2, tone: 'ivory' },
+    },
+    // ⑤ 안내 토템: 받침대 + 판. 제목(놋쇠) + 방 목록(상아). 넘치면 판이 위로 자란다
+    totem: {
+      plate: 'totem',
+      doubleSided: false,
+      pad: 0.08,
+      align: 'left',
+      valign: 'top',
+      growY: 'bottom',
+      growX: 'center',
+      arrange: 'stack',
+      headShare: 0.22,
+      gap: 0.06,
+      title: { face: 'title', max: 0.11, min: 0.07, maxLines: 2, lineHeight: 1.2, tone: 'brass' },
+      body: { face: 'body', max: 0.075, min: 0.045, maxLines: 24, lineHeight: 1.45, tone: 'ivory' },
+    },
+    // ⑥ 전시실 소개 벽: 벽에 바로 놓인 상아 글자. 제목(크게) + 소개 글, 위에서부터 왼쪽 맞춤
+    introWall: {
+      plate: 'none',
+      doubleSided: false,
+      pad: 0,
+      align: 'left',
+      valign: 'top',
+      growY: 'top',
+      growX: 'center',
+      arrange: 'stack',
+      headShare: 0.36,
+      gap: 0.14,
+      title: { face: 'title', max: 0.3, min: 0.16, maxLines: 2, lineHeight: 1.18, tone: 'ivory' },
+      body: { face: 'body', max: 0.075, min: 0.045, maxLines: 14, lineHeight: 1.6, tone: 'ivory' },
+    },
+    // ⑦ 출구: 놋쇠 글자(벽 없는 대문 자리는 가는 놋쇠 봉 둘 사이)
+    exit: {
+      plate: 'none',
+      doubleSided: false,
+      pad: 0,
+      align: 'center',
+      valign: 'middle',
+      growY: 'center',
+      growX: 'center',
+      arrange: 'stack',
+      headShare: 1,
+      gap: 0,
+      title: { face: 'title', max: 0.5, min: 0.22, maxLines: 2, lineHeight: 1.1, tone: 'brass' },
+    },
+  },
+  /**
+   * 도슨트 움직임(M4-7): 몸을 `NPC_LOOK_MAX_DEG`까지 돌린 뒤 고개가 더 도는 한계(도) · 고개가 몸보다 빨리 도는 배수 ·
+   * 고개 돌림의 목 몫(목 + 머리 = 1) · 말할 때 끄덕임(횟수·Hz·rad) · 안내 손짓 자세(캐릭터 기준 바깥 x·위 y·앞 z) ·
+   * 한 프레임 시간 상한(s) · 다 돈 것으로 보는 남은 각(rad) · 머리 위 말풍선 높이(m)·자리 갱신 문턱(px) · 발밑 그늘 띄움(m) ·
+   * 임시 모형 숨쉬기(세로 늘림·길이 s)
+   */
+  NPC_MOTION: {
+    headMaxDeg: 45,
+    headTurnGain: 1.8,
+    neckShare: 0.4,
+    nod: { count: 2, hz: 1.6, rad: 0.14 },
+    guide: { upper: [0.55, -0.45, 0.7], fore: [0.35, 0.1, 0.93] },
+    dtMaxSec: 0.1,
+    settleRad: 0.005,
+    bubbleAboveM: 0.25,
+    bubbleMovePx: 0.5,
+    shadowLiftM: 0.012,
+    breath: { amp: 0.012, sec: 3.6 },
+  },
+  /**
+   * 공간 v4(ADR-071, PRD_V2 §5): `algoVersion ≥ 4`일 때만 쓰는 치수. v3 배치·해시는 이 값을 읽지 않는다.
+   * 모든 길이는 m. 조각 단위(2m) 배수여야 하는 값: 홀 폭·방 폭(4m 배수 — 가운데 포털 4m 양옆이 2m 배수)·방 깊이·방 사이 틈.
+   */
+  /**
+   * 전시실 벽 와시(PRD_V2 W-12 ①, M3-4 — 색·세기·높이는 `look.wash`): 코브 아래 띄움(m) · 벽에서 띄움(m) · 문 열림 양옆
+   * 더 비우는 폭(m) · 문 위 벽 띠가 문틀에서 떨어지는 높이(m) · 문을 벽 위의 것으로 보는 거리(m) · 세로 칸 수 · 밝기 곡선 지수
+   */
+  WALL_WASH: {
+    topGapM: 0.3,
+    liftM: 0.02,
+    doorTrimM: 0.3,
+    doorTopGapM: 0.15,
+    doorSnapM: 0.6,
+    rows: 5,
+    falloff: 1.6,
+  },
+  LAYOUT_V4: {
+    /** 관 하나의 작품 상한(v3 `ROOM_SPLIT_AT` 대신) · 작품 수 ≤ sMax → S, ≤ mMax → M, 그 위 L */
+    splitAt: 8,
+    sizeSMax: 3,
+    sizeMMax: 6,
+    /** 관 최소 크기: 폭 W(홀을 따라) × 깊이 D(홀에서 멀어지는 쪽) */
+    room: { S: { w: 12, d: 10 }, M: { w: 16, d: 12 }, L: { w: 20, d: 14 } },
+    roomMaxW: 28,
+    roomMaxD: 20,
+    roomHeight: 6,
+    /** 이젤 수(가운데 섬): 큰 방에만 하나 */
+    easels: { S: 0, M: 0, L: 1 },
+    /** 같은 날개 이웃 관 사이(두꺼운 벽 — 방 사이 문이 이 깊이의 통로) */
+    roomGap: 2,
+    /** 액자 사이 최소 여백 · 모서리 여백 · 문 옆 여백 */
+    frameGapMin: 2,
+    cornerMargin: 1.2,
+    doorMargin: 0.8,
+    /** 홀 쪽 포털(조각 폭 · 맑은 폭 · 높이) */
+    portal: { w: 4, clear: 3.6, h: 4.2 },
+    /** 방 사이 문(L·R 벽, N 끝에서 `fromN`부터 조각 폭 `w`) */
+    enfilade: { w: 4, clear: 2.4, h: 3.6, fromN: 2 },
+    /** 메인홀: 폭 · 천장 · 최소 길이 · 정문 벽에서 첫 관까지 · 날개 끝에서 홀 끝 벽까지 · 정문 조각 폭 */
+    hall: { w: 20, h: 10, minLength: 30, front: 4, back: 8, entrance: 4 },
+    /** 안내판(W-03): 제목 아래 끝 높이 하한 · 앞에 사람이 설 자리를 두지 않는 거리 */
+    signTitleMinY: 2.6,
+    signClear: 2.5,
+    /** 포털 위 레터링 높이(바닥에서 글자 한가운데) · 돌출 사인 높이 · 소개 벽 글판 크기 */
+    portalLetteringY: 5,
+    bladeY: 3.2,
+    introWall: { w: 3.2, h: 2.4, y: 2.2 },
+    /** 대문(광장 앞 끝 가운데, 폭 = 산울타리 트인 곳) · 광장 앞 끝에서 안쪽 · 대문에서 처음 서는 자리까지 */
+    gate: { w: 4, insetM: 0, spawnInsideM: 4.5 },
+    /** 도슨트 자리: 벽 앞 거리, 광장 도슨트의 축 길에서 옆으로 */
+    npcWallM: 0.6,
+    npcPlazaSideM: 3.5,
+    /** 장식 바닥 넓이(걷기에서 피함, 가로 × 깊이) */
+    decorFootprint: {
+      fountain: { w: 5, d: 5 },
+      sculpture: { w: 1.2, d: 1.2 },
+      bust: { w: 0.6, d: 0.6 },
+      planter: { w: 0.9, d: 0.9 },
+      topiary: { w: 1, d: 1 },
+      urn: { w: 0.7, d: 0.7 },
+      bench: { w: 1.8, d: 0.6 },
+      desk: { w: 2.4, d: 0.9 },
+    },
+    /** 홀 축 위 섬(장식) 간격, 홀 벽기둥(베이) 간격 */
+    hallIslandSpacing: 12,
+    bay: 4,
+  },
+
   // ── 품질·메모리 (PRD 10장, ADR-015·035) ─────────────────────
   DPR_CAP_DESKTOP: 2,
   DPR_CAP_TABLET: 1.5,
@@ -527,6 +855,34 @@ export const configDefaults = {
   /** 2D 대체 화면으로(ADR-019, §6.12): '낮음'에서 이만큼 연속 구간이 `FALLBACK_2D_FPS` 미만 · 이 시간 안 컨텍스트 손실 횟수 */
   FALLBACK_2D_LOW_SEGMENTS: 3,
   FALLBACK_2D_CONTEXT_LOSSES: { count: 2, windowSec: 60 },
+  /**
+   * 입장 준비 시간 상한(G-24, FIELD_PLAN HW-01): 조각 glb 하나가 이 시간 동안 받는 진행이 없으면 그 파일은 못 받은 것으로 친다 ·
+   * 포스터가 뜬 뒤 이 시간 안에 3D 첫 자리가 준비되지 않으면 `입장하기`를 풀고, 누르면 가벼운 화면(2D)으로 들어간다.
+   * 한 반이 학교 와이파이 하나를 함께 쓰면 3D 파일을 다 받는 데 수십 초가 걸릴 수 있어 3D는 그 뒤에도 계속 받는다
+   * (누르기 전에 준비되면 그대로 3D로).
+   */
+  MODULE_LOAD_STALL_MS: 15_000,
+  VISIT_READY_TIMEOUT_MS: 20_000,
+  /**
+   * 기기 보고(G-24·G-25, FIELD_PLAN HW-02·HR): 익명 진단·실기기 반응성 보고(ADR-070). 관람을 이만큼 하면 한 번 보내고
+   * (그 전에 화면이 숨으면 그때) · 보고 글 크기 상한 · 서버가 날마다 남기는 보고 파일을 지키는 날 수 ·
+   * 교사 화면에 보이는 "가벼운 화면으로 들어온 수"를 모으는 시간.
+   */
+  DEVICE_REPORT_AFTER_SEC: 60,
+  DEVICE_REPORT_MAX_BYTES: 2048,
+  DEVICE_REPORT_KEEP_DAYS: 14,
+  DIAG_COUNT_WINDOW_MIN: 180,
+  /**
+   * 학교망 점검 `/check`(G-24 HW-00): 서버 응답·함께 관람 연결 상한(ms) · 됐어도 이보다 오래면 느림(ms) · 받는 빠르기가 이보다
+   * 낮으면 느림(Mbps — 한 반 30명이 한 와이파이로 한 명당 약 5MB를 함께 받으면 `VISIT_READY_TIMEOUT_MS` 안에 못 받는 학생이
+   * 생기기 쉬운 선). 파일 단계 상한은 `MODULE_LOAD_STALL_MS`를 쓴다
+   */
+  CHECK_SERVER_TIMEOUT_MS: 8000,
+  CHECK_LIVE_TIMEOUT_MS: 8000,
+  CHECK_SLOW_LATENCY_MS: 1500,
+  CHECK_SLOW_MBPS: 20,
+  /** 누름 → 다음 그림까지를 잴 때 한 번에 기다리는 상한(넘으면 그 누름은 세지 않음 — 화면이 숨은 경우 등) */
+  INPUT_LATENCY_MAX_MS: 2000,
   FOG_START_M: 18,
   FOG_END_M: 25,
 
@@ -609,13 +965,40 @@ export const configDefaults = {
   LIVE_PING_SEC: 20,
   LIVE_RETRY_MIN_MS: 1000,
   LIVE_RETRY_MAX_MS: 30000,
-  /** 교실 기기 30여 대가 공인 IP 하나를 함께 쓰고 다시 잇기까지 겹치므로 넉넉히(PLAN §11.3 "IP 칸은 기기 칸보다 높게") */
-  LIVE_CONNECT_PER_IP_MIN: 120,
+  /**
+   * 교실 기기 30여 대가 공인 IP 하나를 함께 쓰고 다시 잇기까지 겹치므로 넉넉히(PLAN §11.3 "IP 칸은 기기 칸보다 높게").
+   * 학교 전체(여러 반)가 한 IP라 120에서 600으로 올림(G-24, ADR-070)
+   */
+  LIVE_CONNECT_PER_IP_MIN: 600,
   /** 다른 관람객을 온몸으로 그리는 수(가까운 순) · 이 거리 밖은 낮은 단계 · 그 밖은 이름표만 */
   LIVE_VISIBLE_MAX: { phone: 6, tablet: 12, desktop: 24 },
+  /**
+   * 다른 관람객 이름표(말풍선 규칙과 같게, PRD_V2 W-02): 이보다 멀면 숨김(m) · 겹치면 위로 올리는 한 칸(m)·최대 칸 수 —
+   * 그래도 겹치면 숨긴다(30명 회랑에서 이름표가 서로 덮이던 것, 2026-11-14 e2e)
+   */
+  PEER_TAG: { maxDistM: 12, stackStepM: 0.22, stackMax: 2 },
   LIVE_LOD_NEAR_M: 15,
   /** 받은 위치를 이만큼 늦춰 두 방송 사이를 보간(방송 간격의 2배) */
   LIVE_INTERP_DELAY_MS: 400,
+  /** 내가 멈춰 있고 다른 사람만 움직일 때 기기가 다시 그리는 상한(초당, G-25 HS-06). 내가 걸으면 상한 없음 */
+  LIVE_PEER_REDRAW_FPS: 20,
+  /** 서버 1분 기록의 이벤트 루프 지연 재기 단위(ms, `perf_hooks.monitorEventLoopDelay`, G-25 HS-00) */
+  STATS_LOOP_RESOLUTION_MS: 20,
+  /**
+   * 함께 관람 서버 효율(G-25 HS-03~HS-05·HS-10, ADR-072, 판 2 기기에만):
+   * - 관심 영역: 이 크기(m)의 바닥 칸으로 사람을 묶어, 자기 칸과 둘레 8칸 사람은 매 차례, 그 밖은 `LIVE_FAR_EVERY` 차례마다(=1초에 한 번).
+   * - 느린 기기: 보낼 줄이 이 바이트를 넘으면 그 차례 위치는 건너뛰고(다음에 모두의 지금 자리를 한 번에), 이 시간(초) 동안 계속 밀리면
+   *   1013으로 닫는다(기기는 다시 잇는다).
+   * - 넘칠 때: 서버 전체 연결 상한(교사 제외), 1분 이벤트 루프 지연 p99가 이 ms를 넘으면 한 사람 위치를 `LIVE_DEGRADE_EVERY` 차례에
+   *   한 번으로 줄인다(초당 5 → 2.5번). 다음 1분이 괜찮으면 되돌린다.
+   */
+  LIVE_AOI_CELL_M: 15,
+  LIVE_FAR_EVERY: 5,
+  LIVE_SEND_BUFFER_MAX_BYTES: 32_768,
+  LIVE_SLOW_CLOSE_SEC: 15,
+  LIVE_MAX_TOTAL: 200,
+  LIVE_DEGRADE_LOOP_MS: 80,
+  LIVE_DEGRADE_EVERY: 2,
   SHUTDOWN_WAIT_SEC: 20,
   LOG_KEEP_FILES: 7,
   DB_BUSY_TIMEOUT_MS: 5000,

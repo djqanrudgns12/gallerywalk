@@ -18,6 +18,8 @@ import {
 } from './followCamera.ts';
 import { buildGuideMap, pathBetween, standSpot, stepTarget } from './guide.ts';
 import { applyAmbience } from '../scene/ambience.ts';
+import { gateOf } from './action.ts';
+import { characterFx, jumpBody } from './jumpPose.ts';
 import { MannerWatch } from './manners.ts';
 import { combinedInput, useWalk } from './walkStore.ts';
 import { Walker } from './walker.ts';
@@ -41,6 +43,8 @@ export interface WalkViewProps {
   readonly paused?: boolean | undefined;
   /** 그린 프레임마다 내 자리·걸음 상태(함께 관람 보내기 — 받는 쪽이 `LIVE_POSE_HZ`로 줄임) */
   readonly onPose?: ((pose: Pose) => void) | undefined;
+  /** 내 점프가 뜨기 시작한 순간(걷기 엔진 `jump` 사건, 누를 때마다 한 번) — 함께 관람에 알림(PRD_V2 W-05) */
+  readonly onJump?: (() => void) | undefined;
   /**
    * 시작 자리: 자리는 캐릭터를 처음 만들 때만 읽는다(캔버스를 다시 붙일 때 — 컨텍스트 손실 복구). 서 있을 수 없는 곳이면
    * 광장 첫 자리. 정지 지점 번호는 처음 붙을 때와 배치가 바뀔 때마다 읽는다(새 배치에서 이어 볼 지점).
@@ -76,6 +80,7 @@ export const WalkView = ({
   crowd,
   paused,
   onPose,
+  onJump,
   start,
   reducedMotion,
 }: WalkViewProps) => {
@@ -136,6 +141,8 @@ export const WalkView = ({
     lastMode: 'free' as string,
     /** 실내 분위기 0(광장)..1(실내) — 정문을 지나면 천천히 */
     indoor: 0,
+    /** 내 캐릭터 몸 연출(점프·부딪힘 세기·착지 먼지, W-05·W-07) */
+    fx: characterFx(),
   }).current;
 
   const aspect = size.width / Math.max(1, size.height);
@@ -151,7 +158,14 @@ export const WalkView = ({
     // 처음 붙을 때·배치가 바뀔 때 부르는 쪽이 정한 정지 지점(없으면 첫 지점). StrictMode가 두 번 돌려도 같은 값
     const i = Math.min(layout.stops.length - 1, Math.max(0, startRef.current?.stopIndex ?? 0));
     st.view = null;
-    useWalk.getState().set({ stopCount: layout.stops.length, stopIndex: i, mode: 'free', zoomId: null });
+    useWalk.getState().set({
+      stopCount: layout.stops.length,
+      stopIndex: i,
+      mode: 'free',
+      zoomId: null,
+      // 대문(행동 키 나가기): 배치의 `gate`(공간 v4), 없으면 광장 먼 쪽 끝 가운데
+      gate: gateOf(layout.exterior, layout.gate),
+    });
   }, [layout]);
   // 들어오면 다시 그리기를 깨워 첫 인사 시계를 돌린다
   useEffect(() => {
@@ -312,6 +326,8 @@ export const WalkView = ({
     };
     // 손 입력이 바뀌면 깨운다
     const unsub = useWalk.subscribe((next, prev) => {
+      // 도슨트·대문이 바뀌면 행동 키를 다시 정하도록 깨운다(입력 쪽 기록은 남기지 않음)
+      if (next.npcs !== prev.npcs || next.gate !== prev.gate) wake();
       if (next.keys !== prev.keys || next.stick !== prev.stick || next.runToggle !== prev.runToggle) {
         st.inputEnds.push({ until: performance.now(), input: combinedInput(prev) });
         if (Math.hypot(combinedInput(next).forward, combinedInput(next).strafe) > 0) leaveView();
@@ -327,11 +343,20 @@ export const WalkView = ({
 
   useFrame((state, dtIn) => {
     const c = config();
+    // 멈춰 서 있어도 다른 사람(또는 도슨트) 몸이 겹쳐 오면 그 동안은 시간을 흘려 밀려나게 한다(W-07 "둘 다 밀림").
+    // 다른 사람이 움직일 때만 장면이 다시 그려지므로(HS-06), 겹침이 풀리면 다시 멈춤 상태로 돌아간다.
+    const me0 = walker.pose;
+    const touchR = 2 * c.CHAR_BODY_RADIUS_M;
+    const contact =
+      (crowd?.() ?? []).some(q => Math.hypot(q[0] - me0.x, q[1] - me0.z) < touchR) ||
+      useWalk.getState().npcs.some(n => Math.hypot(n.pos[0] - me0.x, n.pos[1] - me0.z) < touchR);
     const dt = st.wasActive
       ? dtIn
-      : st.wokeAt === null
-        ? 0
-        : Math.max(0, (performance.now() - st.wokeAt) / 1000);
+      : st.wokeAt !== null
+        ? Math.max(0, (performance.now() - st.wokeAt) / 1000)
+        : contact
+          ? Math.min(dtIn, c.CROWD_WAKE_DT_MAX_SEC)
+          : 0;
     st.wokeAt = null;
     st.clock += dt;
     if (paused) st.welcomeFrom = st.clock + c.CHAR_WAVE_DELAY_SEC;
@@ -341,7 +366,7 @@ export const WalkView = ({
     const input = mode === 'zoom' ? STILL : combinedInput(store);
 
     // ── 캐릭터 ────────────────────────────────────────────────
-    walker.setCrowd(crowd?.() ?? []);
+    walker.setCrowd(crowd?.() ?? [], store.npcs);
     const now = performance.now();
     let from = now - dt * 1000;
     let moving = false;
@@ -358,20 +383,37 @@ export const WalkView = ({
     moving = walker.step((now - from) / 1000, { ...input, cameraYaw: st.orbit.yaw }) || moving;
     const pose = walker.pose;
     let jumped = false;
+    let bumped = false;
+    let boundary = false;
     for (const fx of walker.drainEvents()) {
       if (fx === 'bump' && !reducedMotion) st.shake = 1;
       else if (fx === 'jump') jumped = true;
+      else if (fx === 'crowd') bumped = true;
+      else if (fx === 'boundary') boundary = true;
+      else if (fx === 'land' && !reducedMotion) {
+        // 착지 먼지(동작 줄이기면 없음)
+        const d = st.fx.dust;
+        d.n++;
+        d.x = pose.x;
+        d.y = pose.y;
+        d.z = pose.z;
+      }
     }
-    // 관람 예절(놀이): 실내에서 오래 뛰거나 자꾸 뛰어오르면 도슨트 말풍선 + 잠깐 뛰기 잠금
+    if (jumped) onJump?.();
+    // 관람 예절(놀이): 실내에서 오래 뛰거나 자꾸 뛰어오르면 도슨트 말풍선 + 잠깐 뛰기 잠금. 부딪힘·경계 알림도 같은 말풍선
     const notice = manners.step(dt, {
       indoor: st.region !== '' && st.region !== 'exterior',
       running: pose.move === 2,
       jumped,
+      bumped,
+      boundary,
     });
     if (notice) {
-      walker.lockRun(c.MANNER_SLOW_SEC);
+      if (notice === 'run' || notice === 'jump') walker.lockRun(c.MANNER_SLOW_SEC);
       store.set({ notice: { kind: notice, at: Date.now() } });
     }
+    // 행동 키(W-01): 도슨트 앞 말걸기 · 대문 앞 나가기 · 그 밖 점프(바뀔 때만 씀)
+    store.syncAction(pose);
     if (walker.runLocked !== store.runLocked) store.set({ runLocked: walker.runLocked });
 
     // 직접 걷거나 안내 중이면 카메라가 천천히 캐릭터 뒤로 돈다(아이가 방향을 잃지 않게)
@@ -497,10 +539,16 @@ export const WalkView = ({
       fig.yaw = pose.yaw;
       fig.speed = pose.speed;
       fig.air = pose.air;
-      fig.bump = pose.bump;
+      // 사람과 부딪힘은 벽 부딪힘 몸 연출을 약하게(W-07)
+      fig.bump = pose.bump > 0 ? pose.bump : pose.crowdBump;
       fig.wave = w.count;
       fig.opacity = mode === 'zoom' ? 0 : Math.max(0, Math.min(1, (followDistance - 0.5) / 0.6));
     }
+    const body = jumpBody(pose.jump, reducedMotion);
+    st.fx.sy = body.sy;
+    st.fx.sxz = body.sxz;
+    st.fx.tuck = body.tuck;
+    st.fx.bumpGain = pose.bump > 0 ? 1 : config().CROWD_BUMP_BODY_GAIN;
 
     // ── 자리·가까운 작품(바뀔 때만 상태에 씀) ───────────────────────────
     const region = map.regionOf([pose.x, pose.z]);
@@ -571,6 +619,7 @@ export const WalkView = ({
     const active =
       input.forward !== 0 ||
       input.strafe !== 0 ||
+      contact ||
       moving ||
       settling ||
       pose.speed > 0 ||
@@ -590,5 +639,5 @@ export const WalkView = ({
     st.wasActive = active;
   });
 
-  return <Character ref={figure} character={character} />;
+  return <Character ref={figure} character={character} fx={st.fx} />;
 };

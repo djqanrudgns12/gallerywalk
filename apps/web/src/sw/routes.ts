@@ -32,6 +32,8 @@ export const classifyRequest = (request: Request, origin: string): Route => {
     path === '/index.html' ||
     path === '/t' ||
     path === '/privacy' ||
+    // 학교망 점검(G-24 HW-00): 전에 연 기기는 막힌 망에서도 점검 화면이 떠 "닿지 않아요"를 보인다
+    path === '/check' ||
     path.startsWith('/t/') ||
     EntryCodeSchema.safeParse(path.slice(1)).success
   )

@@ -183,18 +183,29 @@
   cursor: pointer;
 }
 
-/* 휴대폰: 출구 안내는 위 줄·소리 단추 아래에(아래쪽의 조이스틱·뛰기·점프와 겹치지 않게) — 기본 규칙 뒤에 둔다.
-   단추는 세로로: 주요 단추 한 줄 전체 폭, 그 아래 글자 단추들(V-57) */
+/* 휴대폰: 출구 안내는 조이스틱 바로 위 아래쪽에(작품 카드와 같은 자리) — 위에 두면 화면 위쪽 3분의 1을 덮어
+   출구 문이 가렸다(2026-11-14 e2e 캡처 p4-12/phone-08). 출구에 서 있는 동안 뛰기·점프 단추는 숨으므로 겹치지 않는다.
+   주요 단추는 한 줄 전체 폭, 글자 단추들은 그 아래 한 줄에 나란히(V-57) — 기본 규칙 뒤에 둔다 */
 @media (max-width: 600px) {
   .exit {
-    top: calc(var(--s-3) + 2 * var(--touch-min) + var(--s-2) + var(--s-3) + env(safe-area-inset-top));
-    bottom: auto;
+    top: auto;
+    bottom: calc(var(--joystick-size) + var(--s-8) + env(safe-area-inset-bottom));
+    padding: var(--s-4);
+    gap: var(--s-1);
+  }
+
+  .exitTitle {
+    font-size: var(--fs-4);
   }
 
   .exitActions {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--s-1);
+    gap: 0 var(--s-2);
+    margin-top: var(--s-1);
+  }
+
+  /* 새 판 알림 띠도 같은 단추 모양을 쓰므로 출구 안의 것만 */
+  .exitActions .exitPrimary {
+    flex: 1 0 100%;
   }
 }
 
@@ -220,6 +231,26 @@
   bottom: calc(var(--s-3) + 50px + var(--touch-min) + var(--s-2) + var(--s-4) + env(safe-area-inset-bottom));
 }
 
+/* 데스크톱 행동 키 표시(W-01): 아래 가운데 이동 단추 바로 위의 작은 판. 작품 이름 줄이 떠 있으면 그 위로 */
+.keyHint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--s-3) + var(--touch-min) + var(--s-2) + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  padding: var(--s-1) var(--s-3);
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.keyHint[data-raised] {
+  bottom: calc(var(--s-3) + var(--touch-min) + var(--s-4) + var(--s-16) + env(safe-area-inset-bottom));
+}
+
 .docent {
   position: absolute;
   left: 50%;
@@ -229,6 +260,20 @@
   justify-content: center;
   width: min(calc(100vw - 2 * var(--s-3)), 560px);
   pointer-events: none;
+}
+
+.docentHead {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+
+.docentCard {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--s-3) + var(--touch-min) + var(--s-4) + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(calc(100vw - 2 * var(--s-3)), 480px);
 }
 
 .stick {

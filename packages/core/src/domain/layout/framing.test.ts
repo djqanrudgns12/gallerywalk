@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { config } from '../../config.ts';
-import { frameCamera, stopFraming, zoomFraming, type FrameAnchor } from './framing.ts';
+import { frameCamera, frameCameraWithSide, stopFraming, zoomFraming, type FrameAnchor } from './framing.ts';
 
 const anchor = (w: number, h: number, maxDistance = 8): FrameAnchor => ({
   center: { x: 0, y: 1.5, z: -5 },
@@ -68,5 +68,32 @@ describe('frameCamera', () => {
     expect(withCaption.position.y).toBeCloseTo(withCaption.target.y, 9);
     expect(withCaption.target.y).toBeLessThan(1.5); // 목표를 내리면 화면에서 액자가 올라간다
     expect(withCaption.achievedFill).toBeCloseTo(config().ZOOM_FILL, 5);
+  });
+});
+
+describe('frameCameraWithSide (명판까지 화면에)', () => {
+  // 1.2m 액자 왼쪽(−X)에 명판: 액자 끝 + 띄움 0.15 + 그리기 띄움 0.08 + 판 반 폭 0.15
+  const side = { along: { x: -1, y: 0, z: 0 }, reach: 0.6 + 0.15 + 0.08 + 0.3 };
+  const halfWidth = (pose: ReturnType<typeof frameCamera>, aspect: number) =>
+    Math.hypot(pose.position.x - pose.target.x, pose.position.z - pose.target.z) * tanHalf(pose.fov) * aspect;
+
+  it('휴대폰 세로: 명판 먼 끝이 보이는 가로 안에 들어온다(가운데가 명판 쪽으로)', () => {
+    const aspect = 390 / 844;
+    const only = frameCamera(anchor(1.2, 0.9), { aspect }, stopFraming());
+    expect(side.reach).toBeGreaterThan(halfWidth(only, aspect)); // 액자만 맞추면 잘림(고치기 전)
+    const pose = frameCameraWithSide(anchor(1.2, 0.9), { aspect }, stopFraming(), side);
+    const edge = 0 - side.reach; // 명판 먼 끝의 x
+    expect(Math.abs(edge - pose.target.x)).toBeLessThanOrEqual(halfWidth(pose, aspect));
+    // 액자 반대쪽 끝도 화면 안
+    expect(Math.abs(0.6 - pose.target.x)).toBeLessThanOrEqual(halfWidth(pose, aspect));
+    expect(pose.target.x).toBeLessThan(0);
+  });
+
+  it('넓은 화면은 명판이 이미 보이므로 액자만 맞춘 것과 같다', () => {
+    const plain = frameCamera(anchor(1.2, 0.9), { aspect: 16 / 9 }, stopFraming());
+    expect(frameCameraWithSide(anchor(1.2, 0.9), { aspect: 16 / 9 }, stopFraming(), side)).toEqual(plain);
+    expect(frameCameraWithSide(anchor(1.2, 0.9), { aspect: 0.46 }, stopFraming(), null)).toEqual(
+      frameCamera(anchor(1.2, 0.9), { aspect: 0.46 }, stopFraming()),
+    );
   });
 });

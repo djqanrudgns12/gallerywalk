@@ -1,6 +1,6 @@
 import { config } from '@gallery/core/config';
 import { copy } from '@gallery/core/copy';
-import type { ExhibitionView } from '@gallery/core/types';
+import type { DiagReason, ExhibitionView } from '@gallery/core/types';
 import {
   type AnimationEvent,
   lazy,
@@ -29,9 +29,16 @@ import { STUDENT_THEME } from './theme.ts';
 import { createVisitorStore, isEntered, isVisiting, type VisitorStore } from './visitorStore.ts';
 import { combineProgress, usePosterPreload } from './posterPreload.ts';
 import { useWakeLock } from './wakeLock.ts';
-import type { VisitProgress } from '../visit/contract.ts';
+import type { Fallback2dReason, VisitProgress } from '../visit/contract.ts';
+import { LoadGuard } from './LoadGuard.tsx';
+import { PerfOverlay, perfOverlayWanted } from '../perf/PerfOverlay.tsx';
+import { useVisitProbe } from '../perf/useVisitProbe.ts';
 import { unlockAudio } from '../visit/roomMusic.ts';
 import s from './StudentExhibition.module.css';
+import { studentFaceImages } from '../../viewer/scene/characterFiles.ts';
+
+/** 고르기 칸 얼굴 그림(M4-9, 들어온 것만 — 없으면 실루엣) */
+const STUDENT_FACES = studentFaceImages();
 
 /**
  * 관람 화면(three·R3F)은 따로 묶어 늦게 받는다 — 첫 화면 `/`와 포스터 글자가 3D 묶음을 기다리지 않게.
@@ -43,6 +50,17 @@ const VisitScreen = lazy(() => loadVisitScreen().then(m => ({ default: m.VisitSc
 const loadVisit2DScreen = () => import('../visit2d/Visit2DScreen.tsx');
 const Visit2DScreen = lazy(() => loadVisit2DScreen().then(m => ({ default: m.Visit2DScreen })));
 
+/** 시간 상한이 지나 미리 불러오기를 더 기다리지 않음(관람은 네트워크로 그대로 된다) */
+const PRELOAD_SKIPPED = { done: true, fraction: 1 } as const;
+
+/** 관람 화면이 알린 까닭 → 익명 수 세기 이름 */
+const FALLBACK_REASON: Record<Fallback2dReason, DiagReason> = {
+  webgl: 'webgl_none',
+  context: 'context_lost',
+  fps: 'fps_low',
+  load: 'module_fail',
+};
+
 /**
  * 학생 전시 `/{코드}`(PLAN §7.1·§7.3): 불러오기(박물관 그리기) → 포스터 → 관람 / 막 내림 / 준비 중 / 다시 해 보기.
  * 관람 화면은 포스터 **뒤에 미리** 띄워 첫 자리를 준비하고(`entered={false}`), 준비가 끝나기 전에는 입장 단추를 잠근다.
@@ -50,6 +68,9 @@ const Visit2DScreen = lazy(() => loadVisit2DScreen().then(m => ({ default: m.Vis
  * (동작 줄이기면 연출 없이 바로).
  * 관람 화면이 `onFallback2d`를 부르면 3D 화면을 내리고 그 자리에 2D 대체 화면을 띄운다(그 전시 동안, ADR-019).
  * 관람 중(3D·2D)에는 화면 꺼짐을 막는다(Wake Lock).
+ * 3D 준비 시간 상한(G-24 HW-01): 포스터가 뜬 뒤 `VISIT_READY_TIMEOUT_MS` 안에 3D 첫 자리가 준비되지 않으면 미리 불러오기는
+ * 더 기다리지 않고(3D가 준비됐으면 바로 3D로), 3D도 아직이면 입장 단추를 풀어 누르면 가벼운 화면으로 들어가게 한다.
+ * 3D 화면 묶음을 받지 못해도 가벼운 화면으로. 2D로 바꾼 까닭은 익명 수로 한 번 보낸다(`StudentApi.diag`).
  */
 export const StudentExhibition = ({ code }: { readonly code: string }) => {
   const services = useServices();
@@ -71,13 +92,38 @@ export const StudentExhibition = ({ code }: { readonly code: string }) => {
   const character = useStore(store, st => st.character);
   const liveToken = useStore(store, st => st.liveToken);
   const mode = useStore(store, st => st.mode);
+  const fallbackReason = useStore(store, st => st.fallback);
   const { setProgress, load } = store.getState();
-  // 입장 단추: 3D 첫 자리 준비 + 포스터 동안 미리 불러오기(P4-8)
+  // 실기기 반응성 재기(ADR-070) — 불러오기보다 먼저 듣기 시작한다
+  const probe = useVisitProbe(store, code, services.api.student);
+  const [perfShown] = useState(
+    () => typeof window !== 'undefined' && perfOverlayWanted(window.location.search),
+  );
+  // 입장 단추: 3D 첫 자리 준비 + 포스터 동안 미리 불러오기(P4-8). 시간 상한이 지나면 미리 불러오기는 기다리지 않는다
   const [scene, setScene] = useState<VisitProgress>({ ready: false, progress: 0 });
+  const [patience, setPatience] = useState(false);
   const preload = usePosterPreload(view, services.media);
   useEffect(() => {
-    if (store.getState().mode === '3d') setProgress(combineProgress(scene, preload));
-  }, [scene, preload, setProgress, store]);
+    if (store.getState().mode === '3d')
+      setProgress(combineProgress(scene, patience ? PRELOAD_SKIPPED : preload));
+  }, [scene, preload, patience, setProgress, store]);
+  const posterUp = phase === 'poster';
+  useEffect(() => {
+    if (!posterUp) return;
+    const st = store.getState();
+    if (st.mode !== '3d' || st.progress.ready) return;
+    const timer = window.setTimeout(() => {
+      if (store.getState().progress.ready) return;
+      setPatience(true);
+      store.getState().markSlow();
+    }, config().VISIT_READY_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [posterUp, store]);
+  // 2D로 바꾼 까닭을 익명 수로 한 번(실패는 버림 — 관람을 막지 않는다)
+  useEffect(() => {
+    if (fallbackReason === null) return;
+    services.api.student.diag(code, { kind: 'fail', reason: fallbackReason }).catch(() => undefined);
+  }, [fallbackReason, code, services.api.student]);
   // 소리 켬/끔(PRD G-06 "기기에 기억")
   const [soundOn, setSoundOn] = useState(() => services.device.soundOn());
   const sound = useMemo(
@@ -97,13 +143,17 @@ export const StudentExhibition = ({ code }: { readonly code: string }) => {
     (): string | null => store.getState().view?.layout.stops[useWalk.getState().stopIndex]?.id ?? null,
     [store],
   );
-  const fallBack2d = useCallback(() => {
-    // 이유(webgl·context·fps)는 기록하지 않는다
-    const st = store.getState();
-    if (st.mode === '2d') return;
-    if (isEntered(st.phase)) setStart2d(stop3d());
-    st.fallBack2d();
-  }, [store, stop3d]);
+  const fallBack2d = useCallback(
+    (reason: Fallback2dReason | 'chunk') => {
+      // 까닭은 이 기기에 남기지 않고 익명 수로만 보낸다(위 효과)
+      const st = store.getState();
+      if (st.mode === '2d') return;
+      if (isEntered(st.phase)) setStart2d(stop3d());
+      st.fallBack2d(reason === 'chunk' ? 'chunk_fail' : FALLBACK_REASON[reason]);
+    },
+    [store, stop3d],
+  );
+  const chunkFailed = useCallback(() => fallBack2d('chunk'), [fallBack2d]);
   // 바뀜 확인(P4-9): 관람 중 60초마다·화면 복귀 때. 보던 관이 바뀌면 띠로 미룬다
   const [pending, setPending] = useState<ExhibitionView | null>(null);
   useExhibitionUpdates({
@@ -130,8 +180,9 @@ export const StudentExhibition = ({ code }: { readonly code: string }) => {
 
   useEffect(() => {
     const ac = new AbortController();
-    void loadVisitScreen();
-    void loadVisit2DScreen();
+    // 미리 받기 실패는 여기서 버린다(그릴 때 다시 받고, 못 받으면 `LoadGuard`가 가벼운 화면으로)
+    loadVisitScreen().catch(() => undefined);
+    loadVisit2DScreen().catch(() => undefined);
     void store.getState().load(ac.signal);
     return () => ac.abort();
   }, [store]);
@@ -145,23 +196,26 @@ export const StudentExhibition = ({ code }: { readonly code: string }) => {
 
   return (
     <div className={s.stage} data-theme={STUDENT_THEME} data-phase={phase}>
+      {perfShown ? <PerfOverlay probe={probe} basics={probe.device} /> : null}
       {view && mode === '3d' && (phase === 'poster' || entered) ? (
         <div className={s.visitLayer} inert={!entered}>
-          <Suspense fallback={null}>
-            <VisitScreen
-              view={view}
-              code={code}
-              character={character}
-              liveToken={liveToken}
-              entered={entered}
-              onProgress={setScene}
-              onHome={goHome}
-              sound={sound}
-              pendingUpdate={pending !== null}
-              onApplyUpdate={applyPending}
-              onFallback2d={fallBack2d}
-            />
-          </Suspense>
+          <LoadGuard onError={chunkFailed}>
+            <Suspense fallback={null}>
+              <VisitScreen
+                view={view}
+                code={code}
+                character={character}
+                liveToken={liveToken}
+                entered={entered}
+                onProgress={setScene}
+                onHome={goHome}
+                sound={sound}
+                pendingUpdate={pending !== null}
+                onApplyUpdate={applyPending}
+                onFallback2d={fallBack2d}
+              />
+            </Suspense>
+          </LoadGuard>
         </div>
       ) : null}
 
@@ -228,7 +282,10 @@ const PosterLayer = ({ store, view, leaving, covered, inApp }: PosterLayerProps)
   const nickname = useStore(store, st => st.nickname);
   const character = useStore(store, st => st.character);
   const progress = useStore(store, st => st.progress);
+  const slow = useStore(store, st => st.slow);
   const freshStarted = useStore(store, st => st.freshStarted);
+  // 3D 준비가 늦으면 단추를 풀고 "가벼운 화면으로 먼저 볼게요"(누르면 2D)
+  const lightEntry = slow && !progress.ready;
   const { setNickname, setCharacter, requestEnter, finishEntering, startFresh } = store.getState();
   const ex = view.exhibition;
   // 위 절반의 작품: 포스터 동안 미리 받는 첫 전시실 썸네일(같은 주소라 두 번 받지 않는다)
@@ -256,6 +313,7 @@ const PosterLayer = ({ store, view, leaving, covered, inApp }: PosterLayerProps)
     >
       <div className={s.posterInner}>
         <EntryPoster
+          characterImage={STUDENT_FACES}
           title={ex.title}
           subtitle={ex.subtitle}
           schoolSummary={schoolSummary(view)}
@@ -274,8 +332,9 @@ const PosterLayer = ({ store, view, leaving, covered, inApp }: PosterLayerProps)
             void unlockAudio();
             requestEnter();
           }}
-          prepare={progress.ready ? null : progress.progress}
-          enterDisabled={!progress.ready || leaving}
+          prepare={progress.ready || lightEntry ? null : progress.progress}
+          enterDisabled={!(progress.ready || lightEntry) || leaving}
+          enterNote={lightEntry ? copy.poster.slowHint : null}
           showInAppBrowserHint={inApp}
         />
         {/* 동의 시트가 덮는 동안은 시트 안의 링크 하나만(두 번 보이지 않게, V-57) */}

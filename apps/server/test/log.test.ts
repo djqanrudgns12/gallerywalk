@@ -1,7 +1,7 @@
 import { readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createLogger, formatLine, redactPath, type LogFields } from '../src/log.ts';
+import { createLogger, formatLine, redactPath, STAT_KEYS, type LogFields } from '../src/log.ts';
 import { makeTempDir, randomSecretHex } from './helpers/server.ts';
 
 let root: string;
@@ -50,6 +50,37 @@ describe('기록 모양', () => {
     } as unknown as LogFields;
     const record: unknown = JSON.parse(formatLine(T0, 'info', 'request', smuggled));
     expect(record).toEqual({ t: T0.toISOString(), level: 'info', msg: 'request', path: '/api/x' });
+  });
+
+  it('1분 서버 기록 숫자(stats): STAT_KEYS 이름의 유한한 수만 정해진 차례로, 글·다른 이름은 버린다', () => {
+    const stats = {
+      heapMb: 41.2,
+      loopP99Ms: 12.5,
+      loopP50Ms: 1.1,
+      elu: 0.031,
+      liveBytes: Number.NaN,
+      liveMsgs: Number.POSITIVE_INFINITY,
+      diagFail: 2,
+      ip: '203.0.113.7',
+      nickname: '가상별명',
+      token: randomSecretHex(),
+      loopMaxMs: '99',
+    } as unknown as LogFields['stats'];
+    const line = formatLine(T0, 'info', 'server_stats', { stats });
+    expect(line).not.toContain('203.0.113.7');
+    expect(line).not.toContain('가상별명');
+    const record = JSON.parse(line) as Record<string, unknown>;
+    expect(record).toEqual({
+      t: T0.toISOString(),
+      level: 'info',
+      msg: 'server_stats',
+      loopP50Ms: 1.1,
+      loopP99Ms: 12.5,
+      elu: 0.031,
+      heapMb: 41.2,
+      diagFail: 2,
+    });
+    expect(Object.keys(record).slice(3)).toEqual(STAT_KEYS.filter(key => key in record));
   });
 
   it('경로: 쿼리를 떼고 /t/ 뒤는 *** (PLAN §9.8)', () => {

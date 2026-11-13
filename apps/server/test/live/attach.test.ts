@@ -210,4 +210,92 @@ describe('함께 관람 연결부', () => {
     ])
       expect(text).not.toContain(secret);
   });
+
+  it('1분 서버 기록(HS-00): 루프 지연·이용률·보낸 양·메모리·진단 수가 숫자로만 남고 식별값은 없다', async () => {
+    let taken = 0;
+    const rig = await startRig({
+      production: true,
+      minuteStats: () => ({ diagFail: 3 + taken++, diagReport: 1 }),
+    });
+    rigs.push(rig);
+    const ex = seedExhibition(rig.t);
+    const ip = '203.0.113.88';
+    const nickname = '은하수';
+    const aToken = seedVisitor(rig.t, ex.id, nickname);
+    const a = await enter(rig, ex.entryCode, hello(aToken, { pose: pose(345.678) }), fromIp(ip));
+    const b = await enter(rig, ex.entryCode, hello(newToken()), fromIp(ip));
+    await a.client.next('join');
+    b.client.send({ t: 'pose', seq: 1, pose: pose(456.789) });
+    await b.client.barrier();
+
+    // 1분 타이머 한 번(그 사이 방송 타이머도 돈다)
+    vi.advanceTimersByTime(60_000);
+    const lines = (await rig.logText())
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line) as Record<string, unknown>);
+    const stats = lines.filter(l => l['msg'] === 'server_stats');
+    expect(stats).toHaveLength(1);
+    const line = stats[0]!;
+    for (const key of [
+      'loopP50Ms',
+      'loopP99Ms',
+      'loopMaxMs',
+      'elu',
+      'liveMsgs',
+      'liveBytes',
+      'liveBufMax',
+      'rssMb',
+      'heapMb',
+      'liveRooms',
+      'livePeers',
+    ])
+      expect(typeof line[key], key).toBe('number');
+    expect(line).toMatchObject({ level: 'info', diagFail: 3, diagReport: 1, liveRooms: 1, livePeers: 2 });
+    // welcome 둘 + join 하나 + 방송(위치) 하나 이상
+    expect(line['liveMsgs']).toBeGreaterThanOrEqual(4);
+    expect(line['liveBytes']).toBeGreaterThan(0);
+    expect(line['elu']).toBeGreaterThanOrEqual(0);
+    expect(line['elu']).toBeLessThanOrEqual(1);
+    expect(line['rssMb']).toBeGreaterThan(0);
+    // 기록 칸 밖의 이름은 없다
+    expect(Object.keys(line).sort()).toEqual(
+      [
+        't',
+        'level',
+        'msg',
+        'loopP50Ms',
+        'loopP99Ms',
+        'loopMaxMs',
+        'elu',
+        'liveRooms',
+        'livePeers',
+        'liveBuilt',
+        'liveSkipped',
+        'liveSlowClosed',
+        'liveDegraded',
+        'liveMsgs',
+        'liveBytes',
+        'liveBufMax',
+        'rssMb',
+        'heapMb',
+        'diagFail',
+        'diagReport',
+      ].sort(),
+    );
+
+    // 다음 1분: 보낸 수는 비워져 다시 센다, 끝낼 때도 마지막 조각을 남긴다
+    await rig.live.close();
+    const after = (await rig.logText())
+      .trim()
+      .split('\n')
+      .map(l => JSON.parse(l) as Record<string, unknown>)
+      .filter(l => l['msg'] === 'server_stats');
+    expect(after).toHaveLength(2);
+    expect(after[1]).toMatchObject({ diagFail: 4, liveMsgs: 0, liveBytes: 0 });
+
+    const text = await rig.logText();
+    for (const secret of [aToken, hashOf(aToken), ip, nickname, '345.678', '456.789', a.welcome.you])
+      expect(text).not.toContain(secret);
+  });
 });

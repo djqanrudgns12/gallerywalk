@@ -5,6 +5,7 @@ import { mediaPath, type ExhibitionStatus, type TeacherExhibitionView } from '@g
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import type { RecentExhibition } from '../../../ports/index.ts';
+import { CheckLink } from '../../check/CheckLink.tsx';
 import { PrivacyLink } from '../../privacy/PrivacyLink.tsx';
 import { useServices } from '../../services.ts';
 import { formatDay } from '../../student/posterView.ts';
@@ -207,6 +208,7 @@ export const TeacherHome = () => {
             {t.create}
           </button>
         </div>
+        <CheckLink />
         <PrivacyLink />
       </div>
 

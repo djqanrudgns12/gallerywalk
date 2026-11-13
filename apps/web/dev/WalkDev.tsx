@@ -13,8 +13,8 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 import '../src/ui/tokens.css';
-import '../src/ui/themes/modern-history.css';
-import { templateAssets } from '../src/viewer/scene/templateAssets.ts';
+import '../src/ui/themes/gallery-dark.css';
+import { modulesFor, templateAssets } from '../src/viewer/scene/templateAssets.ts';
 import { PeerBuffer, visibleMaxFor } from '../src/viewer/live/peerBuffer.ts';
 import {
   dprCap,
@@ -30,6 +30,7 @@ import type { DimHolder } from '../src/viewer/scene/materials.ts';
 import { VisitorScene } from '../src/viewer/VisitorScene.tsx';
 import { useWalkKeyboard } from '../src/viewer/walk/input.ts';
 import { useWalk } from '../src/viewer/walk/walkStore.ts';
+import { STUDENT_THEME } from '../src/app/student/theme.ts';
 import { startFakePeers } from './fakePeers.ts';
 import { buildTestExhibition, type TestExhibition } from './testExhibition.ts';
 
@@ -132,7 +133,7 @@ const Scene = ({
       <VisitorScene
         layout={layout}
         look={LOOK}
-        modulesUrl={ASSETS.modules}
+        modulesUrl={modulesFor(ASSETS, layout.schemaVersion)}
         fixturesUrl={ASSETS.fixtures}
         title={exhibition.title}
         artworks={artworks}
@@ -229,8 +230,9 @@ export const WalkDev = () => {
   });
   const dpr = useMemo(dprCap, []);
   useWalkKeyboard();
+  // 학생 관람 화면과 같은 어두운 테마(옛 modern-history 테마는 어두운 바탕에 어두운 글자가 됐다, 2026-11-14 e2e)
   return (
-    <div className={s.stage} data-theme="modern-history">
+    <div className={s.stage} data-theme={STUDENT_THEME}>
       <Gestures>
         <Canvas
           frameloop="demand"

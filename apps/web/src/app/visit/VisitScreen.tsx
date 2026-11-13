@@ -25,7 +25,7 @@ import {
   startTier,
   TierMonitor,
 } from '../../viewer/quality/tier.ts';
-import { templateAssets } from '../../viewer/scene/templateAssets.ts';
+import { modulesFor, templateAssets } from '../../viewer/scene/templateAssets.ts';
 import type { Tier } from '../../viewer/textures/residency.ts';
 import { VisitorScene } from '../../viewer/VisitorScene.tsx';
 import { useWalkKeyboard } from '../../viewer/walk/input.ts';
@@ -34,10 +34,13 @@ import { useWalk } from '../../viewer/walk/walkStore.ts';
 import { LoadingMuseum } from '../../ui/patterns/visitor/index.ts';
 import type { Fallback2dReason, VisitScreenProps } from './contract.ts';
 import { type LiveVisit, useLiveVisit } from './useLiveVisit.ts';
+import { activeProbe } from '../perf/visitProbe.ts';
 import { resumeStop } from '../../viewer/updates/applyRules.ts';
 import {
   PublicReactionsFor,
   ReactionLayer,
+  reactionKey,
+  reactionRuntime,
   reactionsEnabled,
   useReactionPending,
 } from '../reactions/index.ts';
@@ -47,6 +50,8 @@ import { STUDENT_THEME } from '../student/theme.ts';
 import { zoomPagesFor } from '../../viewer/zoom/zoomPages.ts';
 import { collectionOf } from './collection.ts';
 import { CollectionSheet } from './CollectionSheet.tsx';
+import { ExitSheet } from './ExitSheet.tsx';
+import { LiveLostBanner } from '../../ui/patterns/visitor/LiveLostBanner.tsx';
 import { useRoomMusic } from './roomMusic.ts';
 import { type VisitModel, visitModelOf } from './visitModel.ts';
 import {
@@ -177,7 +182,45 @@ export const VisitScreen = ({
       }),
     [model.layout],
   );
-  useWalkKeyboard(entered && reactingId === null && !collectionOpen);
+  // 나가기 창(W-08): 대문 앞 행동 키로 열린다. 창은 한 번에 하나 — 열리면 다른 덮개를 닫고 걷기 키를 끈다.
+  // 본 작품 = 가까이 서거나 크게 보거나 정지 지점으로 멈춘 작품, 남긴 반응 = 내 반응(보낸 것 + 보낼 것)
+  const exitOpen = useWalk(st => st.exitOpen);
+  const seen = useRef(new Set<string>());
+  useEffect(
+    () =>
+      useWalk.subscribe(n => {
+        if (n.nearArtworkId) seen.current.add(n.nearArtworkId);
+        if (n.zoomId) seen.current.add(n.zoomId);
+        const stopArt = n.mode === 'view' ? model.layout.stops[n.stopIndex]?.artworkId : null;
+        if (stopArt) seen.current.add(stopArt);
+      }),
+    [model.layout],
+  );
+  const [reacted, setReacted] = useState(0);
+  useEffect(() => {
+    if (!exitOpen) return;
+    setReactingId(null);
+    useMapOpen.setState({ open: false });
+    setCollectionOpen(false);
+    if (!services) return;
+    const rt = reactionRuntime(services);
+    const ex = view.exhibition.id;
+    const count = (): number =>
+      view.artworks.filter(a => rt.mine(ex, a.id) !== null || rt.outbox.get(reactionKey(ex, a.id)) !== null)
+        .length;
+    setReacted(count());
+    let alive = true;
+    void rt
+      .loadMine({ code, exhibitionId: ex })
+      .then(() => {
+        if (alive) setReacted(count());
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [exitOpen, services, view, code]);
+  useWalkKeyboard(entered && reactingId === null && !collectionOpen && !exitOpen);
   // 동작 줄이기(PRD 8.4): 기기 설정을 따르고 바뀌면 따라간다
   const [reducedMotion, setReducedMotion] = useState(() => prefersReducedMotion(window));
   useEffect(() => {
@@ -201,9 +244,26 @@ export const VisitScreen = ({
     enabled: entered,
     as: liveAs,
   });
+  // 끊김 띠(W-08): 이어져 있던 함께 관람이 `LIVE_LOST_BANNER_SEC` 넘게 다시 잇는 중이면 위 줄 아래 작은 띠 + `재접속하기`
+  const [liveLost, setLiveLost] = useState(false);
+  const wasLive = useRef(false);
+  useEffect(() => {
+    if (live.status === 'live') wasLive.current = true;
+    if (live.status !== 'retrying' || !wasLive.current) {
+      setLiveLost(false);
+      return;
+    }
+    const t = window.setTimeout(() => setLiveLost(true), config().LIVE_LOST_BANNER_SEC * 1000);
+    return () => window.clearTimeout(t);
+  }, [live.status]);
   // 품질 단계는 캔버스를 다시 붙여도 이어 간다(내린 단계를 되돌리지 않음)
   const [device, setDevice] = useState<{ tier: Tier; kind: DeviceKind } | null>(null);
   const onLower = useCallback((tier: Tier) => setDevice(d => (d ? { ...d, tier } : d)), []);
+  // 실기기 반응성 재기(ADR-070): 시작·내린 품질 단계
+  const tierNow = device?.tier ?? null;
+  useEffect(() => {
+    if (tierNow) activeProbe()?.tier(tierNow);
+  }, [tierNow]);
   const [ready, setReady] = useState(false);
   const onReady = useCallback(() => setReady(true), []);
   // 컨텍스트 손실(§6.12): 기본 동작을 막고 "잠시만 기다려 주세요" → 복구되면 캔버스를 새로 붙여 같은 자리에서
@@ -284,6 +344,7 @@ export const VisitScreen = ({
               camera={{ fov: config().VFOV_DEG, near: 0.05, far: 120, position: [0, 1, -30] }}
               onCreated={({ gl }) => {
                 const caps = capsOf(gl);
+                activeProbe()?.gpu(caps.gpu);
                 setDevice(d => d ?? { tier: startTier(caps, null), kind: caps.kind });
                 // 이 캔버스가 지금 것일 때만 듣는다 — 새로 붙일 때 R3F가 옛 캔버스에 일부러 손실을 일으킨다(forceContextLoss)
                 const mine = epochRef.current;
@@ -322,6 +383,7 @@ export const VisitScreen = ({
                   entered={entered}
                   live={liveToken ? live : null}
                   onReady={onReady}
+                  onLoadFail={() => fallBack('load')}
                   onRegion={setRegion}
                   onFallback={() => {
                     // 자동 시험(헤드리스 소프트웨어 그리기)은 늘 느려 3D 흐름을 볼 수 없게 된다 — 그때만 fps 전환을 끈다
@@ -384,6 +446,18 @@ export const VisitScreen = ({
           }}
         />
       )}
+      {entered && !exitOpen && (
+        <LiveLostBanner visible={liveLost} onRejoin={() => window.location.reload()} />
+      )}
+      {entered && (
+        <ExitSheet
+          open={exitOpen}
+          seen={seen.current.size}
+          reacted={reacted}
+          onClose={() => useWalk.getState().closeExit()}
+          onLeave={onHome}
+        />
+      )}
       {services && entered && (
         <ReactionOutbox exhibitionId={view.exhibition.id} onPending={setReactPending} />
       )}
@@ -413,6 +487,7 @@ const VisitContent = ({
   entered,
   live,
   onReady,
+  onLoadFail,
   onRegion,
   onFallback,
   reducedMotion,
@@ -426,6 +501,7 @@ const VisitContent = ({
   entered: boolean;
   live: LiveVisit | null;
   onReady: () => void;
+  onLoadFail: () => void;
   onRegion: (region: string) => void;
   onFallback: () => void;
   reducedMotion: boolean;
@@ -446,6 +522,7 @@ const VisitContent = ({
     const prev = last.current;
     last.current = now;
     if (prev === null || !entered) return;
+    activeProbe()?.frame(now - prev);
     const dt = (now - prev) / 1000;
     // 이어 그린 프레임 = 움직이는 구간(멈춘 화면은 그리지 않으므로 긴 틈 뒤 첫 프레임이 구간 끝)
     monitor.frame(dt, dt < 0.1);
@@ -477,7 +554,7 @@ const VisitContent = ({
     <VisitorScene
       layout={model.layout}
       look={model.look}
-      modulesUrl={assets.modules}
+      modulesUrl={modulesFor(assets, model.layout.schemaVersion)}
       fixturesUrl={assets.fixtures}
       title={model.title}
       artworks={model.artworks}
@@ -490,7 +567,9 @@ const VisitContent = ({
       cards={model.cards}
       paused={!entered}
       onPose={live?.sendPose}
+      onJump={live?.sendJump}
       onReady={onReady}
+      onLoadFail={onLoadFail}
       onRegion={onRegion}
       start={start}
       reducedMotion={reducedMotion}

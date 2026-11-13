@@ -9,6 +9,7 @@ import {
   ExhibitionSettingsSchema,
   ExhibitionStatusSchema,
   ImageAnalysisWireSchema,
+  LAYOUT_SCHEMA_VERSIONS,
   LayoutSchema,
   MediaVariantSchema,
   PageModeSchema,
@@ -415,13 +416,13 @@ const LayoutRow = z.object({
  * 저장된 배치 행이 지금 배치 모양 판인가(JSON만 들여다봄). `schemaVersion`이 **다른 숫자**인 옛 행만 false —
  * 판이 없거나 JSON이 깨진 행은 true로 두어 그대로 읽기 오류가 나게 한다(망가진 행을 숨기지 않음).
  */
-const LAYOUT_SHAPE = LayoutSchema.shape.schemaVersion.value;
+const LAYOUT_SHAPES: readonly number[] = LAYOUT_SCHEMA_VERSIONS;
 const currentLayoutShape = (row: unknown): boolean => {
   const raw = (row as { data_json?: unknown }).data_json;
   if (typeof raw !== 'string') return true;
   try {
     const v = (JSON.parse(raw) as { schemaVersion?: unknown }).schemaVersion;
-    return typeof v !== 'number' || v === LAYOUT_SHAPE;
+    return typeof v !== 'number' || LAYOUT_SHAPES.includes(v);
   } catch {
     return true;
   }

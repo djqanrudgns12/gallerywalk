@@ -1,8 +1,11 @@
 import type { TemplateId } from '@gallery/core/templates';
 import { z } from 'zod';
+import coreV4Url from '../../tpl/modern-history/core-v4.glb?url';
 import coreUrl from '../../tpl/modern-history/core.glb?url';
+import exteriorV4Url from '../../tpl/modern-history/exterior-v4.glb?url';
 import exteriorUrl from '../../tpl/modern-history/exterior.glb?url';
 import fixturesUrl from '../../tpl/modern-history/fixtures.glb?url';
+import hallV4Url from '../../tpl/modern-history/hall-v4.glb?url';
 import { fixtures as mhFixtures } from '../../tpl/modern-history/manifest.json';
 import { SIGN_KINDS, type SignKind, type TextArea } from '../signs/signs.ts';
 
@@ -12,6 +15,11 @@ import { SIGN_KINDS, type SignKind, type TextArea } from '../signs/signs.ts';
  */
 export interface TemplateAssets {
   readonly modules: readonly string[];
+  /**
+   * 공간 v4(스키마 3, ADR-071) 조각: 외관 → 홀 → 전시실 순(광장부터 보이게). 높이와 상관없는 바닥·광장 판은 v3 묶음에 있어
+   * v3 외관·실내 묶음도 함께 받는다(v4 묶음에 그 판이 들어오면 빼서 첫 화면 바이트를 줄인다)
+   */
+  readonly modulesV4: readonly string[];
   readonly fixtures: string;
   /** 사인 설비의 글자 자리(굽기 도구가 manifest에 적은 것, V-03) */
   readonly signAreas: Readonly<Partial<Record<SignKind, TextArea>>>;
@@ -35,7 +43,12 @@ const areasOf = (models: Record<string, unknown>): Partial<Record<SignKind, Text
 export const templateAssets: Readonly<Record<TemplateId, TemplateAssets>> = {
   'modern-history': {
     modules: [exteriorUrl, coreUrl],
+    modulesV4: [exteriorV4Url, exteriorUrl, hallV4Url, coreUrl, coreV4Url],
     fixtures: fixturesUrl,
     signAreas: areasOf(mhFixtures.models),
   },
 };
+
+/** 배치 모양 판에 맞는 조각 묶음(스키마 3 = 공간 v4) */
+export const modulesFor = (assets: TemplateAssets, schemaVersion: number): readonly string[] =>
+  schemaVersion === 3 ? assets.modulesV4 : assets.modules;

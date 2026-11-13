@@ -6,9 +6,38 @@ import { join } from 'node:path';
  *
  * 개인정보: 받는 칸은 아래 `LogFields`뿐이다(별명·메모·PIN·토큰·IP 칸이 없다). 타입을 우회해 다른 칸을 넣어도
  * 쓰지 않는다. 경로는 쿼리를 떼고 `/t/` 뒤를 `***`로, 글 칸은 `/t/…`·`Bearer …`를 가린다.
+ * 1분 서버 기록(`server_stats`, HS-00)의 숫자는 `stats`로 받되 `STAT_KEYS` 이름의 유한한 수만 남긴다(글이 들어갈 자리가 없다).
  */
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'fatal';
+
+/**
+ * 1분 서버 기록의 숫자 칸(G-25 FIELD_PLAN HS-00). 이 차례로 줄 끝에 붙는다.
+ * 이벤트 루프 지연 p50·p99·최대(ms)·이용률(0~1) · 함께 관람 방·사람 수, 1분 동안 보낸 메시지 수·바이트·보낼 때 본 가장 큰
+ * `bufferedAmount`(바이트) · 판 2 위치 글을 만든 수·밀려 건너뛴 수·느려서 닫은 연결 수·빈도 줄임(0/1, HS-03~HS-10) ·
+ * RSS·힙 사용(MB) · 1분 동안 받은 진단 `fail`·`report` 수.
+ */
+export const STAT_KEYS = [
+  'loopP50Ms',
+  'loopP99Ms',
+  'loopMaxMs',
+  'elu',
+  'liveRooms',
+  'livePeers',
+  'liveMsgs',
+  'liveBytes',
+  'liveBufMax',
+  'liveBuilt',
+  'liveSkipped',
+  'liveSlowClosed',
+  'liveDegraded',
+  'rssMb',
+  'heapMb',
+  'diagFail',
+  'diagReport',
+] as const;
+export type StatKey = (typeof STAT_KEYS)[number];
+export type LogStats = Readonly<Partial<Record<StatKey, number>>>;
 
 export interface LogFields {
   readonly requestId?: string | undefined;
@@ -23,6 +52,8 @@ export interface LogFields {
   readonly port?: number | undefined;
   /** 설정 키 이름 목록(값은 넣지 않는다) */
   readonly keys?: readonly string[] | undefined;
+  /** 1분 서버 기록의 숫자(`STAT_KEYS`만) */
+  readonly stats?: LogStats | undefined;
   /** 원인. 이름·메시지·스택·`code`·`cause`만 남는다. */
   readonly err?: unknown;
 }
@@ -90,6 +121,12 @@ export function formatLine(time: Date, level: LogLevel, msg: string, fields: Log
   }
   if (Array.isArray(fields.keys)) {
     record['keys'] = fields.keys.filter((key): key is string => typeof key === 'string').map(redactText);
+  }
+  if (typeof fields.stats === 'object' && fields.stats !== null) {
+    for (const key of STAT_KEYS) {
+      const value = fields.stats[key];
+      if (typeof value === 'number' && Number.isFinite(value)) record[key] = value;
+    }
   }
   if (fields.err !== undefined) record['err'] = serializeError(fields.err);
   return JSON.stringify(record);

@@ -1,7 +1,7 @@
 /*
  * 입장 포스터 — 시안 A "어두운 전시관 안내 체계"(F8 V-53).
  * 위: 조명 아래 걸린 작품들(빛은 그라데이션이 아니라 밝은 매트·짙은 테와 숯색 벽의 대비로).
- * 아래: 학교·기간 한 줄 → 전시 이름(큰 세리프) → 별명 한 줄 → 캐릭터 둘 → 준비 막대 → `입장하기`(놋쇠, 화면의 유일한 강조 단추).
+ * 아래: 학교·기간 한 줄 → 전시 이름(큰 세리프) → 별명 한 줄 → 캐릭터 열 명(두 줄) → 준비 막대 → `입장하기`(놋쇠, 화면의 유일한 강조 단추).
  * 휴대폰·태블릿은 세로 한 장, 데스크톱(1024px~)은 좌우 2단(왼쪽 벽 · 오른쪽 입력).
  * 색·간격·모서리·글꼴은 토큰·테마 변수만.
  */
@@ -225,27 +225,37 @@
   color: var(--plate-ink-sub);
 }
 
-/* 캐릭터 둘: 작은 단추형 */
+/*
+ * 캐릭터 열 명(M4-9): 성별 두 줄 × 다섯 칸(남 1~5 · 여 6~10). 칸마다 몸 틀 실루엣(얼굴 그림이 오면 그것) + 번호.
+ * 375px 휴대폰(본문 폭 약 343px)에서도 한 줄 다섯 칸이 한 화면에 든다 — 칸 폭 약 62px, 높이는 손가락 크기 이상.
+ */
+.charGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
 .charRow {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s-3);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--s-2);
 }
 
 .charBtn {
+  position: relative;
   min-height: 56px;
   min-width: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--s-2);
-  padding: 0 var(--s-3);
+  justify-content: center;
+  gap: var(--s-1);
+  padding: var(--s-2) 0;
   background-color: var(--plate-bg-elevated);
   border: 1px solid var(--plate-edge);
   border-radius: var(--r-plate);
   color: var(--plate-ink-sub);
   font-family: var(--font-ui);
-  font-size: var(--fs-3);
-  font-weight: 600;
   cursor: pointer;
   transition:
     border-color var(--t-hover) var(--ease-out),
@@ -265,28 +275,29 @@
 
 .figure {
   flex-shrink: 0;
-  width: 24px;
-  height: 30px;
+  width: 22px;
+  height: 28px;
 }
 
 .charImg {
   flex-shrink: 0;
-  height: 36px;
+  height: 32px;
   width: auto;
+  max-width: 100%;
   display: block;
 }
 
-.charName {
-  flex: 1;
-  min-width: 0;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.charNum {
+  font-size: var(--fs-2);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .charCheck {
-  flex-shrink: 0;
+  position: absolute;
+  top: var(--s-1);
+  right: var(--s-1);
   color: var(--accent);
 }
 

@@ -3,12 +3,14 @@ export { computeLayout } from './computeLayout.ts';
 export {
   frameAnchorOf,
   frameCamera,
+  frameCameraWithSide,
   stopFraming,
   zoomFraming,
   type CameraPose,
   type FrameAnchor,
   type FramingOptions,
   type FramingView,
+  type SideReach,
   type Vec3,
 } from './framing.ts';
 export { type P2, type Rect } from './geom.ts';

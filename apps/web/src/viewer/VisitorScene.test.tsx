@@ -14,6 +14,7 @@ vi.mock('./scene/TemplateModules.tsx', () => ({
   TemplateModules: () => null,
 }));
 vi.mock('./scene/Stage.tsx', () => ({ Stage: () => null }));
+vi.mock('./npc/Docents.tsx', () => ({ Docents: () => null }));
 vi.mock('./scene/Sky.tsx', () => ({ Sky: () => null }));
 vi.mock('./scene/ExteriorContact.tsx', () => ({ ExteriorContact: () => null }));
 vi.mock('./scene/FixtureModels.tsx', () => ({ FixtureModels: () => null }));

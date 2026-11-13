@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { testExhibitionView } from '../../dev/testView.ts';
 import { PublicReactions } from '../../ui/patterns/visitor/PublicReactions.tsx';
-import { useWalk } from '../../viewer/walk/walkStore.ts';
+import { useWalk, type WalkApi } from '../../viewer/walk/walkStore.ts';
 import { WalkOverlay, type ReactionHooks } from './walkUi.tsx';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -219,5 +219,70 @@ describe('관람 화면의 안내판 배치', () => {
     act(() => useWalk.setState({ mode: 'free', place: '' }));
     expect(host.querySelector('header')?.textContent).toContain('합성 전시관');
     expect(host.querySelector('[data-testid="place"]')).toBeNull();
+  });
+
+  const overlay = (touch: boolean) =>
+    act(() =>
+      root.render(
+        <WalkOverlay title="합성 전시관" layout={view.layout} artworks={[]} liveCount={0} touch={touch} />,
+      ),
+    );
+  const pointerDown = (el: Element) =>
+    act(() => {
+      el.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+    });
+
+  it('행동 단추(터치): 같은 단추가 도슨트 앞 `말걸기`·대문 앞 `나가기`로 바뀌고, 누르면 그 일을 한다(W-01)', () => {
+    const jump = vi.fn();
+    act(() =>
+      useWalk.setState({ mode: 'free', zoomId: null, action: 'jump', api: { jump } as unknown as WalkApi }),
+    );
+    overlay(true);
+    const btn = () => host.querySelector<HTMLButtonElement>('[data-testid="jump"]')!;
+    const first = btn();
+    expect(first.getAttribute('aria-label')).toBe(copy.museumWalk.actionJump);
+    pointerDown(first);
+    expect(jump).toHaveBeenCalledTimes(1);
+    act(() => useWalk.setState({ action: 'talk', actionNpcId: 'docent-1' }));
+    // 같은 자리의 같은 단추(키보드 초점이 남게) — 안쪽 아이콘·글자만 바뀜
+    expect(btn()).toBe(first);
+    expect(first.getAttribute('data-action')).toBe('talk');
+    expect(first.getAttribute('aria-label')).toBe(copy.museumWalk.actionTalk);
+    expect(first.textContent).toBe(copy.museumWalk.actionTalk);
+    pointerDown(first);
+    expect(useWalk.getState().talkRequest?.npcId).toBe('docent-1');
+    act(() => useWalk.setState({ action: 'exit', actionNpcId: null }));
+    expect(first.textContent).toBe(copy.museumWalk.actionExit);
+    pointerDown(first);
+    expect(useWalk.getState().exitOpen).toBe(true);
+    expect(jump).toHaveBeenCalledTimes(1);
+    // 터치 기기에는 데스크톱 키 표시가 없다
+    expect(host.querySelector('[data-testid="action-key-hint"]')).toBeNull();
+  });
+
+  it('데스크톱: 도슨트·대문 가까이에서만 아래 가운데 `스페이스 말걸기`·`스페이스 나가기`를 띄운다(W-01)', () => {
+    act(() => useWalk.setState({ mode: 'free', zoomId: null, action: 'jump' }));
+    overlay(false);
+    const hint = () => host.querySelector('[data-testid="action-key-hint"]');
+    expect(hint()).toBeNull();
+    expect(host.querySelector('[data-testid="jump"]')).toBeNull();
+    act(() => useWalk.setState({ action: 'talk', actionNpcId: 'docent-1' }));
+    expect(hint()?.textContent).toBe(fill(copy.museumWalk.keyHint, { action: copy.museumWalk.actionTalk }));
+    act(() => useWalk.setState({ action: 'exit', actionNpcId: null }));
+    expect(hint()?.textContent).toBe(fill(copy.museumWalk.keyHint, { action: copy.museumWalk.actionExit }));
+    // 나가기 창이 열려 있거나 크게 보는 중이면 숨김
+    act(() => useWalk.setState({ exitOpen: true }));
+    expect(hint()).toBeNull();
+    act(() => useWalk.setState({ exitOpen: false, mode: 'zoom' }));
+    expect(hint()).toBeNull();
+  });
+
+  it('광장 경계·사람끼리 부딪힘 알림은 예절 알림과 같은 도슨트 말풍선으로(W-06·W-07)', () => {
+    act(() => useWalk.setState({ mode: 'free', zoomId: null }));
+    overlay(false);
+    act(() => useWalk.setState({ notice: { kind: 'boundary', at: 1 } }));
+    expect(host.querySelector('[data-testid="docent"]')?.textContent).toContain(copy.museumWalk.boundary);
+    act(() => useWalk.setState({ notice: { kind: 'bump', at: 2 } }));
+    expect(host.querySelector('[data-testid="docent"]')?.textContent).toContain(copy.museumWalk.bump);
   });
 });

@@ -1,16 +1,18 @@
 // 최적화 뒤 산출물 검사(tools/assets/spec/modules.md §6·§7·§9~§11). 하나라도 어기면 실패(종료 코드 1).
 // 사용: node tools/assets/pipeline/verifyOutput.mjs <템플릿 ID> [산출 폴더(기본 apps/web/src/tpl/<템플릿 ID>)]
 // 배치 계약(packages/core의 templateGeometry·config·외관 문법)을 Node 24 타입 지우기로 바로 읽어 치수·개수를 맞춘다.
-import { NodeIO } from '@gltf-transform/core';
+import { Document, NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { getBounds } from '@gltf-transform/functions';
 import { MeshoptDecoder } from 'meshoptimizer';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
+import assert from 'node:assert/strict';
 import { config } from '../../../packages/core/src/config.ts';
 import { buildExterior } from '../../../packages/core/src/domain/layout/grammar/exterior.ts';
 import { templateGeometry } from '../../../packages/core/src/domain/templates/geometry.ts';
+import { templateGeometryV4 } from '../../../packages/core/src/domain/templates/geometryV4.ts';
 import { decorationBoundsProblems } from './decorationBounds.mjs';
 
 const [templateId, dirArg] = process.argv.slice(2);
@@ -20,7 +22,9 @@ if (!templateId) {
 }
 const root = resolve(import.meta.dirname, '../../..');
 const dir = dirArg ? resolve(dirArg) : join(root, 'apps/web/src/tpl', templateId);
-const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
+const selfTest = templateId === '--self-test';
+const v4Only = selfTest || process.argv.includes('--v4-only');
+const manifest = v4Only ? {} : JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
 const g = templateGeometry[templateId];
 const c = config();
 const MM = 0.001;
@@ -140,6 +144,407 @@ const meshInfo = (file, name, node, needLightmap) => {
 
 const near = (a, b) => Math.abs(a - b) <= MM;
 const fmt = v => v.toFixed(3);
+
+/** 최적화·양자화가 끝난 실제 세계 좌표 삼각형. 메타데이터가 맞다고 형상을 통과시키지 않는다. */
+const worldTriangles = (node, wantedSlot) => {
+  const matrix = node.getWorldMatrix();
+  const triangles = [];
+  for (const primitive of node.getMesh().listPrimitives()) {
+    if (wantedSlot && primitive.getMaterial()?.getName().split('__')[0] !== wantedSlot) continue;
+    const position = primitive.getAttribute('POSITION');
+    const indices = primitive.getIndices();
+    const count = indices?.getCount() ?? position.getCount();
+    for (let i = 0; i < count; i += 3) {
+      const vertices = [];
+      for (let j = 0; j < 3; j++) {
+        const p = position.getElement(indices ? indices.getScalar(i + j) : i + j, []);
+        vertices.push(
+          [0, 1, 2].map(k => matrix[k] * p[0] + matrix[k + 4] * p[1] + matrix[k + 8] * p[2] + matrix[k + 12]),
+        );
+      }
+      triangles.push(vertices);
+    }
+  }
+  return triangles;
+};
+const polygonArea = points => {
+  let area = 0;
+  for (let i = 1; i + 1 < points.length; i++) {
+    const a = points[i].map((x, k) => x - points[0][k]);
+    const b = points[i + 1].map((x, k) => x - points[0][k]);
+    area += Math.hypot(a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]) / 2;
+  }
+  return area;
+};
+/** 상자와 삼각형의 교집합. 꼭짓점이 바깥이어도 입구를 가로지르는 큰 면을 잡는다. */
+const clipBox = (triangle, min, max) => {
+  let poly = triangle;
+  for (let axis = 0; axis < 3; axis++)
+    for (const [edge, sign] of [
+      [min[axis], 1],
+      [max[axis], -1],
+    ]) {
+      const next = [];
+      for (let i = 0; i < poly.length; i++) {
+        const a = poly[i],
+          b = poly[(i + 1) % poly.length];
+        const da = (a[axis] - edge) * sign,
+          db = (b[axis] - edge) * sign;
+        if (da >= 0) next.push(a);
+        if (da >= 0 !== db >= 0) next.push(a.map((x, k) => x + ((b[k] - x) * da) / (da - db)));
+      }
+      poly = next;
+    }
+  return poly;
+};
+
+// 가벼운 회귀 검사: node tools/assets/pipeline/verifyOutput.mjs --self-test
+if (selfTest) {
+  const spanning = [
+    [-10, -10, 0],
+    [10, -10, 0],
+    [0, 10, 0],
+  ];
+  assert.ok(Math.abs(polygonArea(clipBox(spanning, [-1, -1, -0.1], [1, 1, 0.1])) - 4) < 1e-10);
+  console.log('[자체 검사] 꼭짓점이 모두 바깥인 가림 면 검출 통과');
+  assert.equal(
+    polygonArea(
+      clipBox(
+        [
+          [0, 0, 2],
+          [1, 0, 2],
+          [0, 1, 2],
+        ],
+        [-1, -1, -0.1],
+        [1, 1, 0.1],
+      ),
+    ),
+    0,
+  );
+  assert.equal(
+    polygonArea(
+      clipBox(
+        [
+          [0, 0, 0],
+          [1, 0, 0],
+          [0, 1, 0],
+        ],
+        [1, 0, -0.1],
+        [2, 1, 0.1],
+      ),
+    ),
+    0,
+  );
+  console.log('[자체 검사] 떨어진 면·경계 접촉의 오검출 방지 통과');
+  const jamb = [
+    [
+      [0.2, 0, 0],
+      [0.2, 4.2, 0],
+      [0.2, 4.2, -0.3],
+    ],
+    [
+      [0.2, 0, 0],
+      [0.2, 4.2, -0.3],
+      [0.2, 0, -0.3],
+    ],
+  ];
+  assert.ok(Math.abs(jamb.reduce((sum, tri) => sum + polygonArea(tri), 0) - 1.26) < 1e-10);
+  console.log('[자체 검사] 수직 통로 면적 통과');
+  const doc = new Document(),
+    buffer = doc.createBuffer();
+  const position = doc
+    .createAccessor()
+    .setBuffer(buffer)
+    .setType('VEC3')
+    .setArray(new Int16Array([0, 0, 0, 32767, 0, 0, 0, 32767, 0]))
+    .setNormalized(true);
+  const node = doc
+    .createNode()
+    .setMesh(doc.createMesh().addPrimitive(doc.createPrimitive().setAttribute('POSITION', position)))
+    .setTranslation([1, 2, 3])
+    .setScale([2, 3, 4]);
+  doc.createScene().addChild(node);
+  assert.deepEqual(worldTriangles(node), [
+    [
+      [1, 2, 3],
+      [3, 2, 3],
+      [1, 5, 3],
+    ],
+  ]);
+  assert.equal(polygonArea(worldTriangles(node)[0]), 3);
+  console.log('[자체 검사] 양자화 정규화·노드 이동·축척 반영 통과');
+  process.exit(0);
+}
+
+const verifyV4 = async () => {
+  const v = templateGeometryV4[templateId];
+  if (!v) {
+    problems.push(`v4 템플릿 계약 없음: ${templateId}`);
+    return;
+  }
+  const l = c.LAYOUT_V4,
+    e = v.base.exterior,
+    u = c.MODULE_UNIT_M,
+    t = v.base.tileM;
+  const rise = e.steps * e.stepRiseM;
+  const groups = {
+    'core-v4': {
+      names: [
+        'roomWall4',
+        'roomWall2',
+        'roomCornerIn',
+        'roomCeiling',
+        'roomPortal',
+        'enfiladeDoor',
+        'enfiladeFrame',
+      ].map(k => v.modules[k]),
+      bytes: 1.6 * 1024 * 1024,
+      triangles: 6000,
+    },
+    'hall-v4': {
+      names: [
+        'hallWall4',
+        'hallWall2',
+        'hallCornerIn',
+        'hallPortal',
+        'hallEntrance',
+        'hallPilaster',
+        'hallCeiling',
+        'hallSkylight',
+        'hallFloor',
+      ].map(k => v.modules[k]),
+      bytes: 1.8 * 1024 * 1024,
+      triangles: 8000,
+    },
+    'exterior-v4': {
+      names: [
+        ...['portico', 'stairs', 'facadeWall2', 'facadeEnd', 'hedge2'].map(k => v.base.modules[k]),
+        v.modules.gate,
+      ],
+      bytes: 2.4 * 1024 * 1024,
+      triangles: 6000,
+    },
+  };
+  const all = new Map();
+  for (const [part, spec] of Object.entries(groups)) {
+    const file = `${part}.glb`;
+    if (!existsSync(join(dir, file))) {
+      problems.push(`${file}: 필수 묶음 없음`);
+      continue;
+    }
+    const { nodes, doc } = await load(file);
+    if (nodes.size !== spec.names.length)
+      problems.push(`${file}: 조각 수 ${nodes.size} ≠ ${spec.names.length}`);
+    for (const name of nodes.keys())
+      if (!spec.names.includes(name)) problems.push(`${file}: 계약 밖 이름 ${name}`);
+    for (const texture of doc.getRoot().listTextures()) {
+      // 기본색은 1024². KTX2 머리말의 pixelWidth·pixelHeight를 직접 읽는다.
+      if (
+        !doc
+          .getRoot()
+          .listMaterials()
+          .some(m => m.getBaseColorTexture() === texture)
+      )
+        continue;
+      const bytes = texture.getImage();
+      if (!bytes || bytes.byteLength < 28) {
+        problems.push(`${file}: KTX2 머리말 없음`);
+        continue;
+      }
+      const header = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      if (header.getUint32(20, true) !== 1024 || header.getUint32(24, true) !== 1024)
+        problems.push(`${file}: 기본색 질감 1024² 아님 ${texture.getName()}`);
+    }
+    let total = 0,
+      maxSlots = 0;
+    console.log(`[${file}]`);
+    for (const name of spec.names) {
+      const node = nodes.get(name);
+      if (!node) {
+        problems.push(`${file}: 조각 없음 ${name}`);
+        continue;
+      }
+      const info = meshInfo(file, name, node, name !== v.modules.hallFloor);
+      if (node.getMesh().listPrimitives().length > SLOTS_MAX)
+        problems.push(`${name}: 실제 그리기 재질 칸이 ${SLOTS_MAX}개 초과`);
+      if (
+        name === v.modules.hallFloor &&
+        node
+          .getMesh()
+          .listPrimitives()
+          .some(p => p.getMaterial()?.getOcclusionTexture())
+      )
+        problems.push(`${name}: 바닥에 구운 빛이 있음`);
+      total += info.triangles;
+      maxSlots = Math.max(maxSlots, info.slots.size);
+      const limit = name === v.base.modules.portico ? 40000 : spec.triangles;
+      if (info.triangles > limit) problems.push(`${name}: 삼각형 ${info.triangles} > ${limit}`);
+      const extras = node.getExtras();
+      if (extras.v4_baked !== true || !(extras.v4_gain > 0) || extras.v4_bundle !== part)
+        problems.push(`${name}: 실제 굽기·공통 노출 기록 없음`);
+      // meshopt 양자화는 노드에 보정 이동·축척을 넣는다. 행렬 자체가 아니라
+      // 보정 후 실제 표면의 범위로 배치 기준점(벽 시작·바닥·천장 모서리)을 확인한다.
+      const bounds = getBounds(node);
+      const range = (axis, min, max, label) => {
+        if (!near(bounds.min[axis], min) || !near(bounds.max[axis], max))
+          problems.push(
+            `${name}: ${label} ${fmt(bounds.min[axis])}..${fmt(bounds.max[axis])} ≠ ${min}..${max}`,
+          );
+      };
+      if (part === 'core-v4' || part === 'hall-v4') {
+        const h = part === 'core-v4' ? l.roomHeight : l.hall.h;
+        const ceiling = [v.modules.roomCeiling, v.modules.hallCeiling, v.modules.hallSkylight].includes(name);
+        if (ceiling) {
+          range(0, 0, t, '천장 폭');
+          range(2, 0, t, '천장 깊이');
+          range(1, h, h + (part === 'core-v4' ? 0.12 : 0.3), '천장 높이');
+        } else if (name === v.modules.hallFloor) {
+          range(0, 0, t, '바닥 폭');
+          range(2, 0, t, '바닥 깊이');
+          range(1, 0, 0, '바닥 높이');
+        } else {
+          range(1, 0, h, '벽 높이');
+          if (name.endsWith('_4m')) range(0, 0, u * 2, '벽 폭');
+          if (name.endsWith('_2m')) range(0, 0, u, '벽 폭');
+          if (name === v.modules.roomCornerIn) {
+            range(0, 0, 0.08, '모서리 폭');
+            range(2, 0, 0.08, '모서리 깊이');
+          }
+          if (name === v.modules.hallCornerIn) {
+            range(0, 0, 0.12, '모서리 폭');
+            range(2, 0, 0.12, '모서리 깊이');
+          }
+          if (name === v.modules.hallPilaster) {
+            range(0, -0.3, 0.3, '기둥 폭');
+            range(2, 0, 0.25, '기둥 돌출');
+          }
+        }
+      }
+      if (name === v.base.modules.stairs) {
+        range(0, -e.porticoW / 2, e.porticoW / 2, '계단 폭');
+        range(1, -rise, 1.2, '계단·돌 볼 높이');
+        if (Math.abs(bounds.max[2] - e.steps * e.stepRunM) > 0.003)
+          problems.push(`${name}: 계단 깊이 불일치`);
+      }
+      if (name === v.base.modules.portico) {
+        if (!near(bounds.min[2], -e.porticoD) || !near(bounds.min[1], -rise))
+          problems.push(`${name}: 현관 깊이·기단 기준점 불일치`);
+        // 지붕 몰딩의 돌출과 별개로 현관 바닥의 기준점·폭·깊이는 계약 그대로다.
+        const floor = worldTriangles(node, 'M_Paving').flat();
+        for (const [axis, min, max] of [
+          [0, -e.porticoW / 2, e.porticoW / 2],
+          [1, 0, 0],
+          [2, -e.porticoD, 0],
+        ])
+          if (
+            !floor.length ||
+            !near(Math.min(...floor.map(p => p[axis])), min) ||
+            !near(Math.max(...floor.map(p => p[axis])), max)
+          )
+            problems.push(`${name}: 현관 바닥 축 ${axis} 범위 불일치`);
+      }
+      if ([v.base.modules.facadeWall2, v.base.modules.facadeEnd].includes(name))
+        range(1, 0, rise + l.hall.h + u, '날개 벽 높이');
+      if ([v.base.modules.facadeWall2, v.base.modules.hedge2].includes(name)) range(0, 0, u, '외관 칸 폭');
+      if (name === v.modules.gate) {
+        range(0, -l.gate.w / 2, l.gate.w / 2, '대문 폭');
+        if (!near(bounds.min[1], 0)) problems.push(`${name}: 대문 바닥 기준점 불일치`);
+      }
+      all.set(name, { node, triangles: worldTriangles(node), bounds });
+      console.log(
+        `  ${name}: 삼각형 ${info.triangles}/${limit}, 재질 ${info.slots.size}/4, 높이 ${fmt(bounds.min[1])}..${fmt(bounds.max[1])}`,
+      );
+    }
+    const bytes = statSync(join(dir, file)).size;
+    if (bytes > spec.bytes) problems.push(`${file}: ${bytes}바이트 > ${spec.bytes}바이트`);
+    console.log(
+      `  합계 ${total}삼각형 · 재질 최대 ${maxSlots}칸 · ${bytes}바이트 / ${Math.floor(spec.bytes)}바이트`,
+    );
+  }
+  const interiorGains = [...all.entries()]
+    .filter(([name]) => name.startsWith('mh4_room_') || name.startsWith('mh4_hall_'))
+    .map(([, item]) => item.node.getExtras().v4_gain);
+  if (interiorGains.some(gain => Math.abs(gain - interiorGains[0]) > 1e-8))
+    problems.push('v4 실내 조각의 공통 노출이 서로 다름');
+  for (const key of ['hallPortal', 'hallEntrance']) {
+    const item = all.get(v.modules[key]);
+    if (!item) continue;
+    const signFront = v.base.fixtures.wallOffsetM;
+    if (
+      item.triangles.some(
+        tri =>
+          polygonArea(
+            clipBox(
+              tri,
+              [0.2, l.portalLetteringY - 0.2, signFront],
+              [l.portal.w - 0.2, l.portalLetteringY + 0.2, signFront + 0.5],
+            ),
+          ) >
+          MM * MM,
+      )
+    )
+      problems.push(`${v.modules[key]}: 레터링 앞을 가리는 받이 면 있음`);
+  }
+  // 문 열림 및 네 통로 면의 면적·깊이: 두께가 없는 짝은 벽 뒤 정점 자체를 금지한다.
+  for (const [key, opening, depth] of [
+    ['roomPortal', l.portal, c.WALL_THICKNESS_M],
+    ['hallPortal', l.portal, 0],
+    ['hallEntrance', l.portal, c.WALL_THICKNESS_M],
+    ['enfiladeDoor', l.enfilade, c.WALL_THICKNESS_M + l.roomGap],
+    ['enfiladeFrame', l.enfilade, 0],
+  ]) {
+    const name = v.modules[key],
+      item = all.get(name);
+    if (!item) continue;
+    const a = (opening.w - opening.clear) / 2,
+      b = opening.w - a;
+    if (!near(item.bounds.min[2], -depth))
+      problems.push(`${name}: 두께 깊이 ${fmt(-item.bounds.min[2])} ≠ ${depth}`);
+    const clipped = item.triangles.some(
+      tri =>
+        polygonArea(clipBox(tri, [a + MM * 2, MM * 2, -depth - MM], [b - MM * 2, opening.h - MM * 2, 0.3])) >
+        MM * MM,
+    );
+    if (clipped) problems.push(`${name}: 맑은 문 열림을 막는 면 있음`);
+    if (depth > 0)
+      for (const [axis, value, expected] of [
+        [0, a, opening.h * depth],
+        [0, b, opening.h * depth],
+        [1, 0, opening.clear * depth],
+        [1, opening.h, opening.clear * depth],
+      ]) {
+        const area = item.triangles
+          .filter(tri => tri.every(p => near(p[axis], value) && p[2] <= MM && p[2] >= -depth - MM))
+          .reduce((sum, tri) => sum + polygonArea(tri), 0);
+        if (Math.abs(area - expected) > Math.max(0.01, expected * 0.005))
+          problems.push(`${name}: 통로 ${axis}/${value} 면적 ${area.toFixed(4)} ≠ ${expected}`);
+      }
+  }
+  // 모든 디딤판은 배치 엔진 발 높이와 같은 평면이어야 한다.
+  const stairs = all.get(v.base.modules.stairs);
+  if (stairs)
+    for (let k = 0; k < e.steps; k++) {
+      const y = -k * e.stepRiseM,
+        z = (k + 0.5) * e.stepRunM;
+      const hit = stairs.triangles.some(
+        tri =>
+          tri.every(p => near(p[1], y)) &&
+          polygonArea(clipBox(tri, [-0.1, y - MM, z - 0.01], [0.1, y + MM, z + 0.01])) > MM * MM,
+      );
+      if (!hit) problems.push(`계단 ${k + 1}단: 중앙 디딤판 높이 ${y} 없음`);
+    }
+  console.log('[v4] 이름·높이·기준점·문 열림·두께 면 짝·16단 디딤판 검사 완료');
+};
+
+if (v4Only) {
+  await verifyV4();
+  if (problems.length) {
+    console.error(`[verify] 실패 ${problems.length}건\n- ${problems.join('\n- ')}`);
+    process.exit(1);
+  }
+  console.log(`[verify] ${templateId} v4 통과 (3묶음·22조각)`);
+  process.exit(0);
+}
 
 // ── core.glb(실내) ─────────────────────────────────────────────
 const REQUIRED_CORE = {
@@ -335,6 +740,9 @@ console.log(
 );
 if (increase > R3_INCREASE_MAX_BYTES)
   problems.push(`glb 합계 증가 ${(increase / 1024 / 1024).toFixed(2)}MB > 2MB`);
+
+if (['core-v4', 'hall-v4', 'exterior-v4'].some(part => existsSync(join(dir, `${part}.glb`))))
+  await verifyV4();
 
 if (problems.length > 0) {
   console.error(`[verify] 실패 ${problems.length}건\n- ${problems.join('\n- ')}`);

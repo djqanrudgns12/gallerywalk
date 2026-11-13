@@ -96,6 +96,24 @@ describe('함께 관람 허브', () => {
     expect(b.client.invalid).toEqual([]);
   });
 
+  it('판 2 기기는 실제 웹소켓으로 p를 글 프레임으로 받고(자기 것 포함), 판 1 기기와 한 방에 섞여도 각자 형식', async () => {
+    const ex = seedExhibition(rig.t);
+    const a = await enter(rig, ex.entryCode, hello(newToken(), { v: 2 }));
+    const b = await enter(rig, ex.entryCode, hello(newToken(), { pose: pose(2), v: 2 }));
+    const old = await enter(rig, ex.entryCode, hello(newToken(), { pose: pose(3) }));
+    expect(a.welcome.n).toBe(1);
+    expect(b.welcome.n).toBe(2);
+    expect(old.welcome.n).toBeUndefined();
+    b.client.send({ t: 'pose', seq: 1, pose: pose(4) });
+    await b.client.barrier();
+    tick();
+    const got = await a.client.next('p');
+    expect(got.p).toEqual([2, 400, 0, -200, 500, 1]);
+    expect((await b.client.next('p')).p).toEqual(got.p);
+    expect((await old.client.next('peers')).poses).toEqual([{ sid: b.welcome.you, pose: pose(4) }]);
+    for (const c of [a, b, old]) expect(c.client.invalid).toEqual([]);
+  });
+
   it('별명은 서버 값: 기기가 보낸 별명 칸은 받지 않고, 익명 방식·별명 없음은 번호, 교사는 선생님', async () => {
     const ex = seedExhibition(rig.t, { naming: 'ANONYMOUS' });
     const named = seedVisitor(rig.t, ex.id, '하늘빛');
@@ -181,7 +199,7 @@ describe('함께 관람 허브', () => {
     ['JSON이 아님', c => c.ws.send('{"t":"hello"')],
     ['모르는 종류', c => c.send({ t: 'chat', text: '안녕' })],
     ['hello 전에 pose', c => c.send({ t: 'pose', seq: 1, pose: pose(1) })],
-    ['판이 다름', c => c.send({ ...hello(newToken()), v: 2 })],
+    ['판이 다름(모르는 판)', c => c.send({ ...hello(newToken()), v: 3 })],
     ['토큰 모양이 틀림', c => c.send(hello('short-token'))],
     ['좌표가 범위 밖', c => c.send(hello(newToken(), { pose: pose(501) }))],
     ['바이너리', c => c.ws.send(Buffer.from('{}'))],
@@ -316,6 +334,57 @@ describe('함께 관람 허브', () => {
     expect(rig.hub.size().peers).toBe(0);
   });
 
+  it('캐릭터 12종(M4-9): 새 ID는 그대로, 옛 별칭은 01번으로 받고, 옛 ID만 아는 기기에는 몸 틀로 낮춰 보낸다', async () => {
+    const ex = seedExhibition(rig.t);
+    const a = await enter(rig, ex.entryCode, hello(newToken(), { v: 2, character: 'student-m-03' }));
+    // 옛 별칭을 보낸 기기(캐릭터 12종 전 앱)
+    const b = await enter(rig, ex.entryCode, hello(newToken(), { v: 2, character: 'student-f' }));
+    expect((await a.client.next('join')).peer.character).toBe('student-f-01');
+    expect(b.welcome.peers.map(p => p.character)).toEqual(['student-m']);
+
+    const t = await enter(
+      rig,
+      ex.entryCode,
+      hello(seedTeacher(rig.t, ex.id), { as: 'teacher', v: 2, character: 'teacher-m' }),
+    );
+    expect(t.welcome.peers.map(p => p.character)).toEqual(['student-m-03', 'student-f-01']);
+    expect((await a.client.next('join')).peer.character).toBe('teacher-m');
+    expect((await b.client.next('join')).peer.character).toBe('teacher-m');
+
+    // 판 1 기기도 옛 ID만 안다
+    const old = await enter(rig, ex.entryCode, hello(newToken(), { character: 'student-f-05' }));
+    expect(old.welcome.peers.map(p => p.character)).toEqual(['student-m', 'student-f', 'teacher-m']);
+    expect((await a.client.next('join')).peer.character).toBe('student-f-05');
+    expect((await b.client.next('join')).peer.character).toBe('student-f');
+    expect((await t.client.next('join')).peer.character).toBe('student-f-05');
+    for (const c of [a, b, t, old]) expect(c.client.invalid).toEqual([]);
+  });
+
+  it('캐릭터 판(M4-9): 판 2라도 `chars`가 없는 교사 앱(12종 전)에는 남의 학생 ID를 몸 틀로 낮춘다', async () => {
+    const ex = seedExhibition(rig.t);
+    await enter(rig, ex.entryCode, hello(newToken(), { v: 2, character: 'student-m-04' }));
+    const oldTeacher = await enter(
+      rig,
+      ex.entryCode,
+      hello(seedTeacher(rig.t, ex.id), { as: 'teacher', v: 2, character: 'teacher-f', chars: null }),
+    );
+    expect(oldTeacher.welcome.peers.map(p => p.character)).toEqual(['student-m']);
+    expect(oldTeacher.client.invalid).toEqual([]);
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ['방문자가 도슨트 캐릭터', { character: 'docent-1' }],
+    ['없는 학생 번호', { character: 'student-m-06' }],
+    ['교사가 학생 캐릭터(새 ID)', { as: 'teacher', character: 'student-f-02' }],
+  ])('캐릭터가 틀리면 들여보내지 않음: %s → E_VALIDATION', async (_name, over) => {
+    const ex = seedExhibition(rig.t);
+    const token = over['as'] === 'teacher' ? seedTeacher(rig.t, ex.id) : newToken();
+    const client = await LiveClient.open(url(ex));
+    client.send({ ...hello(token), ...over });
+    await expectBye(client, 'E_VALIDATION');
+    expect(rig.hub.size().peers).toBe(0);
+  });
+
   it('없는 입장 코드는 E_NOT_FOUND', async () => {
     seedExhibition(rig.t);
     const client = await LiveClient.open(`${rig.base}/api/e/999999/live`);
@@ -345,5 +414,27 @@ describe('함께 관람 허브', () => {
     rig.hub.closeExhibition(ex.id, 'E_NOT_FOUND');
     await expectBye(teacher.client, 'E_NOT_FOUND');
     await until(() => rig.hub.size().rooms === 0);
+  });
+
+  it('exhibitionCounts: 그 전시 방의 학생·교사 수만(다른 전시·hello 기다림은 세지 않음)', async () => {
+    const ex = seedExhibition(rig.t);
+    const other = seedExhibition(rig.t);
+    expect(rig.hub.exhibitionCounts(ex.id)).toEqual({ visitors: 0, teachers: 0 });
+    const a = await enter(rig, ex.entryCode, hello(newToken()));
+    const b = await enter(rig, ex.entryCode, hello(newToken()));
+    const teacher = await enter(rig, ex.entryCode, hello(seedTeacher(rig.t, ex.id), { as: 'teacher' }));
+    await enter(rig, other.entryCode, hello(newToken()));
+    const waiting = await LiveClient.open(url(ex));
+    await until(() => rig.hub.size().pending === 1);
+    expect(rig.hub.exhibitionCounts(ex.id)).toEqual({ visitors: 2, teachers: 1 });
+    expect(rig.hub.exhibitionCounts(other.id)).toEqual({ visitors: 1, teachers: 0 });
+    a.client.close();
+    await until(() => rig.hub.exhibitionCounts(ex.id).visitors === 1);
+    expect(rig.hub.exhibitionCounts(ex.id)).toEqual({ visitors: 1, teachers: 1 });
+    b.client.close();
+    teacher.client.close();
+    waiting.close();
+    await until(() => rig.hub.exhibitionCounts(ex.id).teachers === 0);
+    expect(rig.hub.exhibitionCounts(ex.id)).toEqual({ visitors: 0, teachers: 0 });
   });
 });

@@ -1,11 +1,21 @@
 import { config } from '@gallery/core/config';
 import { copy, fill } from '@gallery/core/copy';
+import {
+  bodyOf,
+  normalizeCharacterId,
+  STUDENT_CHARACTER_IDS,
+  STUDENT_FEMALE_IDS,
+  STUDENT_MALE_IDS,
+  type StudentCharacterId,
+  studentNumber,
+} from '@gallery/core/types';
 import { type JSX, useId, useRef } from 'react';
 import { Icon } from '../../Icon.tsx';
 import { radioKeyStep } from '../radioKeys.ts';
 import s from './EntryPoster.module.css';
 
-export type StudentCharacterId = 'student-m' | 'student-f';
+/** 학생이 고르는 캐릭터 10명(목록은 `domain/characters.ts`) */
+export type { StudentCharacterId };
 
 /** 포스터 위 절반에 거는 작품 한 점(썸네일 주소와 화소 크기 — 그림이 오기 전에도 액자 비율을 잡는다) */
 export interface EntryPosterArtwork {
@@ -32,12 +42,14 @@ export interface EntryPosterProps {
   freshStarted?: boolean | undefined;
   character: StudentCharacterId;
   onCharacterChange: (character: StudentCharacterId) => void;
-  /** 캐릭터별 그림 주소. 없으면 3등신 실루엣 표시 */
+  /** 캐릭터별 얼굴 그림 주소(`face.png`가 오면). 없으면 몸 틀 실루엣 + 번호 */
   characterImage?: Partial<Record<StudentCharacterId, string>> | undefined;
   /** 준비 진행(0~1). 값이 있으면 입장 단추 바로 위에 같은 폭의 진행 막대. 준비가 끝나면 넘기지 않는다 */
   prepare?: number | null | undefined;
   onEnter: () => void;
   enterDisabled?: boolean | undefined;
+  /** 입장 단추 바로 위 한 줄(진행 막대 대신 — 3D 준비가 늦어 가벼운 화면으로 들어갈 때, G-24) */
+  enterNote?: string | null | undefined;
   showInAppBrowserHint?: boolean | undefined;
   className?: string | undefined;
 }
@@ -45,7 +57,11 @@ export interface EntryPosterProps {
 /** 위 절반에 거는 최대 작품 수(가운데 큰 액자 1 + 양옆 2). 화면 모양에 묶인 값 */
 const HUNG_MAX = 3;
 
-const StudentSilhouette = ({ variant }: { variant: StudentCharacterId }): JSX.Element =>
+/** 고르기 두 줄(남 1~5 · 여 6~10, `STUDENT_CHARACTER_IDS` 순서) */
+const PICK_ROWS: readonly (readonly StudentCharacterId[])[] = [STUDENT_MALE_IDS, STUDENT_FEMALE_IDS];
+
+/** 몸 틀 실루엣(학생 남·여) */
+const StudentSilhouette = ({ variant }: { variant: 'student-m' | 'student-f' }): JSX.Element =>
   variant === 'student-m' ? (
     <svg
       className={s.figure}
@@ -119,6 +135,7 @@ export const EntryPoster = ({
   prepare,
   onEnter,
   enterDisabled = false,
+  enterNote = null,
   showInAppBrowserHint = false,
   className,
 }: EntryPosterProps): JSX.Element => {
@@ -130,10 +147,8 @@ export const EntryPoster = ({
   // "○○ 전시 전시관"처럼 겹친다(V-57)
   const displayTitle = title.trim();
 
-  const studentOptions: readonly { id: StudentCharacterId; label: string }[] = [
-    { id: 'student-m', label: copy.poster.studentMale },
-    { id: 'student-f', label: copy.poster.studentFemale },
-  ];
+  // 옛 ID가 와도(기기에 남은 값) 01번 칸을 고른 것으로 보인다
+  const chosen = normalizeCharacterId(character);
 
   // 작게 한 줄: 학교 · 작품 수 · 기간
   const meta = [
@@ -229,43 +244,55 @@ export const EntryPoster = ({
               <span className={s.label} id={charLabelId}>
                 {copy.poster.characterLabel}
               </span>
-              <div className={s.charRow} role="radiogroup" aria-labelledby={charLabelId}>
-                {studentOptions.map((opt, i) => {
-                  const selected = character === opt.id;
-                  const imgSrc = characterImage?.[opt.id];
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      aria-label={opt.label}
-                      tabIndex={selected ? 0 : -1}
-                      ref={el => {
-                        charRefs.current[i] = el;
-                      }}
-                      className={selected ? `${s.charBtn} ${s.charBtnSelected}` : s.charBtn}
-                      onClick={() => onCharacterChange(opt.id)}
-                      onKeyDown={e => {
-                        const to = radioKeyStep(e.key, i, studentOptions.length);
-                        const target = to === null ? undefined : studentOptions[to];
-                        if (to === null || !target) return;
-                        e.preventDefault();
-                        onCharacterChange(target.id);
-                        charRefs.current[to]?.focus();
-                      }}
-                      data-testid={`char-${opt.id}`}
-                    >
-                      {imgSrc ? (
-                        <img className={s.charImg} src={imgSrc} alt="" />
-                      ) : (
-                        <StudentSilhouette variant={opt.id} />
-                      )}
-                      <span className={s.charName}>{opt.label}</span>
-                      {selected ? <Icon name="check" size={16} className={s.charCheck} /> : null}
-                    </button>
-                  );
-                })}
+              <div className={s.charGrid} role="radiogroup" aria-labelledby={charLabelId}>
+                {PICK_ROWS.map((row, r) => (
+                  <div key={r} className={s.charRow}>
+                    {row.map(id => {
+                      const i = STUDENT_CHARACTER_IDS.indexOf(id);
+                      const n = studentNumber(id);
+                      const selected = chosen === id;
+                      const imgSrc = characterImage?.[id];
+                      const body = bodyOf(id) === 'student-f' ? 'student-f' : 'student-m';
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          aria-label={fill(copy.poster.characterNumber, {
+                            group: r === 0 ? copy.poster.studentMale : copy.poster.studentFemale,
+                            n,
+                          })}
+                          tabIndex={selected ? 0 : -1}
+                          ref={el => {
+                            charRefs.current[i] = el;
+                          }}
+                          className={selected ? `${s.charBtn} ${s.charBtnSelected}` : s.charBtn}
+                          onClick={() => onCharacterChange(id)}
+                          onKeyDown={e => {
+                            const to = radioKeyStep(e.key, i, STUDENT_CHARACTER_IDS.length);
+                            const target = to === null ? undefined : STUDENT_CHARACTER_IDS[to];
+                            if (to === null || !target) return;
+                            e.preventDefault();
+                            onCharacterChange(target);
+                            charRefs.current[to]?.focus();
+                          }}
+                          data-testid={`char-${id}`}
+                        >
+                          {imgSrc ? (
+                            <img className={s.charImg} src={imgSrc} alt="" />
+                          ) : (
+                            <StudentSilhouette variant={body} />
+                          )}
+                          <span className={s.charNum} aria-hidden="true">
+                            {n}
+                          </span>
+                          {selected ? <Icon name="check" size={14} className={s.charCheck} /> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -287,6 +314,10 @@ export const EntryPoster = ({
                 >
                   <div className={s.prepareFill} style={{ width: `${prepPct}%` }} />
                 </div>
+              </div>
+            ) : enterNote ? (
+              <div className={s.prepare} data-testid="enter-note" role="status">
+                {enterNote}
               </div>
             ) : null}
             <button

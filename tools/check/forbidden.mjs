@@ -222,11 +222,58 @@ function checkForbiddenElementsAndEmoji(rootDir, violations) {
 /**
  * ①·②·④ 금지 규칙을 모두 검사한다.
  */
+/**
+ * ⑥ 오래된 학교 기기(iPad Safari 15·삼성 인터넷 Chromium 90대, G-24 HW-05)에 없는 실행 기능 금지.
+ * 빌드 대상을 낮추면 문법은 풀어 쓰지만 이런 함수는 채워 주지 않아 그 기기에서 화면이 멈춘다.
+ * 대상: 앱·공용 코드(`apps/web/src/**`, `packages/core/src/**`), 시험·개발 화면 제외. `.at()`은 배열·문자열에 흔한
+ * 음수·0 자리만 본다(이름이 같은 직접 만든 메서드 `piece.at(t)`는 그대로).
+ */
+const NEW_RUNTIME_APIS = [
+  [/\bObject\.hasOwn\(/, 'Object.hasOwn (Object.prototype.hasOwnProperty.call)'],
+  [/\.at\((?:-\s*\d+|0)\)/, '.at(-1)·.at(0) (길이로 자리 찾기)'],
+  [/\bstructuredClone\(/, 'structuredClone'],
+  [/\.(?:findLast|findLastIndex|toSorted|toReversed|toSpliced)\(/, 'findLast·toSorted 등 ES2023 배열 함수'],
+  [/\bPromise\.withResolvers\b/, 'Promise.withResolvers'],
+  [/\b(?:Object|Map)\.groupBy\(/, 'Object.groupBy·Map.groupBy'],
+  [/\bAbortSignal\.(?:timeout|any)\(/, 'AbortSignal.timeout·any'],
+  [/\bArray\.fromAsync\(/, 'Array.fromAsync'],
+];
+
+function checkNewRuntimeApis(rootDir, violations) {
+  const dirs = [path.join(rootDir, 'apps/web/src'), path.join(rootDir, 'packages/core/src')];
+  for (const baseDir of dirs) {
+    const files = walkFiles(baseDir, {
+      filter: filePath =>
+        CODE_FILE_RE.test(filePath) && !isTestFile(filePath) && !isWebDevFile(rootDir, filePath),
+    });
+    for (const filePath of files) {
+      const relFile = toPosixRelative(rootDir, filePath);
+      const content = fs.readFileSync(filePath, 'utf8');
+      const { strippedText } = scanFile(filePath, content);
+      const lines = strippedText.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const lineText = lines[i] ?? '';
+        for (const [re, name] of NEW_RUNTIME_APIS) {
+          if (re.test(lineText)) {
+            violations.push({
+              file: relFile,
+              line: i + 1,
+              rule: 'no-new-runtime-api',
+              message: `오래된 학교 기기에 없는 실행 기능입니다: ${name}`,
+            });
+          }
+        }
+      }
+    }
+  }
+}
+
 export function checkForbidden({ rootDir = REPO_ROOT } = {}) {
   const violations = [];
   checkInlineKorean(rootDir, violations);
   checkCssFiles(rootDir, violations);
   checkForbiddenElementsAndEmoji(rootDir, violations);
+  checkNewRuntimeApis(rootDir, violations);
   return { violations, warnings: [] };
 }
 

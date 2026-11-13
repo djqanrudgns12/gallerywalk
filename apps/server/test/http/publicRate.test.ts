@@ -18,7 +18,7 @@ import { sqliteTestDeps, type TestDeps } from '../support/sqliteDeps.ts';
 import { randomDeviceId, randomStrongPin, randomToken, tempDb, type TempDb } from '../security/support.ts';
 
 /**
- * 학생 경로 속도 칸(PLAN §9.2 학생 표, ADR-062): 기기·IP·방문자 칸, 틀린 입장 코드 IP 칸. 보안 묶음이 없으면 세지 않는다.
+ * 학생 경로 속도 칸(PLAN §9.2 학생 표, ADR-062): 기기·IP·방문자 칸, 틀린 입장 코드 기기·IP 칸(ADR-070). 보안 묶음이 없으면 세지 않는다.
  * 기기 ID·토큰·IP는 시험 안에서 만든 난수·문서용 주소.
  */
 
@@ -71,6 +71,12 @@ afterEach(async () => {
   await t.close();
 });
 
+/** 전시를 열린 상태로(맞는 코드면 200) */
+const open = (): void => {
+  const ex = deps.store.exhibitions.getByEntryCode(code)!;
+  deps.store.exhibitions.update(ex.id, { status: 'OPEN', openedAt: s.at() });
+};
+
 const get = (path: string, ip: string, device: string) =>
   app.request(path, { headers: { 'x-gw-viewer-ip': ip, 'x-device-id': device } });
 const codeOf = async (res: Response): Promise<string> => ApiErrorSchema.parse(await res.json()).error.code;
@@ -106,6 +112,37 @@ describe('학생 경로 속도 칸', () => {
     // 준비 중 전시 → 막히지 않은 IP는 원래 답(409)
     const other = await get(`/api/e/${code}`, IP_B, randomDeviceId());
     expect(await codeOf(other)).toBe('E_EXHIBITION_DRAFT');
+  });
+
+  it('틀린 코드 연타(한도+1번째)는 그 기기만 막고, 같은 IP의 다른 기기는 맞는 코드로 연다', async () => {
+    const [max] = config().PUBLIC_RATE.badCodeDevice;
+    expect(max).toBeLessThan(config().PUBLIC_RATE.badCodeIp[0]);
+    open();
+    const device = randomDeviceId();
+    for (let i = 0; i < max; i++)
+      expect((await get(`/api/e/${missingCode(i)}`, IP_A, device)).status).toBe(404);
+    const over = await get(`/api/e/${missingCode(max)}`, IP_A, device);
+    expect(over.status).toBe(429);
+    expect(Number(over.headers.get('retry-after'))).toBeGreaterThan(0);
+    expect(await codeOf(over)).toBe('E_RATE_LIMITED');
+    // 막힌 기기는 맞는 코드도 창이 끝날 때까지 막힌다
+    expect((await get(`/api/e/${code}`, IP_A, device)).status).toBe(429);
+    expect((await get(`/api/e/${code}`, IP_A, randomDeviceId())).status).toBe(200);
+    s.advance(config().PUBLIC_RATE.badCodeDevice[1] * 1000);
+    expect((await get(`/api/e/${code}`, IP_A, device)).status).toBe(200);
+  });
+
+  it('같은 IP(학교 공용) 30기기가 틀린 코드를 몇 번씩 넣어도 학교 전체는 막히지 않는다', async () => {
+    open();
+    const devices = Array.from({ length: 30 }, () => randomDeviceId());
+    const tries = 5;
+    let n = 0;
+    for (const device of devices)
+      for (let i = 0; i < tries; i++)
+        expect((await get(`/api/e/${missingCode(n++)}`, IP_A, device)).status).toBe(404);
+    expect(n).toBeLessThan(config().PUBLIC_RATE.badCodeIp[0]);
+    expect((await get(`/api/e/${code}`, IP_A, devices[0]!)).status).toBe(200);
+    expect((await get(`/api/e/${code}`, IP_A, randomDeviceId())).status).toBe(200);
   });
 
   it('별명 바꾸기: 방문자(토큰)마다 한도, 넘으면 429', async () => {

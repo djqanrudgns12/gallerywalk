@@ -11,12 +11,15 @@ import { StudentExhibition } from './student/StudentExhibition.tsx';
  * 앱 뿌리와 경로(PLAN §7.1).
  * - `/` 첫 화면 · `/{6자리}` 학생 전시 · `/t/*` 교사(지연 로드 — 교사 코드가 학생 묶음에 들어가지 않게) · 그 밖은 `/`.
  * - `/privacy` 개인정보처리방침(학생·교사 공통, 지연 로드, P6-8).
+ * - `/check` 학교망 점검(선생님·정보 담당, 지연 로드, FIELD_PLAN HW-00).
  */
 
 const TeacherApp = lazy(() => import('./teacher/TeacherApp.tsx').then(m => ({ default: m.TeacherApp })));
 const PrivacyScreen = lazy(() =>
   import('./privacy/PrivacyScreen.tsx').then(m => ({ default: m.PrivacyScreen })),
 );
+/** 학교망 점검(FIELD_PLAN HW-00): 3D 엔진 없이 가볍게, 따로 늦게 받는다 */
+const CheckScreen = lazy(() => import('./check/CheckScreen.tsx').then(m => ({ default: m.CheckScreen })));
 
 const ExhibitionRoute = () => {
   const code = entryCodeOf(useParams().code);
@@ -39,6 +42,14 @@ export const AppRoutes = () => (
       element={
         <Suspense fallback={null}>
           <PrivacyScreen />
+        </Suspense>
+      }
+    />
+    <Route
+      path={PATHS.check}
+      element={
+        <Suspense fallback={null}>
+          <CheckScreen />
         </Suspense>
       }
     />

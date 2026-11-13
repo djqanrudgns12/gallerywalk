@@ -114,7 +114,7 @@ export const groupUpload = <E extends UploadEntry>(
   const kept: Kept<E>[] = [];
   for (const entry of entries) {
     const segments = splitPath(entry.path);
-    const fileName = segments.at(-1);
+    const fileName = segments[segments.length - 1];
     const dirs = segments.slice(0, -1);
     if (fileName === undefined || isIgnoredFileName(fileName) || dirs.some(isIgnoredDirName)) {
       dropped.push(entry);
@@ -159,7 +159,7 @@ export const groupUpload = <E extends UploadEntry>(
   }
   const folderGroups = [...groups.values()].sort((a, b) => compareNaturalSegments(a.roomDirs, b.roomDirs));
   for (const group of folderGroups) {
-    const folderName = group.roomDirs.at(-1)!;
+    const folderName = group.roomDirs[group.roomDirs.length - 1]!;
     const items = group.members.sort(compareMembers).map(toItem);
     const bgm = items.find(item => item.kind === 'AUDIO') ?? null;
     rooms.push({

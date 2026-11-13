@@ -1,0 +1,114 @@
+/*
+ * 도슨트 대사 카드(PRD_V2 W-10, M4-8) — 화면 아래 작은 안내판. 도슨트 알림(`DocentBubble`)과 같은 숯색 판 · 1px 테에
+ * 얼굴 동그라미 · 이름(작은 놋쇠 글자) · 대사 · 닫기. 판은 한 줄 높이에 가깝게 두어 3D 공간을 덮지 않는다.
+ */
+.card {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: min(92vw, 480px);
+  padding: var(--s-2) var(--s-1) var(--s-2) var(--s-3);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-plate);
+  font-family: var(--font-ui);
+  animation: rise var(--t-sheet) var(--ease-out);
+}
+
+.face {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--plate-edge);
+  background-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.faceImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.body {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.name {
+  color: var(--accent);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+}
+
+.text {
+  margin: 0;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  line-height: var(--lh-body);
+  overflow-wrap: anywhere;
+}
+
+.close {
+  flex: none;
+  align-self: flex-start;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: var(--r-plate);
+  color: var(--plate-ink-sub);
+  cursor: pointer;
+}
+
+.close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .close:hover {
+    color: var(--plate-ink);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+}
+
+@media (max-width: 540px) {
+  .text {
+    font-size: var(--fs-2);
+  }
+}

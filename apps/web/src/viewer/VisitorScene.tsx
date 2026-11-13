@@ -1,8 +1,9 @@
+import { copy } from '@gallery/core/copy';
 import type { TemplateLook } from '@gallery/core/templates';
 import type { P2 } from '@gallery/core/layout';
 import type { CharacterId, Layout, Pose } from '@gallery/core/types';
 import { useThree } from '@react-three/fiber';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type PeerView } from './live/peerBuffer.ts';
 import { Peers } from './live/Peers.tsx';
 import { useArtworkHover } from './scene/useArtworkHover.ts';
@@ -11,6 +12,11 @@ import { ArtworkLabels, type LabelItem } from './scene/ArtworkLabels.tsx';
 import { ExteriorContact } from './scene/ExteriorContact.tsx';
 import { labelAwayOf } from './scene/labelAway.ts';
 import { FacadeSign } from './scene/FacadeSign.tsx';
+import { Docents } from './npc/Docents.tsx';
+import { SignsV4 } from './signs/SignsV4.tsx';
+import { withoutLegacySigns } from './signs/signAtlasV4.ts';
+import { BlockoutModules } from './scene/BlockoutModules.tsx';
+import { WallWash } from './scene/WallWash.tsx';
 import { FixtureModels } from './scene/FixtureModels.tsx';
 import type { DimHolder } from './scene/materials.ts';
 import { MicroMotion } from './scene/MicroMotion.tsx';
@@ -70,6 +76,8 @@ export interface VisitorSceneProps {
   readonly paused?: boolean | undefined;
   /** 그린 프레임마다 내 자리(함께 관람 보내기) */
   readonly onPose?: ((pose: Pose) => void) | undefined;
+  /** 내 점프가 뜨는 순간(함께 관람에 알림, PRD_V2 W-05) */
+  readonly onJump?: (() => void) | undefined;
   /** 캐릭터가 들어간 구역이 바뀜(외관·회랑·관 ID) — 배경음악 등 바깥이 따라간다 */
   readonly onRegion?: ((region: string) => void) | undefined;
   /**
@@ -83,6 +91,8 @@ export interface VisitorSceneProps {
   readonly start?: WalkStart | undefined;
   /** 첫 조각 묶음(외관)이 올라와 첫 자리를 그릴 수 있음 — 한 번 */
   readonly onReady?: (() => void) | undefined;
+  /** 조각 파일을 하나도 받지 못하고 목록을 다 돌았음(멈춤·실패, G-24 HW-01) — 3D를 그릴 수 없다 */
+  readonly onLoadFail?: (() => void) | undefined;
   /** 3D 안 사인(V-03): 관 ID → 전시실 이름·소개. 없으면 사인 글을 그리지 않는다 */
   readonly signRooms?: ReadonlyMap<string, SignRoom> | undefined;
   /** 사인 판의 글자 자리(템플릿 manifest) */
@@ -112,7 +122,9 @@ export const VisitorScene = ({
   cards,
   paused,
   onPose,
+  onJump,
   onReady,
+  onLoadFail,
   onRegion,
   start,
   reducedMotion,
@@ -122,7 +134,12 @@ export const VisitorScene = ({
   signRooms,
   signAreas,
 }: VisitorSceneProps) => {
-  const modules = useTemplateModules(modulesUrl, look);
+  const failRef = useRef(onLoadFail);
+  failRef.current = onLoadFail;
+  const onModulesSettled = useCallback((n: number) => {
+    if (n === 0) failRef.current?.();
+  }, []);
+  const modules = useTemplateModules(modulesUrl, look, onModulesSettled);
   const loaded = modules !== null;
   useEffect(() => {
     if (loaded) onReady?.();
@@ -186,6 +203,9 @@ export const VisitorScene = ({
   );
   const shownSigns = useMemo(() => visibleSigns(signs, visible), [signs, visible]);
   const sign = layout.fixtures.find(f => f.kind === 'facadeSign');
+  // 공간 v4(스키마 3): 안내판 체계 렌더러가 글을 맡으므로 옛 설비 사인(외관 이름판·소개판)은 빼고 그린다(겹친 글·빈 판 없게)
+  const v4 = layout.schemaVersion === 3;
+  const fixtures = useMemo(() => (v4 ? withoutLegacySigns(layout.fixtures) : layout.fixtures), [layout, v4]);
   const labels = useMemo<LabelItem[]>(() => {
     const byId = new Map(artworks.map(a => [a.id, a]));
     return layout.labels.flatMap(l => {
@@ -221,11 +241,32 @@ export const VisitorScene = ({
       <Sky exterior={layout.exterior} look={look.outdoor.sky} />
       <ExteriorContact layout={layout} glow={look.outdoor.entranceGlow} />
       {modules && <TemplateModules modules={modules} placements={placements} />}
+      {modules && layout.schemaVersion === 3 && (
+        <BlockoutModules modules={modules} placements={placements} look={look} />
+      )}
+      {/* 공간 v4 전시실 벽 와시(W-12 ①, 그리기 1회) — 스키마 2면 그리지 않음 */}
+      <WallWash layout={layout} visibleParts={visible} look={look.wash} />
       {extra?.(modules)}
-      <FixtureModels fixtures={layout.fixtures} models={fixtureModels} />
+      <FixtureModels fixtures={fixtures} models={fixtureModels} />
       <ArtworkLabels items={labels} />
-      <SignTexts items={shownSigns} />
-      {sign && <FacadeSign fixture={sign} title={title} />}
+      {v4 ? (
+        signRooms && (
+          <SignsV4
+            layout={layout}
+            rooms={signRooms}
+            title={title}
+            look={look}
+            tier={tier}
+            at={{ x: cellX, z: cellZ }}
+            totemTitle={copy.museumWalk.signTotem}
+          />
+        )
+      ) : (
+        <>
+          <SignTexts items={shownSigns} />
+          {sign && <FacadeSign fixture={sign} title={title} />}
+        </>
+      )}
       {shown
         .filter(a => visible.has(partOf.get(a.id) ?? ''))
         .map(a => (
@@ -258,8 +299,18 @@ export const VisitorScene = ({
           crowd={crowd}
           paused={paused}
           onPose={onPose}
+          onJump={onJump}
           start={start}
           reducedMotion={reducedMotion}
+        />
+      )}
+      {layout.schemaVersion === 3 && (
+        <Docents
+          layout={layout}
+          region={region}
+          visibleParts={visible}
+          interactive={!controller}
+          reducedMotion={reducedMotion ?? false}
         />
       )}
       {!controller && <ZoomDim holders={holders} reducedMotion={reducedMotion ?? false} />}
@@ -279,6 +330,7 @@ export const VisitorScene = ({
           maxFull={peers.maxFull}
           labelOf={peers.labelOf}
           invalidate={peers.invalidate}
+          reducedMotion={reducedMotion ?? false}
         />
       )}
     </>

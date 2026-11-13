@@ -103,6 +103,46 @@ export const frameCamera = (anchor: FrameAnchor, view: FramingView, options: Fra
   };
 };
 
+/** 액자 옆(벽을 따라)에 붙은 것 — 명판. 액자 가운데에서 그쪽을 향하는 벽 방향과, 그 방향으로 먼 끝까지 거리(m) */
+export interface SideReach {
+  readonly along: Vec3;
+  readonly reach: number;
+}
+
+/**
+ * 액자 옆 명판까지 화면에 넣는 맞춤(2026-11-14 e2e 캡처: 휴대폰·태블릿 세로에서 명판이 화면 왼쪽 끝에서 잘림).
+ * 먼저 액자만으로 맞추고, 명판 먼 끝이 보이는 가로의 `LABEL_FIT_MARGIN` 밖이면 액자와 명판을 함께 감싼 사각형으로
+ * 다시 맞춘다 — 가운데가 명판 쪽으로 옮겨 가고 액자는 조금 작아진다. 가로가 넉넉한 화면(명판이 이미 보임)은 그대로.
+ */
+export const frameCameraWithSide = (
+  anchor: FrameAnchor,
+  view: FramingView,
+  options: FramingOptions,
+  side: SideReach | null,
+): CameraPose => {
+  const pose = frameCamera(anchor, view, options);
+  if (!side || side.reach <= anchor.outer.w / 2) return pose;
+  const distance = Math.hypot(pose.position.x - pose.target.x, pose.position.z - pose.target.z);
+  const halfW = distance * Math.tan(rad(pose.fov) / 2) * view.aspect;
+  if (side.reach <= halfW * config().LABEL_FIT_MARGIN) return pose;
+  const near = anchor.outer.w / 2;
+  const shift = (side.reach - near) / 2;
+  const a = normalizeFlat(side.along);
+  const both = frameCamera(
+    {
+      ...anchor,
+      center: { x: anchor.center.x + a.x * shift, y: anchor.center.y, z: anchor.center.z + a.z * shift },
+      outer: { w: near + side.reach, h: anchor.outer.h },
+    },
+    view,
+    options,
+  );
+  // 좁은 방의 큰 액자: 물러설 거리·화각 상한 때문에 둘을 함께 담지 못하면 액자만(옮기면 액자가 더 잘린다)
+  const d2 = Math.hypot(both.position.x - both.target.x, both.position.z - both.target.z);
+  const half2 = d2 * Math.tan(rad(both.fov) / 2) * view.aspect;
+  return (near + side.reach) / 2 <= half2 ? both : pose;
+};
+
 /** 마지막 수단에서 액자 둘레에 남길 여유(화면의 2%) */
 const FIT_MARGIN = 0.98;
 

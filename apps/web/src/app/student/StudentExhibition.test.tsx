@@ -1,4 +1,4 @@
-import { config } from '@gallery/core/config';
+import { config, overrideConfig, resetConfig } from '@gallery/core/config';
 import { copy, errorCopy, fill } from '@gallery/core/copy';
 import { AppError } from '@gallery/core/errors';
 import { mediaPath } from '@gallery/core/types';
@@ -6,7 +6,16 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { VisitScreenProps } from '../visit/contract.ts';
 import { formatDay, posterArtworks } from './posterView.ts';
-import { buttonByText, click, flush, KAKAO_UA, makeServices, mountAt, typeInto } from './testDom.tsx';
+import {
+  buttonByText,
+  click,
+  flush,
+  flushUntil,
+  KAKAO_UA,
+  makeServices,
+  mountAt,
+  typeInto,
+} from './testDom.tsx';
 import {
   CODE,
   deferred,
@@ -136,7 +145,7 @@ describe('학생 전시 화면', () => {
     const t = await open();
     reportReady(true, 1);
     typeInto(t.m.q<HTMLInputElement>('[data-testid="entry-poster"] input')!, '하늘고래');
-    click(t.m.q('[data-testid="char-student-f"]'));
+    click(t.m.q('[data-testid="char-student-f-01"]'));
     click(enterButton());
     const dialog = t.m.q('[role="dialog"]');
     expect(dialog).not.toBeNull();
@@ -166,7 +175,7 @@ describe('학생 전시 화면', () => {
     expect(t.m.q('[role="dialog"]')).toBeNull();
     const screen = t.m.q('[data-testid="visit-screen"]');
     expect(screen?.getAttribute('data-entered')).toBe('1');
-    expect(screen?.getAttribute('data-character')).toBe('student-f');
+    expect(screen?.getAttribute('data-character')).toBe('student-f-01');
   });
 
   it('걸러진 별명이면 시트 칸 아래 문구', async () => {
@@ -290,6 +299,49 @@ describe('학생 전시 화면', () => {
     await flush();
     expect(t.m.q('[data-testid="visit-2d"]')).not.toBeNull();
     expect(t.m.q('[data-testid="visit-screen"]')).toBeNull();
+  });
+
+  describe('3D 준비 시간 상한(G-24 HW-01)', () => {
+    afterEach(() => resetConfig());
+
+    it('3D 준비가 상한을 넘기면 단추가 풀리고 한 줄 안내, 누르면 가벼운 화면 + 까닭을 익명으로 한 번', async () => {
+      overrideConfig({ VISIT_READY_TIMEOUT_MS: 40 });
+      const t = await open();
+      reportReady(false, 0.3);
+      expect(enterButton()?.disabled).toBe(true);
+      await flushUntil(() => enterButton()?.disabled === false);
+      expect(enterButton()?.disabled).toBe(false);
+      expect(t.m.q('[data-testid="enter-note"]')?.textContent).toBe(copy.poster.slowHint);
+      expect(t.m.q('[data-testid="prepare-progress"]')).toBeNull();
+      click(enterButton());
+      await flush();
+      expect(t.m.q('[data-testid="visit-2d"]')).not.toBeNull();
+      expect(t.m.q('[data-testid="visit-screen"]')).toBeNull();
+      const diag = vi.mocked(t.services.api.student.diag);
+      const fails = diag.mock.calls.filter(([, body]) => body.kind === 'fail');
+      expect(fails).toEqual([[CODE, { kind: 'fail', reason: 'ready_timeout' }]]);
+    });
+
+    it('상한 안에 준비되면 안내 없이 3D로', async () => {
+      overrideConfig({ VISIT_READY_TIMEOUT_MS: 40 });
+      const t = await open();
+      reportReady(true, 1);
+      await flush(8);
+      expect(t.m.q('[data-testid="enter-note"]')).toBeNull();
+      click(enterButton());
+      expect(t.m.q('[data-testid="visit-screen"]')?.getAttribute('data-entered')).toBe('1');
+      const diag = vi.mocked(t.services.api.student.diag);
+      expect(diag.mock.calls.filter(([, body]) => body.kind === 'fail')).toEqual([]);
+    });
+
+    it('3D 공간 파일을 하나도 받지 못하면(load) 바로 가벼운 화면 준비 + 까닭 module_fail', async () => {
+      const t = await open();
+      act(() => visit.props?.onFallback2d?.('load'));
+      await flush();
+      expect(enterButton()?.disabled).toBe(false);
+      const diag = vi.mocked(t.services.api.student.diag);
+      expect(diag).toHaveBeenCalledWith(CODE, { kind: 'fail', reason: 'module_fail' });
+    });
   });
 
   it('2D 화면의 소리 단추는 기기에 기억하고, 출구의 처음으로는 첫 화면', async () => {

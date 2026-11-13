@@ -112,6 +112,9 @@ export const createApiClient = ({ http, device, tokens }: ApiClientDeps): ApiCli
     versions: (code, opts) =>
       http.json({ method: 'GET', path: studentPath(code, '/v'), signal: opts?.signal }, VersionInfoSchema),
 
+    diag: (code, body) =>
+      http.send({ method: 'POST', path: studentPath(code, '/diag'), body, keepalive: true }),
+
     async registerVisitor(target, input) {
       const saved = device.visitor(target.exhibitionId);
       const token = saved?.token ?? tokens.newToken();

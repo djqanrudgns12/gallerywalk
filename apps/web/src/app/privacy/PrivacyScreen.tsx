@@ -24,6 +24,7 @@ export const PrivacyScreen = () => {
     days: c.EXHIBITION_TTL_DAYS,
     sec: c.RETENTION_JOB_SEC,
     cdnDays: Math.ceil(c.MEDIA_CDN_MAX_AGE_SEC / SEC_PER_DAY),
+    perfDays: c.DEVICE_REPORT_KEEP_DAYS,
   };
   // 앱 안에서 왔으면 그 화면으로, 새 탭·주소로 바로 열었으면 첫 화면으로
   const back = (): void => {

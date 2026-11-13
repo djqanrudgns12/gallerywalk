@@ -6,6 +6,8 @@ import type {
   ArtworkWarning,
   AssetKind,
   AudioAnalysis,
+  DeviceReport,
+  DiagReason,
   ExhibitionSettings,
   ExhibitionStatus,
   ImageAnalysisWire,
@@ -346,6 +348,37 @@ export interface Security {
   startCodeOk(code: string): boolean;
 }
 
+/**
+ * 기기 보고 파일의 한 줄(HW-02, ADR-070): 받은 시각(ISO, UTC)·전시 ID + 보고 그대로(`DeviceReportSchema`는 `strict`라
+ * 다른 칸이 끼지 못한다). IP·기기 ID·UA·토큰은 싣지 않는다.
+ */
+export type DeviceReportLine = { readonly at: string; readonly exhibitionId: string } & DeviceReport;
+
+/** 기기 보고 파일(운영 구현은 `deps.ts`, node:fs). 부른 쪽을 기다리게 하지 않는다 — 쓰기 실패는 구현이 기록만 */
+export interface DeviceReportFiles {
+  append(line: DeviceReportLine): void;
+}
+
+/** 최근 `DIAG_COUNT_WINDOW_MIN`분 동안 가벼운 화면으로 들어온 수(합과 까닭별) */
+export interface DiagRecent {
+  readonly light: number;
+  readonly reasons: Partial<Record<DiagReason, number>>;
+}
+
+/**
+ * 기기 진단(HW-02, ADR-070). 구현은 `application/diag.ts`: 까닭별 수는 메모리에만(전시 ID·분 칸), 보고는 파일로.
+ * 토큰·IP·기기 ID는 받지도 두지도 않는다.
+ */
+export interface DeviceDiag {
+  /** 가벼운 화면으로 들어간 까닭 하나 */
+  fail(exhibitionId: string, reason: DiagReason): void;
+  /** 관람 한 번의 반응성 보고 — 파일에 한 줄 */
+  report(exhibitionId: string, report: DeviceReport): void;
+  recent(exhibitionId: string): DiagRecent;
+  /** 마지막으로 부른 뒤 받은 수를 꺼내고 비운다(1분 기록, HS-00). 창 밖 칸도 이때 치운다 */
+  takeMinute(): { readonly fail: number; readonly report: number };
+}
+
 export interface Deps {
   readonly store: Store;
   readonly clock: Clock;
@@ -356,4 +389,6 @@ export interface Deps {
   readonly log: EventLog;
   /** env.ts가 개발·시험 환경에서만 허용한 분 단위 보관 기간 */
   readonly retentionTestMinutes?: number;
+  /** 기기 진단(HW-02). 없으면 받기만 하고 버린다(시험용 앱) */
+  readonly diag?: DeviceDiag;
 }

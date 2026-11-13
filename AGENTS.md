@@ -9,11 +9,13 @@
 |---|---|
 | `PRD.md` | **무엇을**: 기능·화면·연출 시간·성능 목표·완료 기준(15장). 원본이다 |
 | `docs/PLAN.md` | **어떻게**: 구조·엔진 규칙·스키마·시험·위임. §15가 phase와 작업 ID, §17이 설정값·오류 코드 |
-| `docs/decisions.md` | **왜**: ADR-001~057 |
+| `docs/decisions.md` | **왜**: ADR-001~073 |
 | `docs/PRD_REVIEW.md` | PRD의 모순(C)·빈틈(B)·사실 확인(F) |
 | `docs/USER_DECISIONS.md` | 사용자만 정할 수 있는 것(U) |
 | `docs/briefs/<작업 ID>.md` | 맡은 작업의 범위·완료 기준 |
 | `docs/FINISH_PLAN.md` | **남은 일의 순서(V-nn·phase F0~F7)와 실행 규약 §6**: 위임 호출 예산, 기다림·되풀이 금지, 검증 사다리 L0~L6 |
+| `docs/FIELD_PLAN.md` | **현장 개선(PRD 18장)의 세부 계획**: 학교망 접속 HW·서버 성능 HS·교사 화면 HT, phase H0~H5. 실행 규약은 FINISH_PLAN §6 |
+| `docs/PRD_V2.md` | **미술관 공간·함께 관람 고도화(PRD 19장)의 요구와 계획**: 요구 W-01~W-12, phase M0~M6, 에이전트 분담. 현장 개선 다음 차례이며 겹치는 곳은 §8.0 |
 
 - 우선순위: 사용자의 최신 지시 > PRD `[고정]` > ADR > PLAN > PRD `[추천]`. PRD와 PLAN이 어긋나면 보고한다.
 - PRD·PLAN·decisions·USER_DECISIONS·PRD_REVIEW는 Claude(통합 담당)만 고친다. 어긋남을 찾으면 고치지 말고 보고한다.

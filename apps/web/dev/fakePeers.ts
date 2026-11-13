@@ -1,14 +1,26 @@
 import { config } from '@gallery/core/config';
-import type { CharacterId, Layout, LiveServerMessage, Pose } from '@gallery/core/types';
+import {
+  type CharacterId,
+  type Layout,
+  type LiveServerMessage,
+  type Pose,
+  STUDENT_FEMALE_IDS,
+  STUDENT_MALE_IDS,
+} from '@gallery/core/types';
 import { buildGuideMap, pathBetween, standSpot } from '../src/viewer/walk/guide.ts';
 import { Walker } from '../src/viewer/walk/walker.ts';
 
 /**
  * `/dev/walk?peers=n`: 서버 없이 가짜 관람객 n명이 정지 지점 사이를 걸어 다니며 서버 방송과 같은 메시지를 만든다
  * (R-6 끝 조건 "30명 가짜 관람객에서 태블릿 예산 안"을 재는 용도). 별명은 가상의 것.
+ * 캐릭터는 12종(학생 남·여 번갈아 10 + 교사 여·남)이 섞인다(M4-9 — 몸 틀 넷이 모두 나와 몸 묶음 예산을 끝까지 잰다).
  */
 
-const KINDS: readonly CharacterId[] = ['student-m', 'student-f', 'student-m', 'student-f', 'teacher-f'];
+const KINDS: readonly CharacterId[] = [
+  ...STUDENT_MALE_IDS.flatMap((m, i) => [m, STUDENT_FEMALE_IDS[i] ?? 'student-f-01']),
+  'teacher-f',
+  'teacher-m',
+];
 const NAMES = [
   '하늘고래',
   '달빛소나무',
