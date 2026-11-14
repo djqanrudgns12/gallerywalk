@@ -48,6 +48,31 @@
   line-height: 1;
 }
 
+/* 행동 단추 안쪽(아이콘 + 글자): 할 일이 바뀌면 새로 붙어 짧게 떠오른다(`--action-swap` = ACTION_SWAP_SEC) */
+.face {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  animation: swap var(--action-swap) ease-out;
+}
+
+/* 말걸기·나가기: 점프와 다른 일이라는 것을 판 테 색으로만(주요 강조 놋쇠는 뛰기 켬에 둔다) */
+.act {
+  border-color: var(--accent);
+}
+
+@keyframes swap {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .srOnly {
   position: absolute;
   width: 1px;
@@ -70,6 +95,9 @@
 @media (prefers-reduced-motion: reduce) {
   .btn:active {
     transform: none;
+  }
+  .face {
+    animation: none;
   }
 }
 

@@ -75,6 +75,7 @@ describe('P1-2 정적 검사 도구 (PLAN §14.1)', () => {
       assert.ok(ruleSet.has('no-native-select'));
       assert.ok(ruleSet.has('no-backdrop-filter'));
       assert.ok(ruleSet.has('no-emoji'));
+      assert.ok(ruleSet.has('no-new-runtime-api'));
 
       for (const v of violations) {
         assert.match(formatViolation(v), VIOLATION_LINE_RE);

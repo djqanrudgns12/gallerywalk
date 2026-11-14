@@ -148,7 +148,7 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
         title="합성 근대사 전시"
         nickname=""
         onNicknameChange={() => {}}
-        character="student-m"
+        character="student-m-01"
         onCharacterChange={() => {}}
         onEnter={() => {}}
       />,
@@ -283,7 +283,7 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
     expect(bar?.getAttribute('aria-valuenow')).toBe('65');
   });
 
-  it('EntryPoster: 별명 입력·학생 캐릭터 2종 고르기(실루엣/이미지)·함께 관람 안내·입장 버튼이 동작한다', () => {
+  it('EntryPoster: 별명 입력·학생 캐릭터 10명 고르기(두 줄 × 5칸, 실루엣 + 번호)·함께 관람 안내·입장 버튼이 동작한다', () => {
     const onNicknameChange = vi.fn();
     const onCharacterChange = vi.fn();
     const onEnter = vi.fn();
@@ -293,7 +293,7 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
         title="연대기"
         nickname="하늘고래"
         onNicknameChange={onNicknameChange}
-        character="student-m"
+        character="student-m-01"
         onCharacterChange={onCharacterChange}
         onEnter={onEnter}
       />,
@@ -302,17 +302,46 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
     expect(container.textContent).toContain(copy.poster.nicknameLabel);
     expect(container.textContent).toContain(copy.poster.characterLabel);
     expect(container.textContent).toContain(copy.poster.togetherNotice);
-    expect(container.querySelector('[data-testid="silhouette-student-m"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="silhouette-student-f"]')).not.toBeNull();
+    // 라디오 묶음 하나에 열 칸: 이름은 줄 이름 + 번호(학생 A 1~5번 · 학생 B 6~10번), 고른 칸 하나만 선택됨
+    const group = container.querySelector('[role="radiogroup"]');
+    const radios = [...(group?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? [])];
+    expect(radios.map(r => r.getAttribute('aria-label'))).toEqual([
+      ...[1, 2, 3, 4, 5].map(n => fill(copy.poster.characterNumber, { group: copy.poster.studentMale, n })),
+      ...[6, 7, 8, 9, 10].map(n =>
+        fill(copy.poster.characterNumber, { group: copy.poster.studentFemale, n }),
+      ),
+    ]);
+    expect(radios.map(r => r.dataset['testid'])).toEqual([
+      'char-student-m-01',
+      'char-student-m-02',
+      'char-student-m-03',
+      'char-student-m-04',
+      'char-student-m-05',
+      'char-student-f-01',
+      'char-student-f-02',
+      'char-student-f-03',
+      'char-student-f-04',
+      'char-student-f-05',
+    ]);
+    expect(radios.filter(r => r.getAttribute('aria-checked') === 'true')).toEqual([radios[0]]);
+    // 두 줄 × 5칸, 칸마다 몸 틀 실루엣(얼굴 그림이 없을 때)
+    expect(group?.children).toHaveLength(2);
+    for (const row of group?.children ?? []) expect(row.children).toHaveLength(5);
+    expect(radios[0]?.querySelector('[data-testid="silhouette-student-m"]')).not.toBeNull();
+    expect(radios[7]?.querySelector('[data-testid="silhouette-student-f"]')).not.toBeNull();
 
-    const femaleRadio = container.querySelector('[data-testid="char-student-f"]') as HTMLButtonElement | null;
-    expect(femaleRadio?.getAttribute('aria-label')).toBe(copy.poster.studentFemale);
+    const femaleRadio = container.querySelector(
+      '[data-testid="char-student-f-03"]',
+    ) as HTMLButtonElement | null;
+    expect(femaleRadio?.getAttribute('aria-label')).toBe(
+      fill(copy.poster.characterNumber, { group: copy.poster.studentFemale, n: 8 }),
+    );
     expect(femaleRadio?.getAttribute('aria-checked')).toBe('false');
 
     act(() => {
       femaleRadio?.click();
     });
-    expect(onCharacterChange).toHaveBeenCalledWith('student-f');
+    expect(onCharacterChange).toHaveBeenCalledWith('student-f-03');
 
     const enterBtn = container.querySelector('[data-testid="enter-plaza-btn"]') as HTMLButtonElement | null;
     // PRD 6.1·11장: 주요 단추는 `입장하기` 하나
@@ -332,7 +361,7 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
       title: '연대기',
       nickname: '',
       onNicknameChange: () => {},
-      character: 'student-m' as const,
+      character: 'student-m-01' as const,
       onCharacterChange: () => {},
       onEnter: () => {},
     };
@@ -419,26 +448,61 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
         title="연대기"
         nickname=""
         onNicknameChange={() => {}}
-        character="student-m"
+        character="student-m-01"
         onCharacterChange={onCharacterChange}
         onEnter={() => {}}
       />,
     );
-    const m = container.querySelector('[data-testid="char-student-m"]') as HTMLButtonElement;
-    const f = container.querySelector('[data-testid="char-student-f"]') as HTMLButtonElement;
+    const q = (id: string) => container.querySelector(`[data-testid="char-${id}"]`) as HTMLButtonElement;
+    const m = q('student-m-01');
+    const m2 = q('student-m-02');
+    const f5 = q('student-f-05');
     expect(m.tabIndex).toBe(0);
-    expect(f.tabIndex).toBe(-1);
+    expect(
+      [...container.querySelectorAll<HTMLButtonElement>('[role="radio"]')].filter(r => r.tabIndex === 0),
+    ).toEqual([m]);
     act(() => {
       m.focus();
       m.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     });
-    expect(onCharacterChange).toHaveBeenLastCalledWith('student-f');
-    expect(document.activeElement).toBe(f);
+    expect(onCharacterChange).toHaveBeenLastCalledWith('student-m-02');
+    expect(document.activeElement).toBe(m2);
     act(() => {
-      f.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+      m2.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
     });
-    expect(onCharacterChange).toHaveBeenLastCalledWith('student-m');
+    expect(onCharacterChange).toHaveBeenLastCalledWith('student-m-01');
     expect(document.activeElement).toBe(m);
+    // 첫 칸에서 앞으로 가면 마지막 칸(여 5번 = 10)으로 돈다 — 줄을 넘어 한 묶음
+    act(() => {
+      m.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    });
+    expect(onCharacterChange).toHaveBeenLastCalledWith('student-f-05');
+    expect(document.activeElement).toBe(f5);
+    act(() => {
+      f5.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    });
+    expect(onCharacterChange).toHaveBeenLastCalledWith('student-m-01');
+  });
+
+  it('EntryPoster: 얼굴 그림이 온 캐릭터만 그림, 나머지는 실루엣(M4-9)', () => {
+    render(
+      <EntryPoster
+        title="연대기"
+        nickname=""
+        onNicknameChange={() => {}}
+        character="student-f-02"
+        onCharacterChange={() => {}}
+        characterImage={{ 'student-f-02': '/face/student-f-02.png' }}
+        onEnter={() => {}}
+      />,
+    );
+    const f2 = container.querySelector('[data-testid="char-student-f-02"]');
+    expect(f2?.querySelector('img')?.getAttribute('src')).toBe('/face/student-f-02.png');
+    expect(f2?.querySelector('svg[data-testid^="silhouette"]')).toBeNull();
+    expect(f2?.getAttribute('aria-checked')).toBe('true');
+    expect((f2 as HTMLButtonElement | null)?.tabIndex).toBe(0);
+    expect(container.querySelectorAll('[role="radio"] img')).toHaveLength(1);
+    expect(container.querySelectorAll('[role="radio"] svg[data-testid^="silhouette"]')).toHaveLength(9);
   });
 
   it('EntryPoster: 함께 관람 인원은 위 줄과 같은 말(V-37)', () => {
@@ -447,7 +511,7 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
         title="연대기"
         nickname=""
         onNicknameChange={() => {}}
-        character="student-m"
+        character="student-m-01"
         onCharacterChange={() => {}}
         onEnter={() => {}}
         togetherCount={3}
@@ -490,7 +554,7 @@ describe('ui/Icon 및 ui/patterns/visitor 부품', () => {
       title: '연대기',
       nickname: '',
       onNicknameChange: vi.fn(),
-      character: 'student-m' as const,
+      character: 'student-m-01' as const,
       onCharacterChange: vi.fn(),
       onEnter: vi.fn(),
     };

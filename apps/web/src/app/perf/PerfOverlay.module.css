@@ -1,0 +1,38 @@
+/* 실기기 숫자판(`?perf=1`): 왼쪽 위 작은 표. 3D 공간을 덮지 않게 작게, 누름은 지나가게 */
+.panel {
+  position: fixed;
+  top: var(--s-2);
+  left: var(--s-2);
+  z-index: 50;
+  max-width: min(18rem, calc(100vw - var(--s-4)));
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-card);
+  background: var(--plate-bg);
+  color: var(--plate-ink);
+  font-size: var(--fs-1);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+.list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.key {
+  color: var(--plate-ink-sub);
+}
+
+.value {
+  margin: 0;
+  text-align: right;
+}

@@ -1,6 +1,14 @@
 import { config } from '@gallery/core/config';
 import { DEFAULT_MOOD, MOOD_IDS, type MoodId, templateMoods } from '@gallery/core/templates';
-import type { CharacterId } from '@gallery/core/types';
+import {
+  BODY_KEYS,
+  bodyOf,
+  buildOf,
+  type CharacterId,
+  CharacterIdSchema,
+  type CharacterKey,
+  isDocentId,
+} from '@gallery/core/types';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import '../src/ui/tokens.css';
@@ -32,8 +40,31 @@ const SPIN = params.get('spin') === '1';
 const WAVE = params.get('wave') === '1';
 /** `?wave=1`일 때 손 흔들기 간격(s) */
 const WAVE_EVERY_SEC = 4;
-const IDS: readonly CharacterId[] = ['student-m', 'student-f', 'teacher-m', 'teacher-f'];
-const FOCUS = IDS.indexOf(params.get('focus') as CharacterId);
+/**
+ * `?try=<캐릭터 ID>&src=<glb 주소>`: 저장소에 넣기 전 시험 파일(예: Tripo 최적화본 `/@fs/…/.local/art/m4/opt/student-m-01.glb`)을
+ * 같은 몸 틀의 지금 파일 옆에 세워 비교한다(M4-5 시험 검수). 없으면 몸 틀 4종
+ */
+const tryParam = params.get('try') ?? '';
+/** 도슨트는 `Character`의 캐릭터 ID가 아니므로 그 몸 틀로 세우고 파일만 시험본으로(키·몸 연출은 몸 틀 것) */
+const TRY: CharacterKey | undefined = isDocentId(tryParam)
+  ? tryParam
+  : CharacterIdSchema.safeParse(tryParam).data;
+const TRY_SRC = params.get('src') ?? undefined;
+interface Entry {
+  /** 줄에서 부르는 이름(`?focus=`) */
+  readonly key: CharacterKey;
+  readonly character: CharacterId;
+  readonly src?: string | undefined;
+}
+const ENTRIES: readonly Entry[] =
+  TRY && TRY_SRC
+    ? [
+        { key: bodyOf(TRY), character: bodyOf(TRY) },
+        { key: TRY, character: isDocentId(TRY) ? bodyOf(TRY) : TRY, src: TRY_SRC },
+      ]
+    : BODY_KEYS.map(k => ({ key: k, character: k }));
+const IDS = ENTRIES.map(e => e.key);
+const FOCUS = IDS.indexOf(params.get('focus') as CharacterKey);
 /** 나란히 선 간격(m) */
 const GAP = 0.9;
 /** 천천히 돎(라디안/초) */
@@ -55,7 +86,7 @@ const Lineup = () => {
     }
     // 얼굴 가까이: 키의 0.85 높이를 0.9m 앞에서
     const id = IDS[FOCUS]!;
-    const h = config().CHAR_HEIGHT_M[id.startsWith('teacher') ? 'teacher' : 'student'];
+    const h = config().CHAR_HEIGHT_M[buildOf(id)];
     const x = (FOCUS - (IDS.length - 1) / 2) * GAP;
     camera.position.set(x, h * 0.86, 0.9);
     camera.lookAt(x, h * 0.84, 0);
@@ -73,10 +104,11 @@ const Lineup = () => {
   });
   return (
     <>
-      {IDS.map((id, i) => (
+      {ENTRIES.map((e, i) => (
         <Character
-          key={id}
-          character={id}
+          key={`${e.key}:${i}`}
+          character={e.character}
+          src={e.src}
           ref={h => {
             refs.current[i] = h;
           }}

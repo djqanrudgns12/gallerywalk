@@ -58,7 +58,7 @@ function main(): void {
 
   // 4. 의존성(SQLite 저장소·시계·난수·보안·처리 대기열).
   // 기록기를 넘겨야 "지금 삭제"·보관 정리의 지운 행 수 기록이 남는다
-  const { deps, security, uploads } = createServerDeps(db, env, log);
+  const { deps, security, uploads, diag } = createServerDeps(db, env, log);
   // 함께 관람 허브(ADR-057): 교사가 전시를 닫으면 방문자 연결을 끊어야 해서 앱보다 먼저 만든다
   const hub = createLiveHub({ deps, log });
   const jobs = createCleanupJobs(deps, {
@@ -88,9 +88,14 @@ function main(): void {
     void jobs.start();
   });
   // 함께 관람(ADR-057): 같은 서버의 웹소켓 업그레이드 `/api/e/{code}/live`. 위치는 메모리에만
+  // 1분 서버 기록(HS-00)에 그 1분 동안 받은 진단 수(HW-02)를 곁들인다
   const live = attachLive(server, hub, {
     production: env.nodeEnv === 'production',
     rateKey: env.secrets.rateKey,
+    minuteStats: () => {
+      const taken = diag.takeMinute();
+      return { diagFail: taken.fail, diagReport: taken.report };
+    },
   });
 
   // 끝내기(SIGTERM): 새 요청 거부 → 처리 중인 것은 20초까지 기다림 → 체크포인트(TRUNCATE) → 닫기

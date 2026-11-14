@@ -175,9 +175,10 @@ for (const size of SIZES) {
       await expect(page.getByTestId('enter-plaza-btn')).toBeEnabled();
       await expect(page.getByTestId('prepare-progress')).toBeHidden();
       await poster.getByRole('textbox', { name: copy.poster.nicknameLabel }).fill('상상고래');
-      await poster.getByRole('radio', { name: copy.poster.studentFemale }).click();
-      await expect(poster.getByTestId('char-student-f')).toHaveAttribute('aria-checked', 'true');
-      await expect(poster.getByTestId('char-student-m')).toHaveAttribute('aria-checked', 'false');
+      // 학생 캐릭터 10종(M4-9): 칸 이름은 번호라 testid로 고른다
+      await poster.getByTestId('char-student-f-01').click();
+      await expect(poster.getByTestId('char-student-f-01')).toHaveAttribute('aria-checked', 'true');
+      await expect(poster.getByTestId('char-student-m-01')).toHaveAttribute('aria-checked', 'false');
       await capture(page, `${size.name}-03-poster`);
       await page.getByTestId('enter-plaza-btn').click();
 

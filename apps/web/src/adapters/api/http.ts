@@ -30,6 +30,8 @@ export interface HttpRequest {
   /** `If-Match: {rev}` */
   readonly ifMatch?: number;
   readonly signal?: AbortSignal | undefined;
+  /** 화면이 숨거나 닫혀도 보내기를 끝까지(`fetch` `keepalive`, 본문 64KB 이하 — 기기 보고 `diag`) */
+  readonly keepalive?: boolean | undefined;
 }
 
 /** 파일 올리기 요청(multipart). JSON 본문·`If-Match`는 없다(만들기는 기기가 만든 ID가 멱등 키, PLAN §9.2) */
@@ -176,6 +178,7 @@ export const createHttp = (opts: HttpOptions): Http => {
           headers,
           signal: controller.signal,
           ...(body === undefined ? {} : { body }),
+          ...(req.keepalive ? { keepalive: true } : {}),
         });
       } catch (err) {
         return fail(err);

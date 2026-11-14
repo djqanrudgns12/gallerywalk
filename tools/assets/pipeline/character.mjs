@@ -1,8 +1,11 @@
 // 캐릭터 glb 최적화(규격 `tools/assets/spec/characters.md` §6, ADR-057).
 // 사용: node tools/assets/pipeline/character.mjs <Tripo 원본 glb> <캐릭터 ID> [출력 폴더]
-//   예: node tools/assets/pipeline/character.mjs .local/art/r4/3d/student-m.raw.glb student-m
-// 결과: apps/web/public/assets/g/chr-1/<캐릭터 ID>.glb + <캐릭터 ID>-lod1.glb (출력 폴더를 주면 거기에).
-//   폴더 판 번호(`chr-1`)는 `Character.tsx` `CHARACTER_BASE`와 같아야 한다 — 파일을 바꾸면 둘 다 올린다(영구 캐시, PLAN §9.6).
+//   예: node tools/assets/pipeline/character.mjs .local/art/m4/3d/student-m-03.raw.glb student-m-03
+// 캐릭터 ID(목록은 `packages/core/src/domain/characters.ts`): 판 2 15명(학생 10·교사 2·도슨트 3)과 판 1 몸 틀 넷.
+//   키는 그 ID의 몸 틀에서 찾는다(학생 1.15m · 어른 1.45m — 교사·도슨트, `CHAR_HEIGHT_M`).
+// 결과: <출력 폴더>/<캐릭터 ID>.glb + <캐릭터 ID>-lod1.glb. 출력 폴더 기본은 판 2 ID면 apps/web/public/assets/g/chr-2,
+//   판 1 몸 틀이면 chr-1. 폴더 판 번호는 웹 `viewer/scene/characterFiles.ts`의 `CHARACTER_BASE`·`CHARACTER_BASE_2`와 같아야 한다 —
+//   파일을 바꾸면 둘 다 올린다(영구 캐시, PLAN §9.6). 판 2 파일을 넣으면 그 ID를 `CHARACTER_FILES`에 더한다.
 //   끝에 예산 검사를 하고 넘으면 종료 코드 1.
 //
 // 순서: 준비(키 맞춤·재질·클립 이름·제자리) → dedup → prune → weld → simplify(목표 삼각형) → resample
@@ -22,14 +25,19 @@ import { Matrix4, Quaternion, Vector3 } from 'three';
 const flags = process.argv.slice(2).filter(a => a.startsWith('--'));
 const [input, id, outArg] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const trisFlag = Number(flags.find(f => f.startsWith('--tris='))?.slice(7));
-const IDS = ['student-m', 'student-f', 'teacher-m', 'teacher-f'];
+const root = resolve(import.meta.dirname, '../../..');
+const { config } = await import(join(root, 'packages/core/src/config.ts'));
+const chars = await import(join(root, 'packages/core/src/domain/characters.ts'));
+/** 판 2 15명(관람객 12 + 도슨트 3) */
+const IDS_2 = [...chars.VISITOR_CHARACTER_IDS, ...chars.DOCENT_IDS];
+/** 판 1 몸 틀 넷(지금 `chr-1` 파일). 교사 둘은 판 2와 ID가 같아 기본 출력은 판 2 — 판 1을 다시 만들 때는 출력 폴더를 준다 */
+const IDS_1 = [...chars.BODY_KEYS];
+const IDS = [...new Set([...IDS_2, ...IDS_1])];
 if (!input || !id || !IDS.includes(id)) {
   console.error(`사용: node tools/assets/pipeline/character.mjs <원본 glb> <${IDS.join('|')}> [출력 폴더]`);
   process.exit(2);
 }
-const root = resolve(import.meta.dirname, '../../..');
-const { config } = await import(join(root, 'packages/core/src/config.ts'));
-const HEIGHT_M = config().CHAR_HEIGHT_M[id.startsWith('teacher') ? 'teacher' : 'student'];
+const HEIGHT_M = config().CHAR_HEIGHT_M[chars.buildOf(id)];
 
 /** 규격 §2 예산 — 본 판은 Tripo 3만 면을 줄이지 않는다(1.2만으로 줄이면 입가가 뭉개짐, ADR-057 보충) */
 const BUDGET = { tris: 30_000, bytes: 1.5 * 1024 * 1024, materials: 1, skins: 1 };
@@ -47,7 +55,9 @@ const LOD = { tris: 3_000, basePx: 512 };
 
 const cli = join(root, 'node_modules/.bin/gltf-transform');
 const env = { ...process.env, PATH: `${process.env.HOME}/.local/bin:${process.env.PATH}` };
-const outDir = outArg ? resolve(outArg) : join(root, 'apps/web/public/assets/g/chr-1');
+const outDir = outArg
+  ? resolve(outArg)
+  : join(root, 'apps/web/public/assets/g', IDS_2.includes(id) ? 'chr-2' : 'chr-1');
 mkdirSync(outDir, { recursive: true });
 const work = mkdtempSync(join(tmpdir(), 'gw-char-'));
 await MeshoptDecoder.ready;

@@ -1,5 +1,5 @@
 import { config } from '@gallery/core/config';
-import { type TemplateLook, templateGeometry } from '@gallery/core/templates';
+import { type TemplateLook, templateGeometry, templateGeometryV4 } from '@gallery/core/templates';
 import type { Layout } from '@gallery/core/types';
 import { useEffect, useMemo } from 'react';
 import { InstancedMesh, Matrix4, type MeshBasicMaterial, PlaneGeometry, Quaternion, Vector3 } from 'three';
@@ -26,7 +26,11 @@ export const ExteriorContact = ({
   const parts = useMemo(() => {
     const x = layout.exterior;
     if (!x) return null;
-    const e = templateGeometry[layout.templateId].exterior;
+    // 공간 v4(스키마 3)는 v4 외관 치수(현관 24m·계단 16단·정문 3.6m, ADR-071)로
+    const v4 = layout.schemaVersion === 3;
+    const e = v4
+      ? templateGeometryV4[layout.templateId].base.exterior
+      : templateGeometry[layout.templateId].exterior;
     const c = config().EXTERIOR_CONTACT;
     const zf = x.facadeZ;
     const zPF = zf - e.porticoD;
@@ -53,8 +57,8 @@ export const ExteriorContact = ({
     // 정문 열림 위(상인방 밑)·양옆 차폐: 정면 벽 면 바로 안쪽에 세운 흐린 띠(광장에서 안을 볼 때 문이 깊어 보이게)
     const cfg = config();
     const casing = templateGeometry[layout.templateId].doorCasingM;
-    const clearW = cfg.DOOR_WIDTH_M - 2 * casing;
-    const clearH = cfg.DOOR_HEIGHT_M - casing;
+    const clearW = v4 ? cfg.LAYOUT_V4.portal.clear : cfg.DOOR_WIDTH_M - 2 * casing;
+    const clearH = v4 ? cfg.LAYOUT_V4.portal.h : cfg.DOOR_HEIGHT_M - casing;
     const upright = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -Math.PI / 2);
     const doorZ = zf + c.doorInsetM;
     strips.push(

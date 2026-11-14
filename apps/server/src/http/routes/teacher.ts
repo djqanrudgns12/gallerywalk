@@ -16,6 +16,7 @@ import {
   RoomOrderSchema,
   UuidSchema,
   type ArtworkTeacher,
+  type LiveStats,
   type RoomTeacher,
   type TeacherExhibitionView,
 } from '@gallery/core/types';
@@ -78,8 +79,11 @@ export interface TeacherRouteOptions {
   readonly uploads?: FileUploads;
   /** PLAN §9.4에 단계만 있고 core 설정 키가 없어, 통합 담당이 정책을 정한 뒤 연결하는 속도 칸. */
   readonly uploadRateLimits?: { readonly device: number; readonly ip: number; readonly windowSec: number };
-  /** 함께 관람 허브: 전시를 닫으면 방문자 연결을 끊는다(ADR-057). 없으면 건너뜀 */
-  readonly live?: Pick<LiveHub, 'closeExhibition'> | undefined;
+  /**
+   * 함께 관람 허브: 전시를 닫으면 방문자 연결을 끊는다(ADR-057), 지금 이어진 수를 읽는다(HT-07). 없으면 건너뜀·0.
+   * 가벼운 화면으로 들어온 수(HW-02)는 `deps.diag`에서 읽는다.
+   */
+  readonly live?: (Pick<LiveHub, 'closeExhibition'> & Partial<Pick<LiveHub, 'exhibitionCounts'>>) | undefined;
   /** PIN 응답 지연 기다리기(기본 `setTimeout`). 시험은 가짜로 */
   readonly sleep?: ((ms: number) => Promise<void>) | undefined;
 }
@@ -280,6 +284,20 @@ export const teacherRoutes = ({
   });
 
   r.get('/api/teacher/exhibitions/:id', auth, c => ok(c, teacherView(deps, ownExhibition(c))));
+
+  // 지금 관람 수(HT-07·HW-02): 함께 관람에 이어진 학생·교사 수 + 최근 창 안 가벼운 화면 수. 토큰·별명은 없다
+  r.get('/api/teacher/exhibitions/:id/live', auth, c => {
+    const id = ownExhibition(c);
+    const audience = live?.exhibitionCounts?.(id) ?? { visitors: 0, teachers: 0 };
+    const recent = deps.diag?.recent(id) ?? { light: 0, reasons: {} };
+    const stats: LiveStats = {
+      visitors: audience.visitors,
+      teachers: audience.teachers,
+      light: recent.light,
+      reasons: recent.reasons,
+    };
+    return ok(c, stats);
+  });
 
   r.patch('/api/teacher/exhibitions/:id', auth, async c => {
     const id = ownExhibition(c);

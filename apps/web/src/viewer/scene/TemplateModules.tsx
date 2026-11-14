@@ -1,7 +1,7 @@
 import { config } from '@gallery/core/config';
 import { surfaceSlotOf, type TemplateLook } from '@gallery/core/templates';
 import { useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type BufferGeometry,
   InstancedMesh,
@@ -14,7 +14,9 @@ import {
   Vector3,
 } from 'three';
 import { withBakedLight, withDim } from './materials.ts';
+import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { gltfLoaderFor } from './gltf.ts';
+import { loadWithStall } from './loadWithStall.ts';
 
 /**
  * 템플릿 조각 조립(PLAN §6.2). 조각 종류마다(정확히는 조각의 재질 칸마다) `InstancedMesh` 하나 —
@@ -45,39 +47,55 @@ export interface ModulePart {
  * 조각 glb들을 **주어진 순서대로 하나씩** 받아 이름 → 부품 목록으로 합치고, 하나 받을 때마다 돌려준다(§2.5 R-8).
  * 자유 관람은 광장에서 시작하므로 외관을 먼저 주면 광장이 먼저 서고, 실내 핵심은 계단을 오르는 동안 받는다.
  * 받지 못한 파일은 건너뛴다. 주소가 없으면 null.
- * `onSettled`가 있으면 전체 목록을 다 시도했는지 알린다(포스터의 첫 화면 준비 관문).
+ * 받는 진행이 `MODULE_LOAD_STALL_MS` 동안 멈춘 파일은 기다리지 않고 다음 파일로 간다(G-24 HW-01, `loadWithStall`) —
+ * 늦게라도 오면 그때 합친다. 목록을 한 번 다 돌면 `onSettled(받은 수, 전체 수)`를 한 번 부른다.
+ * 시작할 때는 `onSettled(false, 0, 전체 수)`로 되돌린다(포스터의 첫 화면 준비 관문).
  */
 export const useTemplateModules = (
   urls: string | readonly string[],
   look: TemplateLook,
-  onSettled?: (ready: boolean) => void,
+  onSettled?: (settled: boolean, loaded: number, total: number) => void,
 ): Map<string, ModulePart[]> | null => {
   const gl = useThree(s => s.gl);
   const invalidate = useThree(s => s.invalidate);
   const [modules, setModules] = useState<Map<string, ModulePart[]> | null>(null);
   const key = typeof urls === 'string' ? urls : urls.join('|');
+  const settledRef = useRef(onSettled);
+  settledRef.current = onSettled;
 
   useEffect(() => {
     const list = key ? key.split('|') : [];
-    onSettled?.(false);
+    onSettled?.(false, 0, list.length);
     if (list.length === 0) {
-      onSettled?.(true);
+      onSettled?.(true, 0, 0);
       return;
     }
     let cancelled = false;
     const loader = gltfLoaderFor(gl);
+    const map = new Map<string, ModulePart[]>();
+    let loaded = 0;
+    const add = (gltf: GLTF): void => {
+      if (cancelled) return;
+      loaded += 1;
+      gltf.scene.updateMatrixWorld(true);
+      for (const node of gltf.scene.children) collect(node, node.name, map, look);
+      setModules(new Map(map));
+      invalidate();
+    };
     void (async () => {
-      const map = new Map<string, ModulePart[]>();
       for (const u of list) {
-        const gltf = await loader.loadAsync(u).catch(() => null);
+        const gltf = await loadWithStall<GLTF>(
+          onProgress =>
+            loader
+              .loadAsync(u, e => onProgress({ loaded: e.loaded, total: e.lengthComputable ? e.total : 0 }))
+              .catch(() => null),
+          config().MODULE_LOAD_STALL_MS,
+          add,
+        );
         if (cancelled) return;
-        if (!gltf) continue;
-        gltf.scene.updateMatrixWorld(true);
-        for (const node of gltf.scene.children) collect(node, node.name, map, look);
-        setModules(new Map(map));
-        invalidate();
+        if (gltf) add(gltf);
       }
-      if (!cancelled) onSettled?.(true);
+      if (!cancelled) settledRef.current?.(true, loaded, list.length);
     })();
     return () => {
       cancelled = true;
@@ -233,8 +251,9 @@ const collect = (
   if (mesh.isMesh) {
     const material = mesh.material as Material;
     if (material instanceof MeshStandardMaterial) {
-      // 분위기 면 색(look.surfaces): 질감 결은 두고 바탕색만 곱한다
-      const slot = surfaceSlotOf(material.name);
+      // 분위기 면 색(look.surfaces): 질감 결은 두고 바탕색만 곱한다.
+      // 공간 v4 조각(`mh4_*`, ADR-071)은 PRD_V2 §3 실제 색을 굽어 두었으므로 곱하지 않는다(두 번 곱하면 전시실이 지나치게 어둡다)
+      const slot = moduleName.startsWith('mh4_') ? null : surfaceSlotOf(material.name);
       const tint = slot ? look.surfaces[slot] : undefined;
       if (tint) material.color.set(tint);
       // 안내판 판 면(설비 glb, V-57): 남색 대신 숯색. 어두운 방에서도 판으로 읽히게 같은 색을 스스로 낸다(빛을 더하지 않음)

@@ -34,7 +34,7 @@ const setup = (extra: Extra = {}, reducedMotion?: () => boolean) => {
     ...(reducedMotion ? { reducedMotion } : {}),
   });
   const s = () => store.getState();
-  return { store, s, api, device, tokens, prefs };
+  return { store, s, api, device, tokens, prefs, storage };
 };
 
 /** 포스터까지 불러오고 관람 화면이 준비 끝을 알린 상태 */
@@ -115,10 +115,10 @@ describe('visitorStore 불러오기', () => {
   it('별명·캐릭터는 기기에 기억한 값으로 채운다(그 전시의 등록 별명이 먼저)', async () => {
     const a = setup();
     a.prefs.setLastNickname('별빛');
-    a.prefs.setCharacter('student-f');
+    a.prefs.setCharacter('student-f-04');
     await a.s().load();
     expect(a.s().nickname).toBe('별빛');
-    expect(a.s().character).toBe('student-f');
+    expect(a.s().character).toBe('student-f-04');
 
     const b = setup();
     b.prefs.setLastNickname('별빛');
@@ -133,9 +133,20 @@ describe('visitorStore 불러오기', () => {
 
   it('캐릭터를 바꾸면 바로 기억한다', async () => {
     const { s, prefs } = await atPoster();
-    s().setCharacter('student-f');
-    expect(s().character).toBe('student-f');
-    expect(prefs.character()).toBe('student-f');
+    s().setCharacter('student-f-02');
+    expect(s().character).toBe('student-f-02');
+    expect(prefs.character()).toBe('student-f-02');
+  });
+
+  it('기억한 캐릭터가 없으면 1번, 예전에 저장한 옛 ID는 01번으로(M4-9)', async () => {
+    const fresh = setup();
+    await fresh.s().load();
+    expect(fresh.s().character).toBe('student-m-01');
+
+    const old = setup();
+    old.storage.setItem('gw:student-character', 'student-f');
+    await old.s().load();
+    expect(old.s().character).toBe('student-f-01');
   });
 });
 
@@ -347,6 +358,59 @@ describe('visitorStore 2D 대체 화면(P4-10)', () => {
     expect(s().phase).toBe('fallback2d');
   });
 
+  it('3D 준비가 시간 상한을 넘기면(markSlow) 준비 전에도 입장되고, 가벼운 화면으로 들어간다(까닭 ready_timeout, G-24)', async () => {
+    const { s } = setup();
+    await s().load();
+    s().setProgress({ ready: false, progress: 0.4 });
+    s().requestEnter();
+    expect(s().phase).toBe('poster');
+    s().markSlow();
+    expect(s().slow).toBe(true);
+    expect(s().mode).toBe('3d');
+    s().requestEnter();
+    expect(s().mode).toBe('2d');
+    expect(s().fallback).toBe('ready_timeout');
+    expect(s().phase).toBe('entering');
+    s().finishEntering();
+    expect(s().phase).toBe('fallback2d');
+  });
+
+  it('늦었어도 누르기 전에 3D가 준비되면 3D로 들어간다(까닭 없음)', async () => {
+    const { s } = setup();
+    await s().load();
+    s().markSlow();
+    s().setProgress({ ready: true, progress: 1 });
+    s().requestEnter();
+    expect(s().mode).toBe('3d');
+    expect(s().fallback).toBeNull();
+    s().finishEntering();
+    expect(s().phase).toBe('viewing');
+  });
+
+  it('늦음 + 별명 있음: 동의를 거쳐 가벼운 화면으로', async () => {
+    const { s } = setup();
+    await s().load();
+    s().setNickname('하늘');
+    s().markSlow();
+    s().requestEnter();
+    expect(s().overlay).toBe('consent');
+    expect(s().mode).toBe('2d');
+    s().setConsentChecked(true);
+    await s().confirmConsent();
+    expect(s().phase).toBe('entering');
+    s().finishEntering();
+    expect(s().phase).toBe('fallback2d');
+  });
+
+  it('2D로 바꾼 까닭이 남고, 2D가 된 뒤의 markSlow는 무시', async () => {
+    const { s } = setup();
+    await s().load();
+    s().fallBack2d('webgl_none');
+    expect(s().fallback).toBe('webgl_none');
+    s().markSlow();
+    expect(s().slow).toBe(false);
+  });
+
   it('입장 연출 중에 2D로 바뀌면 연출이 끝난 뒤 fallback2d', async () => {
     const { s } = await atPoster();
     s().requestEnter();
@@ -384,12 +448,12 @@ describe('처음 쓰는 친구예요(U-20 나안)', () => {
     t.device.setVisitor(EX_ID, { token: 'a'.repeat(43), consentVersion: '2026-11', nickname: '앞 친구' });
     t.prefs.setLastNickname('앞 친구');
     t.s().setNickname('앞 친구');
-    t.s().setCharacter('student-f');
+    t.s().setCharacter('student-f-05');
     t.s().startFresh();
     expect(t.device.visitor(EX_ID)).toBeNull();
     expect(t.prefs.lastNickname()).toBeNull();
     expect(t.s().nickname).toBe('');
-    expect(t.s().character).toBe('student-f');
+    expect(t.s().character).toBe('student-f-05');
     expect(t.s().freshStarted).toBe(true);
   });
 });

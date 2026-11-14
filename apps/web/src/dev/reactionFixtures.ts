@@ -108,6 +108,7 @@ export const fakeReactionApi = (device: DeviceStore, tokens: TokenTools) => {
       server.reactions.set(artworkId, view);
       return view;
     }),
+    diag: vi.fn<StudentApi['diag']>(async () => {}),
   };
   return { student, server };
 };

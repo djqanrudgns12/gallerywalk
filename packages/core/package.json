@@ -40,6 +40,11 @@
       "types": "./dist/domain/layout/index.d.ts",
       "default": "./dist/domain/layout/index.js"
     },
+    "./live": {
+      "@gallery/source": "./src/domain/live/index.ts",
+      "types": "./dist/domain/live/index.d.ts",
+      "default": "./dist/domain/live/index.js"
+    },
     "./motion": {
       "@gallery/source": "./src/domain/motion/ease.ts",
       "types": "./dist/domain/motion/ease.d.ts",

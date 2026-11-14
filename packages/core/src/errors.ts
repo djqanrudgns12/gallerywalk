@@ -47,7 +47,8 @@ export interface ErrorTraits {
 export type ErrorCode = keyof typeof errorCatalog;
 
 export const isErrorCode = (value: unknown): value is ErrorCode =>
-  typeof value === 'string' && Object.hasOwn(errorCatalog, value);
+  // `Object.hasOwn`은 오래된 학교 기기(Safari 15.4·Chrome 93 미만)에 없다(G-24 HW-05)
+  typeof value === 'string' && Object.prototype.hasOwnProperty.call(errorCatalog, value);
 
 /** 앱 안에서 던지는 오류. 화면 문구는 코드로 `copy/ko.ts`에서 찾는다. */
 export class AppError extends Error {

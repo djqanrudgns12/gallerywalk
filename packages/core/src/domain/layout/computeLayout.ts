@@ -10,6 +10,7 @@ import { type BuiltPart, buildPart, type DoorPoints, type P3, type StopAnchor } 
 import { interiorWalkRects } from './paths.ts';
 import { type PartPlan, planPart, type SizedItem } from './roomSizing.ts';
 import { evenChunks, featuredIndex, partCountFor, type SplitItem } from './split.ts';
+import { computeLayoutV4 } from './v4/museum.ts';
 
 /**
  * 배치 엔진(PLAN §4): `computeLayout(input) → Layout`. 순수 함수 — 같은 입력이면 같은 출력·같은 해시(§4.10).
@@ -104,6 +105,8 @@ const fixtureObstacles = (fixtures: readonly Fixture[], g: TemplateGeometry): La
 };
 
 export const computeLayout = (input: LayoutInput): Layout => {
+  // 공간 v4(ADR-071)는 판 4부터. v3 이하는 아래 그대로(결과·해시 불변)
+  if (input.algoVersion >= 4) return computeLayoutV4(input);
   const c = config();
   const g = templateGeometry[input.templateId];
   const rooms = [...input.rooms].sort(byOrderId);

@@ -1,5 +1,14 @@
 import { config } from '@gallery/core/config';
-import type { CharacterId } from '@gallery/core/types';
+import {
+  ACCEPTED_CHARACTER_IDS,
+  type BodyKey,
+  bodyOf,
+  buildOf,
+  type CharacterId,
+  isStudentCharacterId,
+  normalizeCharacterId,
+  studentNumber,
+} from '@gallery/core/types';
 import { useFrame } from '@react-three/fiber';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import {
@@ -68,7 +77,8 @@ interface Palette {
   readonly bun: boolean;
 }
 
-const PALETTE: Readonly<Record<CharacterId, Palette>> = {
+/** 몸 틀마다 기본 색(개념 그림 `.local/art/r4/`) */
+const PALETTE: Readonly<Record<BodyKey, Palette>> = {
   'student-m': {
     top: '#1f2f55',
     bottom: '#8f7f6d',
@@ -103,6 +113,26 @@ const PALETTE: Readonly<Record<CharacterId, Palette>> = {
   },
 };
 
+/** 학생 번호마다 윗옷 색(임시 모형으로도 열 명이 서로 달라 보이게) — 성별마다 1번이 몸 틀 기본 색 */
+const STUDENT_TOPS: Readonly<Record<'student-m' | 'student-f', readonly string[]>> = {
+  'student-m': ['#1f2f55', '#2f4a3a', '#5a3a26', '#3c3f46', '#6a5a2a'],
+  'student-f': ['#6e1f2c', '#2a3f5f', '#4f3a5a', '#2f4a44', '#7a5a2e'],
+};
+
+const paletteOf = (id: CharacterId): Palette => {
+  const body = bodyOf(id);
+  const base = PALETTE[body];
+  const n = normalizeCharacterId(id);
+  if (!isStudentCharacterId(n) || (body !== 'student-m' && body !== 'student-f')) return base;
+  const tops = STUDENT_TOPS[body];
+  return { ...base, top: tops[(studentNumber(n) - 1) % tops.length] ?? base.top };
+};
+
+/** ID마다 한 번만 만든 색(같은 참조라 재질을 다시 만들지 않는다) */
+const PALETTES: ReadonlyMap<CharacterId, Palette> = new Map(
+  ACCEPTED_CHARACTER_IDS.map(id => [id, paletteOf(id)]),
+);
+
 const STRIDE_M = 0.5;
 
 export const CharacterFigure = forwardRef<CharacterHandle, { character: CharacterId }>(
@@ -118,9 +148,9 @@ export const CharacterFigure = forwardRef<CharacterHandle, { character: Characte
     const shadeRef = useRef<Mesh>(null);
     const phase = useRef(0);
 
-    const isTeacher = character.startsWith('teacher');
-    const h = isTeacher ? config().CHAR_HEIGHT_M.teacher : config().CHAR_HEIGHT_M.student;
-    const p = PALETTE[character];
+    const isTeacher = buildOf(character) === 'teacher';
+    const h = config().CHAR_HEIGHT_M[buildOf(character)];
+    const p = PALETTES.get(character) ?? PALETTE[bodyOf(character)];
     // 비율: 학생은 머리가 키의 약 0.36(3등신 남짓), 선생님은 0.3
     const headR = h * (isTeacher ? 0.15 : 0.18);
     const legLen = h * (isTeacher ? 0.4 : 0.3);

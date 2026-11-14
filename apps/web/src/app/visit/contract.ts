@@ -10,9 +10,15 @@ export interface VisitProgress {
   readonly ready: boolean;
   /** 0~1 */
   readonly progress: number;
+  /**
+   * 받을 파일은 다 받았고 그래픽 준비(셰이더·첫 그리기)만 남음. 이때는 준비 시간 상한(`VISIT_READY_TIMEOUT_MS`)으로
+   * 가벼운 화면으로 보내지 않는다 — 상한은 학교망에서 받기가 멈춘 경우를 위한 것이다(G-24).
+   */
+  readonly preparing?: boolean | undefined;
 }
 
-export type Fallback2dReason = 'webgl' | 'context' | 'fps';
+/** 2D로 바꾼 까닭: WebGL2 없음 · 컨텍스트 손실 거듭 · '낮음'에서도 느림 · 3D 공간 파일을 하나도 받지 못함(G-24) */
+export type Fallback2dReason = 'webgl' | 'context' | 'fps' | 'load';
 
 export interface VisitScreenProps {
   /** `GET /api/e/{code}` 응답(OPEN 전시) */
@@ -31,7 +37,8 @@ export interface VisitScreenProps {
   /** 출구·메뉴의 `처음으로` */
   readonly onHome: () => void;
   /**
-   * 2D 대체 화면으로 바꿀 때(ADR-019, §6.12): WebGL2를 못 만듦 · 60초 안 컨텍스트 손실 두 번 · '낮음'에서도 계속 느림.
+   * 2D 대체 화면으로 바꿀 때(ADR-019, §6.12): WebGL2를 못 만듦 · 60초 안 컨텍스트 손실 두 번 · '낮음'에서도 계속 느림 ·
+   * 3D 공간 파일을 하나도 받지 못함(G-24 HW-01).
    * 한 번만 부른다. 그 전시 동안 2D로 남는다(다음 방문에 3D를 다시 시도).
    */
   readonly onFallback2d?: ((reason: Fallback2dReason) => void) | undefined;

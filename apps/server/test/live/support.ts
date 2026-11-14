@@ -16,7 +16,7 @@ import {
 import { WebSocket, type ClientOptions } from 'ws';
 import { attachLive, type LiveAttachment } from '../../src/live/attach.ts';
 import { createLiveHub, type LiveHub } from '../../src/live/hub.ts';
-import { createLogger } from '../../src/log.ts';
+import { createLogger, type LogStats } from '../../src/log.ts';
 import type { ExhibitionRecord } from '../../src/ports/index.ts';
 import { makeTempDir } from '../helpers/server.ts';
 import { testDeps } from '../support/memoryStore.ts';
@@ -39,7 +39,9 @@ export interface LiveRig {
   readonly stop: () => Promise<void>;
 }
 
-export const startRig = async (options: { readonly production?: boolean } = {}): Promise<LiveRig> => {
+export const startRig = async (
+  options: { readonly production?: boolean; readonly minuteStats?: () => LogStats } = {},
+): Promise<LiveRig> => {
   const t = testDeps();
   const root = await makeTempDir();
   const logDir = join(root, 'logs');
@@ -54,6 +56,7 @@ export const startRig = async (options: { readonly production?: boolean } = {}):
   const live = attachLive(server, hub, {
     production: options.production ?? false,
     rateKey: { bytes: () => Buffer.from(key) },
+    ...(options.minuteStats === undefined ? {} : { minuteStats: options.minuteStats }),
   });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
@@ -162,14 +165,23 @@ export const pose = (x: number, over: Partial<Pose> = {}): Pose => ({
 
 export const hello = (
   token: string,
-  over: { readonly as?: 'visitor' | 'teacher'; readonly character?: CharacterId; readonly pose?: Pose } = {},
+  over: {
+    readonly as?: 'visitor' | 'teacher';
+    readonly character?: CharacterId;
+    readonly pose?: Pose;
+    /** 프로토콜 판(기본 1, 판 2는 HS-02) */
+    readonly v?: 1 | 2;
+    /** 캐릭터 판(M4-9): 판 2면 기본 2(지금 앱), null이면 빼서 12종 전 앱을 흉내 낸다 */
+    readonly chars?: 2 | null;
+  } = {},
 ) => ({
   t: 'hello' as const,
-  v: 1 as const,
+  v: over.v ?? (1 as 1 | 2),
   token,
   as: over.as ?? 'visitor',
   character: over.character ?? (over.as === 'teacher' ? 'teacher-f' : 'student-m'),
   pose: over.pose ?? pose(1),
+  ...((over.chars === undefined ? (over.v === 2 ? 2 : null) : over.chars) === 2 ? { chars: 2 as const } : {}),
 });
 
 // ── 클라이언트 ──────────────────────────────────────────────────

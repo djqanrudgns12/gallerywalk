@@ -129,7 +129,9 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    target: 'es2022',
+    // 학교 기기(G-24 HW-05): 오래된 iPad Safari 15·삼성 인터넷(Chromium 90대)에서도 묶음이 해석되게 문법만 낮춘다
+    // (class static block 등). 실행 기능(`Object.hasOwn`·`.at()` 등)은 코드에서 쓰지 않는다 — `check:rules`가 본다
+    target: ['safari15', 'chrome90', 'firefox90', 'edge90'],
     assetsDir: 'assets/g',
     // 글꼴은 작아도 `data:`로 넣지 않는다 — 운영 CSP `font-src 'self'`가 막아 그 글자 조각이 빠진다(ADR-069)
     assetsInlineLimit: (filePath: string) => (/\.(woff2?|ttf|otf)$/.test(filePath) ? false : undefined),

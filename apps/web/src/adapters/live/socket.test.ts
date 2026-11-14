@@ -93,13 +93,129 @@ describe('createLiveChannel', () => {
     s.open();
     expect(s.sent[0]).toMatchObject({
       t: 'hello',
-      v: 1,
+      v: 2,
       token: TOKEN,
       as: 'visitor',
       character: 'student-m',
     });
     s.receive(welcome);
     expect(statuses).toEqual(['connecting', 'live']);
+  });
+
+  it('판 2 위치 p: 번호를 sid로 바꿔 peers로 넘기고, 내 것·모르는 번호는 빼고, 틀린 모양은 버린다', () => {
+    const h = harness();
+    const got: unknown[] = [];
+    const ch = createLiveChannel(h.deps);
+    ch.join(
+      { code: '482910', token: TOKEN, as: 'visitor', character: 'student-m', pose: pose(0) },
+      { onMessage: m => got.push(m), onStatus: () => {} },
+    );
+    const s = h.sockets[0]!;
+    s.open();
+    const peer = (sid: string, n: number) => ({
+      sid,
+      nickname: '바다',
+      role: 'visitor',
+      character: 'student-f',
+      pose: pose(1),
+      n,
+    });
+    s.receive({ ...welcome, n: 1, peers: [peer('bbbbbbbb', 2)] });
+    s.receive({ t: 'join', peer: peer('cccccccc', 3) });
+    got.length = 0;
+    // 나(1)·b(2)·c(3)·모르는 번호(9)
+    s.onmessage?.({
+      data: '{"t":"p","at":5000,"p":[1,100,0,100,0,1,2,250,0,-50,1571,2,3,-12345,10,0,-3142,0,9,0,0,0,0,0]}',
+    });
+    expect(got).toEqual([
+      {
+        t: 'peers',
+        at: 5000,
+        poses: [
+          { sid: 'bbbbbbbb', pose: { x: 2.5, y: 0, z: -0.5, yaw: 1.571, move: 2 } },
+          { sid: 'cccccccc', pose: { x: -123.45, y: 0.1, z: 0, yaw: -3.142, move: 0 } },
+        ],
+      },
+    ]);
+    s.receive({ t: 'leave', sid: 'cccccccc' });
+    got.length = 0;
+    s.onmessage?.({ data: '{"t":"p","at":5200,"p":[3,0,0,0,0,0]}' });
+    expect(got).toEqual([{ t: 'peers', at: 5200, poses: [] }]);
+    // 칸 수가 여섯의 배수가 아님·범위 밖·정수 아님 → 버림
+    got.length = 0;
+    for (const bad of ['[2,1,0,0,0]', '[2,99999999,0,0,0,1]', '[2,1.5,0,0,0,1]', '[2,0,0,0,0,4]'])
+      s.onmessage?.({ data: `{"t":"p","at":5300,"p":${bad}}` });
+    expect(got).toEqual([]);
+  });
+
+  it('점프 시작: 판 2 welcome(방 안 번호) 뒤에만 {t:jump} 한 번, 판 1 서버·잇기 전·다시 잇는 동안은 버린다(W-05)', () => {
+    const h = harness();
+    const ch = createLiveChannel(h.deps);
+    ch.join(
+      { code: '482910', token: TOKEN, as: 'visitor', character: 'student-m', pose: pose(0) },
+      { onMessage: () => {}, onStatus: () => {} },
+    );
+    const jumps = (s: FakeSocket) => s.sent.filter(m => (m as { t: string }).t === 'jump');
+    const s = h.sockets[0]!;
+    ch.sendJump(); // 아직 열리지 않음
+    s.open();
+    ch.sendJump(); // welcome 전
+    expect(jumps(s)).toEqual([]);
+    s.receive({ ...welcome, n: 1 });
+    ch.sendJump();
+    expect(jumps(s)).toEqual([{ t: 'jump' }]);
+    // 다시 이은 서버가 번호 없는 welcome(판 1)이면 보내지 않는다
+    s.drop();
+    h.advance(config().LIVE_RETRY_MAX_MS * 2);
+    const again = h.sockets[1]!;
+    again.open();
+    ch.sendJump();
+    again.receive(welcome);
+    ch.sendJump();
+    expect(jumps(again)).toEqual([]);
+    ch.leave();
+    ch.sendJump();
+    expect(jumps(again)).toEqual([]);
+  });
+
+  it('받은 jump(sid·서버 시각)는 스키마 갈래로 그대로 넘기고, 모양이 틀리면 버린다', () => {
+    const h = harness();
+    const got: { msg: unknown; at: number }[] = [];
+    const ch = createLiveChannel(h.deps);
+    ch.join(
+      { code: '482910', token: TOKEN, as: 'visitor', character: 'student-m', pose: pose(0) },
+      { onMessage: (msg, at) => got.push({ msg, at }), onStatus: () => {} },
+    );
+    const s = h.sockets[0]!;
+    s.open();
+    s.receive({ ...welcome, n: 1 });
+    got.length = 0;
+    h.advance(70);
+    s.receive({ t: 'jump', sid: 'bbbbbbbb', at: 5000 });
+    expect(got).toEqual([{ msg: { t: 'jump', sid: 'bbbbbbbb', at: 5000 }, at: 70 }]);
+    got.length = 0;
+    for (const bad of [
+      { t: 'jump', sid: 'BAD', at: 1 },
+      { t: 'jump', sid: 'bbbbbbbb' },
+      { t: 'jump', sid: 'bbbbbbbb', at: 1, extra: 1 },
+    ])
+      s.receive(bad);
+    expect(got).toEqual([]);
+  });
+
+  it('보내는 위치는 1cm·0.001rad로 반올림한다', () => {
+    const h = harness();
+    const ch = createLiveChannel(h.deps);
+    ch.join(
+      { code: '482910', token: TOKEN, as: 'visitor', character: 'student-m', pose: pose(0) },
+      { onMessage: () => {}, onStatus: () => {} },
+    );
+    const s = h.sockets[0]!;
+    s.open();
+    ch.sendPose({ x: 1.23456, y: 0.004, z: -7.89012, yaw: 7, move: 1 });
+    h.advance(1000);
+    const sent = s.sent.filter(m => (m as { t: string }).t === 'pose') as { pose: Pose }[];
+    expect(sent.at(-1)?.pose).toEqual({ x: 1.23, y: 0, z: -7.89, yaw: 0.717, move: 1 });
   });
 
   it('위치는 초당 LIVE_POSE_HZ번까지, 바뀐 것만, 잦으면 마지막 것', () => {
@@ -149,6 +265,30 @@ describe('createLiveChannel', () => {
     expect(statuses.at(-1)).toBe('full:E_LIVE_FULL');
     h.advance(c.LIVE_RETRY_MAX_MS * 2);
     expect(h.sockets).toHaveLength(3);
+  });
+
+  it('다시 잇기 흔들기는 기본 간격의 0.5~1.5배다(한 반이 함께 끊겨도 흩어져 붙는다, HS-12)', () => {
+    const c = config();
+    for (const [r, factor] of [
+      [0, 0.5],
+      [0.999, 1.499],
+    ] as const) {
+      const h = harness();
+      h.deps = { ...h.deps, random: () => r };
+      const ch = createLiveChannel(h.deps);
+      ch.join(
+        { code: '482910', token: TOKEN, as: 'visitor', character: 'student-m', pose: pose(0) },
+        { onMessage: () => {}, onStatus: () => {} },
+      );
+      h.sockets[0]!.open();
+      h.sockets[0]!.drop();
+      const wait = Math.round(c.LIVE_RETRY_MIN_MS * factor);
+      h.advance(wait - 1);
+      expect(h.sockets).toHaveLength(1);
+      h.advance(1);
+      expect(h.sockets).toHaveLength(2);
+      ch.leave();
+    }
   });
 
   it('형식이 틀린 메시지는 넘기지 않는다, leave는 닫고 다시 잇지 않는다', () => {

@@ -1,12 +1,12 @@
 import { config } from '@gallery/core/config';
-import { charCount, normalizeLine } from '@gallery/core/types';
+import { charCount, normalizeLine, type StudentCharacterId, toStudentCharacterId } from '@gallery/core/types';
 import { z } from 'zod';
-import type { StudentCharacterId } from '../../ui/patterns/visitor/EntryPoster.tsx';
 
 /**
  * 포스터에서 고른 학생 캐릭터와 마지막 별명(PLAN §7.3, P4-1). `DeviceStore` 포트에 아직 칸이 없어(포트는 Claude가 정함)
  * 여기서 `localStorage`를 직접 쓴다 — 기기 저장과 같은 `gw:` 접두사, 읽을 때 zod 검사, 꺼내기·쓰기 실패는 던지지 않고
  * 이 탭 메모리에 둔다(`adapters/deviceStore.ts`와 같은 약속). 포트로 옮기면 이 파일은 지운다.
+ * 캐릭터는 새 ID(학생 10명, M4-9)로 쓰고, 예전에 저장한 옛 ID(`student-m`·`student-f`)는 01번으로 읽는다.
  */
 
 export interface VisitorPrefs {
@@ -26,7 +26,11 @@ export interface PrefsStorage {
 
 const KEY = { character: 'gw:student-character', nickname: 'gw:last-nickname' } as const;
 
-const CharacterSchema = z.enum(['student-m', 'student-f']);
+/** 학생 캐릭터 새 ID 또는 옛 별칭(01번으로 읽음) */
+const CharacterSchema = z
+  .string()
+  .transform(toStudentCharacterId)
+  .pipe(z.custom<StudentCharacterId>(v => v !== null));
 
 const validNickname = (raw: string | null): string | null => {
   if (raw === null) return null;

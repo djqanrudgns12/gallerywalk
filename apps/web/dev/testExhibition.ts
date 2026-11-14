@@ -229,7 +229,8 @@ export const buildTestExhibition = (): TestExhibition => {
   const input: LayoutInput = {
     exhibitionId: devId(1, 1),
     templateId: TEMPLATE,
-    algoVersion: config().ALGO_VERSION,
+    // `?algo=4`: 공간 v4(ADR-071) 배치로 걸어 보기 — 구운 조각이 없는 자리는 회색 모형(`BlockoutModules`)
+    algoVersion: Number(new URLSearchParams(window.location.search).get('algo') ?? config().ALGO_VERSION),
     rooms: Array.from({ length: rooms }, (_, r) => {
       const id = devId(2, r + 1);
       roomTitles.set(id, `전시실 ${r + 1}`);

@@ -231,9 +231,55 @@ export const ExteriorSchema = z.object({
 });
 export type Exterior = z.infer<typeof ExteriorSchema>;
 
+/**
+ * 스키마 3(공간 v4, ADR-071)이 더하는 칸 — 모두 선택이라 스키마 2 배치를 읽는 코드가 그대로 돈다.
+ * 구역: 그리기 범위·밝기·말풍선 보이기의 단위(`gallery`의 id는 partId).
+ */
+export const ZoneSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(['plaza', 'portico', 'hall', 'gallery']),
+  min: Vec2Schema,
+  max: Vec2Schema,
+});
+/**
+ * 안내판 체계(PRD_V2 W-03): ① 외관 프리즈 ② 현수막 ③ 포털 위 레터링 ④ 돌출 사인 ⑤ 안내 토템 ⑥ 전시실 소개 벽 ⑦ 출구.
+ * `pos`는 판 한가운데(토템은 바닥), 앞 = 지역 +Z. 글은 가로로 누르거나 자르지 않는다 — 판 크기 `w × h`가 글을 담는 상자다.
+ */
+export const SignSchema = z.object({
+  kind: z.enum(['frieze', 'banner', 'portalLettering', 'blade', 'totem', 'introWall', 'exit']),
+  /** 무엇을 보이는가: 관 ID(③④⑥) · null(전시 이름·출구) */
+  ref: z.string().nullable(),
+  zone: z.string(),
+  pos: Vec3Schema,
+  rotY: z.number(),
+  w: z.number().positive(),
+  h: z.number().positive(),
+});
+export type LayoutSign = z.infer<typeof SignSchema>;
+/** 도슨트 자리(W-10): id는 `docent-plaza`·`docent-hall`·`docent-room` */
+export const NpcSpotSchema = z.object({
+  id: z.string().min(1),
+  zone: z.string(),
+  pos: Vec3Schema,
+  /** 바라보는 방향(0 = +Z) */
+  yaw: z.number(),
+});
+export type NpcSpot = z.infer<typeof NpcSpotSchema>;
+/** 장식 자리(W-04): 베이 가운데·기둥 축에만 대칭. 바닥 장식은 `walk.obstacles`에도 들어 있다 */
+export const DecorSlotSchema = z.object({
+  kind: z.enum(['fountain', 'sculpture', 'bust', 'planter', 'topiary', 'urn', 'desk', 'pendant']),
+  pos: Vec3Schema,
+  rotY: z.number(),
+  zone: z.string(),
+});
+export type DecorSlot = z.infer<typeof DecorSlotSchema>;
+
+/** 읽을 수 있는 배치 모양 판. 저장된 배치가 이 밖의 판이면 읽지 않고 다시 계산한다(ADR-057 보충) */
+export const LAYOUT_SCHEMA_VERSIONS = [2, 3] as const;
+
 export const LayoutSchema = z.object({
-  /** 2 = 이젤·외관·걷기 영역(ADR-057) */
-  schemaVersion: z.literal(2),
+  /** 2 = 이젤·외관·걷기 영역(ADR-057) · 3 = 공간 v4(ADR-071, 아래 선택 칸) */
+  schemaVersion: z.union([z.literal(2), z.literal(3)]),
   algoVersion: z.number().int().positive(),
   templateId: TemplateIdSchema,
   /** 정규 JSON의 SHA-256 앞 16자(§4.10) */
@@ -249,5 +295,13 @@ export const LayoutSchema = z.object({
   map: LayoutMapSchema,
   walk: WalkSchema,
   exterior: ExteriorSchema,
+  zones: z.array(ZoneSchema).optional(),
+  signs: z.array(SignSchema).optional(),
+  npcSpots: z.array(NpcSpotSchema).optional(),
+  decorSlots: z.array(DecorSlotSchema).optional(),
+  /** 대문(W-08): 가운데 바닥 · 행동 키가 `나가기`가 되는 반지름 · 앞 */
+  gate: z.object({ pos: Vec3Schema, radius: z.number().positive(), rotY: z.number() }).optional(),
+  /** 광장 경계(W-06): 걸을 수 있는 곳의 바깥 가장자리 선분 — 닿으면 부드럽게 밀려나고 알림 */
+  boundary: z.array(z.object({ a: Vec2Schema, b: Vec2Schema })).optional(),
 });
 export type Layout = z.infer<typeof LayoutSchema>;

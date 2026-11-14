@@ -1,0 +1,154 @@
+/*
+ * 나가기 창(PRD_V2 W-08) — 반응 시트와 같은 안내판 체계: 숯색 판 · 1px 테 · 놋쇠는 주 단추(`나가기`) 하나.
+ * 아래에서 올라오는 작은 시트(0.3초, 동작 줄이기면 바로). 뒤 3D를 덮는 덮개 없음, 휴대폰 세로에서 화면 아래 3분의 1 안.
+ * 색·간격·모서리·글꼴은 토큰·테마 변수만.
+ */
+.sheet {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 20;
+  width: 100%;
+  max-width: 480px;
+  max-height: 60vh;
+  max-height: 60dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  padding: var(--s-4) calc(var(--s-4) + env(safe-area-inset-right))
+    calc(var(--s-3) + env(safe-area-inset-bottom)) calc(var(--s-4) + env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-bottom: 0;
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  box-shadow: var(--shadow-plate);
+  font-family: var(--font-ui);
+  transform: translateX(-50%);
+  animation: sheetUp var(--t-sheet) var(--ease-out) both;
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translate(-50%, 100%);
+  }
+  to {
+    transform: translate(-50%, 0);
+  }
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-5);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  color: var(--plate-ink);
+}
+
+.stats {
+  margin: 0;
+  font-size: var(--fs-2);
+  line-height: var(--lh-body);
+  color: var(--plate-ink-sub);
+}
+
+/* 주·보조 단추는 한 줄 두 칸(375px에서도 나란히), 글자 단추는 그 아래 가운데 */
+.actions {
+  margin-top: var(--s-2);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-2);
+}
+
+.primary,
+.secondary {
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 var(--s-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.primary {
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+}
+
+.secondary {
+  background-color: transparent;
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+}
+
+.stay {
+  grid-column: 1 / -1;
+  justify-self: center;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  padding: 0 var(--s-3);
+  background: none;
+  border: 0;
+  border-radius: var(--r-plate);
+  color: var(--plate-ink);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .secondary:hover {
+    border-color: var(--plate-ink-sub);
+  }
+
+  .stay:hover {
+    text-decoration-thickness: 2px;
+  }
+}
+
+.primary:focus-visible,
+.secondary:focus-visible,
+.stay:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 낮은 가로 화면(휴대폰 눕힘): 세 단추를 한 줄에 두어 시트 높이를 줄인다 */
+@media (max-height: 480px) and (min-width: 560px) {
+  .sheet {
+    max-width: 640px;
+    padding-top: var(--s-3);
+    gap: var(--s-1);
+  }
+
+  .actions {
+    margin-top: var(--s-1);
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  }
+
+  .stay {
+    grid-column: auto;
+  }
+}
+
+/* 동작 줄이기: 바로 나타난다 */
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    animation: none;
+  }
+}

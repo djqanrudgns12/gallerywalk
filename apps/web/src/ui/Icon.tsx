@@ -22,7 +22,10 @@ export type IconName =
   | 'bulb'
   | 'star'
   | 'question'
-  | 'eye';
+  | 'eye'
+  | 'talk'
+  | 'exit'
+  | 'rejoin';
 
 export interface IconProps {
   name: IconName;
@@ -163,6 +166,30 @@ const renderPaths = (name: IconName): JSX.Element => {
         <>
           <polyline points="5 6 11 12 5 18" />
           <polyline points="12 6 18 12 12 18" />
+        </>
+      );
+    // 관람 조작 v2(PRD_V2 W-01·W-08): 말걸기 · 나가기 · 재접속하기
+    case 'talk':
+      return (
+        <>
+          <path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4 3.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" />
+          <line x1="8" y1="10" x2="16" y2="10" />
+          <line x1="8" y1="13" x2="13" y2="13" />
+        </>
+      );
+    case 'exit':
+      return (
+        <>
+          <path d="M14 4H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h8" />
+          <polyline points="16 8 20 12 16 16" />
+          <line x1="10" y1="12" x2="20" y2="12" />
+        </>
+      );
+    case 'rejoin':
+      return (
+        <>
+          <path d="M20 12a8 8 0 1 1-2.3-5.6" />
+          <polyline points="20 4 20 9 15 9" />
         </>
       );
     case 'jump':

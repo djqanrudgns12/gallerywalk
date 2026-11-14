@@ -1,0 +1,89 @@
+/*
+ * 끊김 띠(PRD_V2 W-08) — 위 줄 아래 가운데의 작은 안내판(전시 바뀜 띠와 같은 자리·같은 판).
+ * 높이는 단추 하나만큼, 폭은 글자만큼이라 뒤 3D를 덮지 않는다. 색·간격은 토큰·테마 변수만.
+ */
+.banner {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--s-3) + var(--touch-min) + var(--s-3) + env(safe-area-inset-top));
+  z-index: 12;
+  box-sizing: border-box;
+  max-width: calc(100vw - 2 * var(--s-3));
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 0 var(--s-1) 0 var(--s-3);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  transform: translateX(-50%);
+  animation: drop var(--t-sheet) var(--ease-out) both;
+}
+
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.mark {
+  flex: none;
+  color: var(--status-warn);
+}
+
+.text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rejoin {
+  flex: none;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  padding: 0 var(--s-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-1);
+  background: none;
+  border: 0;
+  border-radius: var(--r-plate);
+  color: var(--accent);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rejoin:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 380px) {
+  .banner {
+    font-size: var(--fs-1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner {
+    animation: none;
+  }
+}

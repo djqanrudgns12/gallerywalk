@@ -110,6 +110,7 @@ export const fakeStudentApi = (opts: FakeStudentOptions) => {
     putReaction: vi.fn<StudentApi['putReaction']>(async () => {
       throw new AppError('E_REACTIONS_OFF');
     }),
+    diag: vi.fn<StudentApi['diag']>(async () => {}),
   };
   return { student, exhibition, registerVisitor, changeNickname };
 };

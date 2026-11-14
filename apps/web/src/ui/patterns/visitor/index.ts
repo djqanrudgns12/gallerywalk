@@ -7,6 +7,7 @@ export { WalkHint, type WalkHintProps } from './WalkHint.tsx';
 export { WalkNav, type WalkNavProps } from './WalkNav.tsx';
 export { ZoomCaption, type ZoomCaptionProps } from './ZoomCaption.tsx';
 export { DocentBubble, type DocentBubbleProps } from './DocentBubble.tsx';
+export { DocentCard, type DocentCardProps } from './DocentCard.tsx';
 export { MoveButtons, type MoveButtonsProps } from './MoveButtons.tsx';
 export {
   ReactionSheet,
@@ -20,3 +21,5 @@ export {
   type ReactionSheetValue,
 } from './ReactionSheet.tsx';
 export { formatAverage, PublicReactions, type PublicReactionsProps } from './PublicReactions.tsx';
+export { ExitPanel, type ExitPanelProps } from './ExitPanel.tsx';
+export { LiveLostBanner, type LiveLostBannerProps } from './LiveLostBanner.tsx';

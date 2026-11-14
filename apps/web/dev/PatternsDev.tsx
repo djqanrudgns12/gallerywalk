@@ -164,7 +164,7 @@ export const PatternsDev = (): JSX.Element => {
   const [soundOn, setSoundOn] = useState(true);
   const [stick, setStick] = useState<StickValue>({ forward: 0, strafe: 0, run: false });
   const [nickname, setNickname] = useState('하늘고래');
-  const [studentChar, setStudentChar] = useState<StudentCharacterId>('student-m');
+  const [studentChar, setStudentChar] = useState<StudentCharacterId>('student-m-01');
   const [teacherChar, setTeacherChar] = useState<TeacherCharacterId>('teacher-f');
   const [teacherName, setTeacherName] = useState('김서연 선생님');
   const [selectedCardId, setSelectedCardId] = useState('art-1');

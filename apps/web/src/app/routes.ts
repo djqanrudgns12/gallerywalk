@@ -17,5 +17,7 @@ export const digitsOnly = (raw: string, max: number = config().ENTRY_CODE_DIGITS
 export const PATHS = {
   home: '/',
   teacher: '/t',
+  /** 학교망 점검(G-24 HW-00) — 입장 코드 6자리와 겹치지 않는다 */
+  check: '/check',
   exhibition: (code: string) => `/${code}`,
 } as const;

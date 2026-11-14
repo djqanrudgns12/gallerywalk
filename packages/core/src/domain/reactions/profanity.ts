@@ -20,7 +20,7 @@ const patternFor = (term: string): RegExp | null => {
   return new RegExp(
     chars
       .map(char => {
-        const initial = /^[가-힣]$/u.test(char) ? char.normalize('NFD').at(0) : undefined;
+        const initial = /^[가-힣]$/u.test(char) ? char.normalize('NFD').charAt(0) : undefined;
         const alternatives = initial !== undefined && chars.length > 1 ? `${char}|${initial}` : char;
         // 입력의 반복을 패턴에서 소비한다. 초성이 같은 두 음절도 한 글자로 합쳐지지 않는다.
         return `(?:${alternatives})+`;

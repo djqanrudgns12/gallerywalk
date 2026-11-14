@@ -2,14 +2,16 @@ import { config } from '@gallery/core/config';
 import {
   type CameraPose,
   frameAnchorOf,
-  frameCamera,
+  frameCameraWithSide,
   type FramingOptions,
   type P2,
   roundedPath,
+  type SideReach,
   route,
   standable,
 } from '@gallery/core/layout';
 import type { Layout, Stop } from '@gallery/core/types';
+import { labelAwayOf } from '../scene/labelAway.ts';
 import { yawOf } from './walker.ts';
 import type { WalkMode } from './walkStore.ts';
 
@@ -146,13 +148,38 @@ export interface StandSpot {
 }
 
 /**
+ * 작품 정지 지점의 벽 명판: 액자 가운데 → 명판 쪽 벽 방향과 명판 먼 끝까지의 거리(그리기와 같은 띄움 `LABEL_FRAME_GAP_M`·
+ * 판 폭 `LABEL_PLATE_M`). 이젤(받침 아래 명판)·명판 없음은 null
+ */
+export const labelReachOf = (layout: Layout, stop: Stop): SideReach | null => {
+  if (stop.kind !== 'artwork' || !stop.artworkId) return null;
+  const label = layout.labels.find(l => l.artworkId === stop.artworkId);
+  const frame = layout.frames.find(f => f.artworkId === stop.artworkId);
+  if (!label || !frame || frame.mount === 'EASEL') return null;
+  const c = config();
+  const [cx, , cz] = stop.anchor.target;
+  const away = labelAwayOf(label.pos, { x: cx, z: cz }, label.normal, false);
+  if (away[0] === 0 && away[1] === 0) return null;
+  const along = (label.pos[0] - cx) * away[0] + (label.pos[2] - cz) * away[1];
+  return {
+    along: { x: away[0], y: 0, z: away[1] },
+    reach: along + c.LABEL_FRAME_GAP_M + c.LABEL_PLATE_M.w / 2,
+  };
+};
+
+/**
  * 정지 지점 앞에 설 자리: 화면 맞춤 카메라 자리에서 작품 쪽으로 조금, 옆으로 조금(카메라에 캐릭터가 화면 오른쪽 아래에 보이게).
  * 그 자리가 설 수 없으면 옆 비킴 없이 → 카메라 자리 → 법선 위를 작품 쪽으로 당기며 찾는다.
  */
 export const standSpot = (layout: Layout, stop: Stop, aspect: number): StandSpot => {
   const c = config();
   const a = stop.anchor;
-  const camera = frameCamera(frameAnchorOf(a), { aspect }, viewFraming(a.floorY));
+  const camera = frameCameraWithSide(
+    frameAnchorOf(a),
+    { aspect },
+    viewFraming(a.floorY),
+    labelReachOf(layout, stop),
+  );
   const p: P2 = [camera.position.x, camera.position.z];
   const fwd: P2 = [-a.normal[0], -a.normal[1]];
   // 작품을 볼 때 화면 오른쪽(+Z를 볼 때 −X)

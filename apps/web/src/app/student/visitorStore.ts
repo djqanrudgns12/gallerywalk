@@ -2,10 +2,15 @@ import { config } from '@gallery/core/config';
 import { copy, errorCopy } from '@gallery/core/copy';
 import { AppError, type ErrorCode } from '@gallery/core/errors';
 import { prepareNickname } from '@gallery/core/reactions';
-import { normalizeLine, type ExhibitionView } from '@gallery/core/types';
+import {
+  type DiagReason,
+  normalizeLine,
+  type ExhibitionView,
+  STUDENT_CHARACTER_IDS,
+  type StudentCharacterId,
+} from '@gallery/core/types';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { DeviceStore, StudentApi, TokenTools, VisitTarget } from '../../ports/index.ts';
-import type { StudentCharacterId } from '../../ui/patterns/visitor/EntryPoster.tsx';
 import type { VisitProgress } from '../visit/contract.ts';
 import type { VisitorPrefs } from './visitorPrefs.ts';
 
@@ -28,6 +33,10 @@ import type { VisitorPrefs } from './visitorPrefs.ts';
  * - 포스터에서(WebGL2를 못 만듦) 알면 3D 준비를 기다리지 않고 입장 단추를 연다(2D는 첫 그림을 화면이 받는다).
  *
  * 동작 줄이기(P4-11, PRD 8.4)가 켜져 있으면 포스터가 사라지는 연출(`entering`) 없이 바로 관람 단계로 간다.
+ *
+ * 3D 준비 시간 상한(G-24, FIELD_PLAN HW-01): 화면이 `markSlow()`를 부르면(포스터 뒤 `VISIT_READY_TIMEOUT_MS`) 3D가 준비되지
+ * 않았어도 입장 단추가 풀린다. 그때 누르면 가벼운 화면(2D)으로 들어간다(까닭 `ready_timeout`). 누르기 전에 3D가 준비되면 3D로.
+ * 2D로 바꾼 까닭은 `fallback`에 남는다 — 화면이 익명 수 세기(`StudentApi.diag`)에 한 번 보낸다.
  */
 
 export type VisitorPhase =
@@ -71,6 +80,10 @@ export interface VisitorState {
   readonly mode: VisitMode;
   /** `처음 쓰는 친구예요`를 눌렀다(포스터에 "새로 시작해요" 한 줄) */
   readonly freshStarted: boolean;
+  /** 3D 준비가 시간 상한을 넘김 — 준비 전이어도 입장 단추를 풀고, 누르면 2D로 */
+  readonly slow: boolean;
+  /** 2D로 바꾼 까닭(3D로 보면 null) */
+  readonly fallback: DiagReason | null;
 }
 
 export interface VisitorActions {
@@ -85,6 +98,8 @@ export interface VisitorActions {
   setProgress(progress: VisitProgress): void;
   /** 포스터의 입장 단추 */
   requestEnter(): void;
+  /** 3D 준비가 시간 상한을 넘김(포스터 화면의 시계) — 입장 단추를 푼다 */
+  markSlow(): void;
   setConsentChecked(checked: boolean): void;
   closeConsent(): void;
   confirmConsent(): Promise<void>;
@@ -96,8 +111,8 @@ export interface VisitorActions {
   applyView(view: ExhibitionView): void;
   /** 관람 중 전시가 닫히거나 준비 중으로 돌아감(바뀜 확인) */
   endVisit(phase: 'closed' | 'notReady'): void;
-  /** 관람 화면의 `onFallback2d`: 2D 대체 화면으로(두 번째부터는 무시) */
-  fallBack2d(): void;
+  /** 관람 화면의 `onFallback2d`: 2D 대체 화면으로(두 번째부터는 무시). 까닭은 익명 수 세기에 쓴다 */
+  fallBack2d(reason?: DiagReason): void;
 }
 
 export type VisitorStore = StoreApi<VisitorState & VisitorActions>;
@@ -112,7 +127,8 @@ export interface VisitorDeps {
   readonly reducedMotion?: (() => boolean) | undefined;
 }
 
-const DEFAULT_CHARACTER: StudentCharacterId = 'student-m';
+/** 기억한 캐릭터가 없으면 고르기 첫 칸(1번) */
+const DEFAULT_CHARACTER: StudentCharacterId = STUDENT_CHARACTER_IDS[0];
 const CLOSED_CONSENT: ConsentState = { checked: false, busy: false, error: null, canSkip: false };
 /** 2D는 3D 준비(템플릿 핵심·첫 관)를 기다리지 않는다 */
 const READY: VisitProgress = { ready: true, progress: 1 };
@@ -195,6 +211,8 @@ export const createVisitorStore = (deps: VisitorDeps): VisitorStore =>
       liveToken: null,
       mode: '3d',
       freshStarted: false,
+      slow: false,
+      fallback: null,
 
       async load(signal) {
         set({ phase: 'loading', failure: null });
@@ -255,7 +273,12 @@ export const createVisitorStore = (deps: VisitorDeps): VisitorStore =>
 
       requestEnter() {
         const s = get();
-        if (s.phase !== 'poster' || s.overlay !== null || !s.progress.ready || !s.view) return;
+        if (s.phase !== 'poster' || s.overlay !== null || !s.view) return;
+        if (!s.progress.ready) {
+          if (!s.slow) return;
+          // 3D 준비가 늦음 → 가벼운 화면으로 먼저(3D는 다음 방문에 다시 시도)
+          set({ mode: '2d', progress: READY, fallback: 'ready_timeout' });
+        }
         const id = s.view.exhibition.id;
         const nickname = normalizeLine(s.nickname);
         deps.prefs.setCharacter(s.character);
@@ -270,6 +293,11 @@ export const createVisitorStore = (deps: VisitorDeps): VisitorStore =>
           return;
         }
         set({ overlay: 'consent', consent: CLOSED_CONSENT });
+      },
+
+      markSlow() {
+        const s = get();
+        if (s.mode === '3d' && !s.slow) set({ slow: true });
       },
 
       setConsentChecked(checked) {
@@ -337,12 +365,14 @@ export const createVisitorStore = (deps: VisitorDeps): VisitorStore =>
         set({ phase, overlay: null, consent: CLOSED_CONSENT, view: null });
       },
 
-      fallBack2d() {
+      fallBack2d(reason) {
         const s = get();
         if (s.mode === '2d') return;
-        if (s.phase === 'viewing') set({ mode: '2d', phase: 'fallback2d' });
-        else if (s.phase === 'poster' || s.phase === 'loading') set({ mode: '2d', progress: READY });
-        else set({ mode: '2d' });
+        const fallback = reason ?? null;
+        if (s.phase === 'viewing') set({ mode: '2d', phase: 'fallback2d', fallback });
+        else if (s.phase === 'poster' || s.phase === 'loading')
+          set({ mode: '2d', progress: READY, fallback });
+        else set({ mode: '2d', fallback });
       },
     };
   });

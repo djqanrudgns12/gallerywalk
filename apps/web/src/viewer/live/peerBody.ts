@@ -1,5 +1,4 @@
 import { config } from '@gallery/core/config';
-import type { CharacterId } from '@gallery/core/types';
 import {
   type AnimationClip,
   AnimationMixer,
@@ -21,14 +20,14 @@ import {
 } from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { z } from 'zod';
-import { CHARACTER_BASE, loadCharacterGlb } from '../scene/Character.tsx';
+import { loadCharacterGlb } from '../scene/Character.tsx';
 import { withDim } from '../scene/materials.ts';
 
 /**
- * 다른 관람객의 몸(ADR-057, 규격 `tools/assets/spec/characters.md` §2 LOD): `{CHARACTER_BASE}/{id}-lod1.glb`(≤3천 삼각형)의
+ * 다른 관람객의 몸(ADR-057, 규격 `tools/assets/spec/characters.md` §2 LOD): 먼 거리 LOD glb(`characterLodUrl`, ≤3천 삼각형)의
  * `idle`(서 있는 자세 1장)·`walk`·`run`을 장면마다 구워 **정점 애니메이션 텍스처**(꼭짓점 자리·법선, 반정밀도)에 담는다.
- * 뼈대 없이 종류마다 `InstancedMesh` 하나로 그리고, 사람마다 몇 번째 장면인지(`aVat` = 장면 A·B·섞음)만 넘긴다 —
- * 사람 수와 상관없이 그리기 4회 그대로 실제로 걷는다(사용자 의견 2026-11-12: "정지해서 떠다니는 것 같다").
+ * 뼈대 없이 몸 묶음(`peerGroups.ts`)마다 `InstancedMesh` 하나로 그리고, 사람마다 몇 번째 장면인지(`aVat` = 장면 A·B·섞음)만
+ * 넘긴다 — 사람 수와 상관없이 그리기 4회 그대로 실제로 걷는다(사용자 의견 2026-11-12: "정지해서 떠다니는 것 같다").
  * 없거나 못 읽으면 null(부르는 쪽이 임시 모형을 그대로 둔다).
  */
 
@@ -161,8 +160,9 @@ const replaced = (src: string, from: string, to: string): string => {
   return src.replace(from, to);
 };
 
-export const loadPeerBody = async (kind: CharacterId, gl: WebGLRenderer): Promise<PeerBody | null> => {
-  const loaded = await loadCharacterGlb(`${CHARACTER_BASE}/${kind}-lod1.glb`, gl);
+/** `url` = 먼 거리 LOD 주소(`characterLodUrl`) — 같은 주소를 쓰는 캐릭터들은 같은 몸 하나를 함께 쓴다 */
+export const loadPeerBody = async (url: string, gl: WebGLRenderer): Promise<PeerBody | null> => {
+  const loaded = await loadCharacterGlb(url, gl);
   if (!loaded) return null;
   // 받아 둔 장면은 함께 쓰므로 복제해서 자세를 잡는다
   const root = cloneSkinned(loaded.scene);

@@ -14,6 +14,7 @@ export * from './reaction.ts';
 export * from './exhibition.ts';
 export * from './api.ts';
 export * from './live.ts';
+export * from './diag.ts';
 
 /** 화면 크기(CSS px). 줌에서 작품이 차지할 수 있는 영역(캡션 자리를 뺀 것). */
 export interface Viewport {

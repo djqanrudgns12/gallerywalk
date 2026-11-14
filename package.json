@@ -22,7 +22,8 @@
     "test": "vitest run",
     "test:server": "vitest run --project server",
     "e2e": "playwright test",
-    "verify": "npm run check && npm run test -- --maxWorkers=1 && npm run build"
+    "verify": "npm run check && npm run test -- --maxWorkers=1 && npm run build",
+    "reports:summary": "node tools/reports/device-summary.mjs"
   },
   "devDependencies": {
     "@gltf-transform/cli": "4.5.1",

@@ -9,14 +9,11 @@ import { join, resolve } from 'node:path';
 import { config } from '../../../packages/core/src/config.ts';
 import { buildExterior } from '../../../packages/core/src/domain/layout/grammar/exterior.ts';
 import { templateGeometry } from '../../../packages/core/src/domain/templates/geometry.ts';
+import { templateGeometryV4 } from '../../../packages/core/src/domain/templates/geometryV4.ts';
 import { templateLooks } from '../../../packages/core/src/domain/templates/look.ts';
 import { decorationsFor } from '../../../packages/core/src/domain/layout/grammar/modernHistory.ts';
 
-const outDir = process.argv[2];
-if (!outDir) {
-  console.error('사용: node tools/assets/pipeline/contract.mjs <출력 폴더>');
-  process.exit(2);
-}
+const outDir = process.argv[2] ?? '.local/art/build/modern-history-v4';
 
 /** 관 깊이 상한(벽 한 면 최대 길이)으로 건물이 가장 넓을 때의 반폭 — 회랑 반폭 + 벽 두께 + 관 깊이 */
 const widestBuildingHalfX = () => {
@@ -39,6 +36,33 @@ const contract = () => {
   return {
     template: 'modern-history',
     geometry: g,
+    v4: {
+      geometry: templateGeometryV4['modern-history'],
+      layout: c.LAYOUT_V4,
+      bundles: {
+        'core-v4': [
+          'roomWall4',
+          'roomWall2',
+          'roomCornerIn',
+          'roomCeiling',
+          'roomPortal',
+          'enfiladeDoor',
+          'enfiladeFrame',
+        ],
+        'hall-v4': [
+          'hallWall4',
+          'hallWall2',
+          'hallCornerIn',
+          'hallPortal',
+          'hallEntrance',
+          'hallPilaster',
+          'hallCeiling',
+          'hallSkylight',
+          'hallFloor',
+        ],
+        'exterior-v4': ['portico', 'stairs', 'facadeWall2', 'facadeEnd', 'hedge2', 'gate'],
+      },
+    },
     look: templateLooks['modern-history'],
     // render.py의 합성 관람 장면에서 쓰는 사인과 같은 자리. 배치 수식은 제품과 공유한다.
     decorations: decorationsFor(

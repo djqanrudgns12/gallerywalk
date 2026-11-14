@@ -4,9 +4,9 @@ import { templateGeometry } from '@gallery/core/templates';
 import type { ArtworkForm, LayoutInput } from '@gallery/core/types';
 import { describe, expect, it } from 'vitest';
 import { cameraSpace, defaultOrbit, followPose } from './followCamera.ts';
-import { buildGuideMap, pathBetween, standSpot, stepTarget } from './guide.ts';
+import { buildGuideMap, labelReachOf, pathBetween, standSpot, stepTarget } from './guide.ts';
 import { type MannerInput, type MannerNotice, MannerWatch } from './manners.ts';
-import { Walker, type WalkInput, yawOf } from './walker.ts';
+import { Walker, type WalkerFx, type WalkInput, yawOf } from './walker.ts';
 
 const uuid = (n: number): string => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
 
@@ -101,17 +101,27 @@ describe('Walker', () => {
     expect(footFloorAt(layout.walk, [0, s.from - 0.02])).toBeCloseTo(s.y0, 6);
   });
 
-  it('사람끼리: 서 있는 사람 쪽으로 걸어도 몸 반지름 두 배보다 깊이 겹치지 않고 옆으로 비켜 지나간다', () => {
+  it('사람끼리: 서 있는 사람 쪽으로 천천히 걸어도 몸 반지름 두 배보다 깊이 겹치지 않고 옆으로 비켜 지나간다', () => {
     const c = config();
     const minD = 2 * c.CHAR_BODY_RADIUS_M;
     const other: P2 = [0, -4];
     const w = new Walker(layout.walk, { x: 0.02, z: -7, yaw: 0 });
     w.setCrowd([other]);
+    // 부딪힘 빠르기(CROWD_BUMP_MPS)보다 느리게 — 그 이상으로 정면이면 부딪힘(W-07, 아래 시험)
+    const slow: WalkInput = {
+      forward: (c.CROWD_BUMP_MPS * 0.8) / c.CHAR_WALK_MPS,
+      strafe: 0,
+      run: false,
+      cameraYaw: 0,
+    };
     let closest = Number.POSITIVE_INFINITY;
-    for (let t = 0; t < 5; t += 1 / 60) {
-      w.step(1 / 60, ahead());
+    const events: WalkerFx[] = [];
+    for (let t = 0; t < 9; t += 1 / 60) {
+      w.step(1 / 60, slow);
+      events.push(...w.drainEvents());
       closest = Math.min(closest, Math.hypot(w.pose.x - other[0], w.pose.z - other[1]));
     }
+    expect(events).not.toContain('crowd');
     // 걷기 빠르기 ÷ 미는 세기만큼만 파고든다(평형)
     expect(closest).toBeGreaterThan(minD - c.CHAR_WALK_MPS / c.CHAR_CROWD_PUSH_PER_S - 0.02);
     expect(w.pose.z).toBeGreaterThan(other[1] + minD * 0.5);
@@ -259,6 +269,34 @@ describe('Walker — 벽 부딪힘·점프·뛰기 잠금', () => {
     expect(w.settled).toBe(true);
   });
 
+  it('점프는 웅크림(crouchSec) 동안 땅에 있다가 뜨고(체공 그대로), 몸 단계는 pose.jump', () => {
+    const c = config();
+    const q = c.CHAR_JUMP_SQUASH;
+    const w = new Walker(layout.walk, { x: 0, z: -6, yaw: 0 });
+    expect(w.jump()).toBe(true);
+    w.step(q.crouchSec * 0.9, still);
+    expect(w.pose.air).toBe(0);
+    expect(w.pose.jump.phase).toBe('crouch');
+    expect(w.settled).toBe(false);
+    // 웅크리는 동안 다시 눌러도 한 번
+    expect(w.jump()).toBe(false);
+    w.step(q.crouchSec * 0.2, still);
+    expect(w.pose.air).toBeGreaterThan(0);
+    expect(w.pose.jump.phase).toBe('launch');
+    let flight = q.crouchSec * 0.1;
+    while (w.pose.air > 0 && flight < 2) {
+      w.step(1 / 240, still);
+      flight += 1 / 240;
+    }
+    expect(flight).toBeCloseTo((2 * c.CHAR_JUMP_SPEED_MPS) / c.CHAR_GRAVITY_MPS2, 1);
+    expect(w.pose.jump.phase).toBe('land');
+    expect(w.settled).toBe(false);
+    run(w, still, q.landSec + q.reboundSec + 0.05);
+    expect(w.pose.jump.phase).toBe('idle');
+    expect(w.settled).toBe(true);
+    expect(w.drainEvents()).toEqual(['jump', 'land']);
+  });
+
   it('뛰기 잠금 동안은 뛰기 입력이 걷기 빠르기', () => {
     const c = config();
     const w = new Walker(layout.walk, { x: 0, z: -7, yaw: 0 });
@@ -269,6 +307,201 @@ describe('Walker — 벽 부딪힘·점프·뛰기 잠금', () => {
     run(w, ahead(0, true), 1.2);
     expect(w.runLocked).toBe(false);
     expect(w.pose.move).toBe(2);
+  });
+});
+
+describe('Walker — 사람끼리 부딪힘(W-07)', () => {
+  const layout = layoutOf([5, 9]);
+  const bumps = (w: Walker): number => w.drainEvents().filter(e => e === 'crowd').length;
+
+  it('정면으로 걸어 부딪히면 crowd 한 번, 손 입력을 무시하고 CROWD_BUMP_PUSH_SEC 동안 CROWD_BUMP_PUSH_M 뒤로 밀린다', () => {
+    const c = config();
+    const other: P2 = [0, -5];
+    const w = new Walker(layout.walk, { x: 0, z: -7, yaw: 0 });
+    w.setCrowd([other]);
+    let hits = 0;
+    for (let t = 0; t < 3 && hits === 0; t += 1 / 60) {
+      w.step(1 / 60, ahead());
+      hits += bumps(w);
+    }
+    expect(hits).toBe(1);
+    const z0 = w.pose.z;
+    expect(other[1] - z0).toBeLessThan(2 * c.CHAR_BODY_RADIUS_M);
+    expect(w.pose.crowdBump).toBeCloseTo(1, 6);
+    // 벽 부딪힘 멈춤과는 따로(벽 몸 연출 값은 0)
+    expect(w.pose.bump).toBe(0);
+    run(w, ahead(), c.CROWD_BUMP_PUSH_SEC);
+    expect(z0 - w.pose.z).toBeCloseTo(c.CROWD_BUMP_PUSH_M, 1);
+    expect(w.pose.crowdBump).toBe(0);
+    expect(standable(layout.walk, [w.pose.x, w.pose.z])).toBe(true);
+  });
+
+  it('계속 밀고 들어가면 엔진은 또 부딪히지만 알림은 CROWD_TOAST_SEC에 한 번', () => {
+    const c = config();
+    const w = new Walker(layout.walk, { x: 0, z: -7, yaw: 0 });
+    w.setCrowd([[0, -5]]);
+    const m = new MannerWatch();
+    const notices: MannerNotice[] = [];
+    let hits = 0;
+    for (let t = 0; t < c.CROWD_TOAST_SEC * 0.9; t += 1 / 60) {
+      w.step(1 / 60, ahead());
+      const bumped = bumps(w) > 0;
+      if (bumped) hits++;
+      const n = m.step(1 / 60, { indoor: true, running: false, jumped: false, bumped });
+      if (n) notices.push(n);
+    }
+    expect(hits).toBeGreaterThan(1);
+    expect(notices).toEqual(['bump']);
+  });
+
+  it('비스듬히 스치면 부딪힘이 아니다(알림 없음) — 비켜 지나간다', () => {
+    const c = config();
+    const w = new Walker(layout.walk, { x: 0.45, z: -7, yaw: 0 });
+    w.setCrowd([[0, -5]]);
+    let hits = 0;
+    for (let t = 0; t < 4; t += 1 / 60) {
+      w.step(1 / 60, ahead());
+      hits += bumps(w);
+    }
+    expect(hits).toBe(0);
+    expect(w.pose.z).toBeGreaterThan(-5 + 2 * c.CHAR_BODY_RADIUS_M);
+  });
+
+  it('상대가 세게 다가오면 서 있는 나도 밀린다(상대 빠르기는 받은 자리의 차로 어림)', () => {
+    const c = config();
+    const w = new Walker(layout.walk, { x: 0, z: -5, yaw: 0 });
+    const stopAt = -5 - 2 * c.CHAR_BODY_RADIUS_M * 0.9;
+    let p: P2 = [0, -7];
+    let hits = 0;
+    for (let t = 0; t < 3 && hits === 0; t += 1 / 60) {
+      p = [0, Math.min(stopAt, p[1] + c.CHAR_RUN_MPS / 60)];
+      w.setCrowd([p]);
+      w.step(1 / 60, still);
+      hits += bumps(w);
+    }
+    expect(hits).toBe(1);
+    run(w, still, c.CROWD_BUMP_PUSH_SEC);
+    expect(w.pose.z - -5).toBeCloseTo(c.CROWD_BUMP_PUSH_M, 1);
+  });
+
+  it('도슨트(움직이지 않는 사람)도 같은 몸 반지름으로 막고 같은 규칙으로 부딪힌다', () => {
+    const c = config();
+    const w = new Walker(layout.walk, { x: 0, z: -7, yaw: 0 });
+    w.setCrowd([], [{ pos: [0, -5] }]);
+    let hits = 0;
+    let closest = Number.POSITIVE_INFINITY;
+    for (let t = 0; t < 3; t += 1 / 60) {
+      w.step(1 / 60, ahead());
+      hits += bumps(w);
+      closest = Math.min(closest, Math.hypot(w.pose.x, w.pose.z + 5));
+    }
+    expect(hits).toBeGreaterThan(0);
+    expect(closest).toBeGreaterThan(2 * c.CHAR_BODY_RADIUS_M - c.CHAR_WALK_MPS / 60 - 0.01);
+  });
+
+  it('안내 이동 중에는 부딪힘 없이 비켜 가기만', () => {
+    const w = new Walker(layout.walk, { x: 0, z: -7, yaw: 0 });
+    w.setCrowd([[0.05, -5]]);
+    w.follow(
+      [
+        [0, -7],
+        [0, -2],
+      ],
+      null,
+      () => {},
+    );
+    let hits = 0;
+    for (let t = 0; t < 6; t += 1 / 60) {
+      w.step(1 / 60, still);
+      hits += bumps(w);
+    }
+    expect(hits).toBe(0);
+  });
+});
+
+describe('Walker — 광장 경계(W-06)', () => {
+  const layout = layoutOf([5, 9]);
+  const m = config().WALKABLE_WALL_MARGIN_M;
+  /** 광장 뒤 끝(정면에서 먼 쪽) 걸을 수 있는 끝 z */
+  const edgeZ = layout.exterior.plaza.min[1] + m;
+  const outward = ahead(Math.PI);
+
+  it('경계 앞 BOUNDARY_SOFT_M부터 바깥 쪽 입력을 거리에 비례해 줄이고, 닿으면 BOUNDARY_PUSH_SEC 동안 BOUNDARY_PUSH_M 안쪽으로 밀며 알린다', () => {
+    const c = config();
+    const w = new Walker(layout.walk, { x: 1, z: edgeZ + 2, yaw: Math.PI });
+    run(w, outward, 0.6);
+    expect(w.pose.speed).toBeCloseTo(c.CHAR_WALK_MPS, 2);
+    const events: WalkerFx[] = [];
+    let sampled = false;
+    let touchD = -1;
+    for (let t = 0; t < 4 && touchD < 0; t += 1 / 60) {
+      const before = w.pose.z - edgeZ;
+      w.step(1 / 60, outward);
+      const ev = w.drainEvents();
+      events.push(...ev);
+      if (ev.includes('boundary')) touchD = before;
+      else if (!sampled && before < c.BOUNDARY_SOFT_M / 2) {
+        sampled = true;
+        expect(w.pose.speed).toBeCloseTo((c.CHAR_WALK_MPS * before) / c.BOUNDARY_SOFT_M, 1);
+      }
+    }
+    expect(sampled).toBe(true);
+    expect(touchD).toBeGreaterThanOrEqual(0);
+    expect(touchD).toBeLessThan(0.1);
+    // 벽 부딪힘(몸 눌림·흔들림)이 아니다
+    expect(events).not.toContain('bump');
+    run(w, outward, c.BOUNDARY_PUSH_SEC);
+    expect(w.pose.z - edgeZ - touchD).toBeCloseTo(c.BOUNDARY_PUSH_M, 1);
+    expect(w.pose.bump).toBe(0);
+    expect(w.pose.crowdBump).toBe(0);
+    expect(standable(layout.walk, [w.pose.x, w.pose.z])).toBe(true);
+  });
+
+  it('뛰어 들어도 경계에서 벽 부딪힘이 되지 않고, 알림은 BOUNDARY_TOAST_SEC에 한 번', () => {
+    const c = config();
+    const w = new Walker(layout.walk, { x: 1, z: edgeZ + 1, yaw: Math.PI });
+    const watch = new MannerWatch();
+    const notices: MannerNotice[] = [];
+    let touches = 0;
+    let wallBumps = 0;
+    for (let t = 0; t < c.BOUNDARY_TOAST_SEC * 2; t += 1 / 60) {
+      w.step(1 / 60, ahead(Math.PI, true));
+      const ev = w.drainEvents();
+      const boundary = ev.includes('boundary');
+      if (boundary) touches++;
+      if (ev.includes('bump')) wallBumps++;
+      const n = watch.step(1 / 60, { indoor: false, running: true, jumped: false, boundary });
+      if (n) notices.push(n);
+    }
+    expect(wallBumps).toBe(0);
+    expect(touches).toBeGreaterThan(2);
+    expect(notices).toEqual(['boundary', 'boundary']);
+  });
+
+  it('정면(현관이 닿은 쪽) 날개 벽과 실내 벽은 경계가 아니라 그대로 벽 부딪힘', () => {
+    const c = config();
+    const e = layout.exterior;
+    // 광장 옆 띠(현관 옆)에서 정면 날개 벽(+Z) 쪽으로 — 옆 경계(±X)에서는 BOUNDARY_SOFT_M보다 멀리
+    const x = e.halfWidth - 3;
+    const side = new Walker(layout.walk, { x, z: e.facadeZ - 3, yaw: 0 });
+    expect(standable(layout.walk, [x, e.facadeZ - 3])).toBe(true);
+    const ev: WalkerFx[] = [];
+    for (let t = 0; t < 4; t += 1 / 60) {
+      side.step(1 / 60, ahead());
+      ev.push(...side.drainEvents());
+    }
+    expect(ev).toContain('bump');
+    expect(ev).not.toContain('boundary');
+    // 홀 뒷벽(실내)
+    const hall = new Walker(layout.walk, { x: 3, z: -6, yaw: Math.PI });
+    const ev2: WalkerFx[] = [];
+    for (let t = 0; t < 3; t += 1 / 60) {
+      hall.step(1 / 60, ahead(Math.PI));
+      ev2.push(...hall.drainEvents());
+    }
+    expect(ev2).toContain('bump');
+    expect(ev2).not.toContain('boundary');
+    expect(c.BOUNDARY_SOFT_M).toBeGreaterThan(0);
   });
 });
 
@@ -360,6 +593,46 @@ describe('안내 이동 길(guide)', () => {
     const spot = standSpot(layout, stop, 16 / 10);
     expect(spot.yaw).toBeCloseTo(yawOf(-stop.anchor.normal[0], -stop.anchor.normal[1]), 6);
     expect(spot.camera.achievedFill).toBeGreaterThan(config().STOP_FILL);
+  });
+
+  it('휴대폰·태블릿 세로에서도 벽 명판 먼 끝이 화면 가로 안에 든다(2026-11-14 e2e: 왼쪽 끝 잘림)', () => {
+    const c = config();
+    let fitted = 0;
+    let artOnly = 0;
+    for (const aspect of [390 / 844, 820 / 1180]) {
+      for (const stop of layout.stops.filter(s => s.kind === 'artwork')) {
+        const reach = labelReachOf(layout, stop);
+        if (!reach) continue;
+        const { camera } = standSpot(layout, stop, aspect);
+        const [cx, , cz] = stop.anchor.target;
+        // 카메라 바라보는 방향(수평)에 대한 점의 옆 거리 ÷ 앞 거리 ≤ 가로 반 화각의 tan 이면 화면 안
+        const fx = camera.target.x - camera.position.x;
+        const fz = camera.target.z - camera.position.z;
+        const fl = Math.hypot(fx, fz);
+        const tanHalfW = Math.tan((camera.fov * Math.PI) / 360) * aspect;
+        const ratio = (along: number): number => {
+          const ex = cx + reach.along.x * along - camera.position.x;
+          const ez = cz + reach.along.z * along - camera.position.z;
+          return Math.abs(ex * fz - ez * fx) / (ex * fx + ez * fz);
+        };
+        const half = stop.anchor.outer.w / 2;
+        // 액자 + 명판을 함께 담을 수 있는 방(물러설 거리·화각 상한 안)이면 명판 먼 끝과 액자 반대쪽 끝이 화면 안
+        const canBoth =
+          (half + reach.reach) / 2 <=
+          stop.anchor.maxDistance * Math.tan((c.VFOV_HARD_MAX_DEG * Math.PI) / 360) * aspect;
+        if (canBoth && camera.fov < c.VFOV_HARD_MAX_DEG) {
+          expect(ratio(reach.reach), `${stop.id} 명판 끝 ${aspect.toFixed(2)}`).toBeLessThanOrEqual(tanHalfW);
+          expect(ratio(-half), `${stop.id} 액자 끝 ${aspect.toFixed(2)}`).toBeLessThanOrEqual(tanHalfW);
+          fitted++;
+        } else {
+          // 못 담는 좁은 방의 큰 액자는 액자 가운데를 그대로 본다(명판 쪽으로 옮기지 않음)
+          expect(Math.hypot(camera.target.x - cx, camera.target.z - cz)).toBeLessThan(1e-9);
+          artOnly++;
+        }
+      }
+    }
+    expect(fitted).toBeGreaterThan(4);
+    expect(fitted + artOnly).toBeGreaterThan(fitted);
   });
 });
 

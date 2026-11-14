@@ -301,7 +301,7 @@ describe('앱 정적 파일의 압축 협상', () => {
   });
 
   it('HTML·서비스 워커도 사본을 고르며 원래 형식과 no-cache를 유지한다', async () => {
-    for (const path of ['/', '/123456', '/t', '/privacy']) {
+    for (const path of ['/', '/123456', '/t', '/privacy', '/check']) {
       const res = await call(path, { headers: { 'Accept-Encoding': 'br' } });
       expect(res.headers.get('content-encoding'), path).toBe('br');
       expect(res.headers.get('content-type'), path).toBe('text/html; charset=utf-8');
@@ -318,7 +318,7 @@ describe('앱 정적 파일의 압축 협상', () => {
 
 describe('HTML과 서비스 워커', () => {
   it('/, /{6자리 코드}, /t, /t/* 는 index.html + no-cache + 보안 머리', async () => {
-    for (const path of ['/', '/123456', '/t', '/t/x', '/t/abc/def', '/privacy']) {
+    for (const path of ['/', '/123456', '/t', '/t/x', '/t/abc/def', '/privacy', '/check']) {
       const res = await call(path);
       expect(res.status, path).toBe(200);
       expect(res.text, path).toBe(INDEX);

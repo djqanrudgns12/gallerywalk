@@ -1,4 +1,5 @@
 export { templateGeometry, type TemplateGeometry } from './geometry.ts';
+export { templateGeometryV4, type TemplateGeometryV4 } from './geometryV4.ts';
 export {
   DEFAULT_MOOD,
   matColorOf,

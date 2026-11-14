@@ -52,6 +52,11 @@ export interface TemplateLook {
       readonly spread: number;
     };
   };
+  /**
+   * 공간 v4 전시실 벽 와시(PRD_V2 W-12 ① 코브 조명 → 벽 위쪽 그라데이션, 가산): 색(건축 3000K)·세기·높이(m).
+   * 숯색 벽이 구운 빛만으로 거의 검던 것(M3-4)
+   */
+  readonly wash: { readonly color: string; readonly opacity: number; readonly heightM: number };
   /** 작품 둘레 벽 빛 웅덩이(스포트 대신, 가산): 색·세기·액자 바깥 크기 대비 배율·위로 치우침(m) */
   readonly pool: {
     readonly color: string;
@@ -88,6 +93,8 @@ export interface TemplateLook {
   };
   /** 안내판(출구·입구 현판·이름판) 판 면 색. 글자는 상아(`SignTexts`), 테는 놋쇠(조각 `M_Brass`) */
   readonly signFace: string;
+  /** 공간 v4 안내판 글자 색(PRD_V2 §3.3): 놋쇠(포털 레터링·출구) · 청동(외관 프리즈) · 상아(소개 벽·판 글) */
+  readonly signLetters: { readonly brass: string; readonly bronze: string; readonly ivory: string };
   /** 먼지 빛 색(`MicroMotion`) */
   readonly dust: string;
   /** 매트 색(PRD 6.5): 작품 가장자리가 밝으면(`MAT_DARK_EDGE_LUMA` 이상) 어두운 쪽 — 작품이 매트에 묻히지 않게 */
@@ -124,12 +131,16 @@ export const MOOD_IDS = ['a', 'b', 'c', 'd'] as const;
 export type MoodId = (typeof MOOD_IDS)[number];
 export const DEFAULT_MOOD: MoodId = 'd';
 
-/** 해 질 녘(V-57): 낮빛 베이지 석조가 평평하게 보이던 것을 낮추고, 정문 안쪽 따뜻한 빛이 시선을 끌게 */
+/**
+ * 해 질 녘(V-57): 낮빛 베이지 석조가 평평하게 보이던 것을 낮추고, 정문 안쪽 따뜻한 빛이 시선을 끌게.
+ * 2026-11-14 e2e 캡처(p4-12/desktop-05-plaza)에서 회색 낮처럼 보여, 밝기(sRGB 명도)는 그대로 두고 구운 빛 색을
+ * 회분홍 → 낮은 햇빛의 호박빛 석재색으로, 반구광 하늘색을 차가운 연보라 → 따뜻한 모래색으로 옮겼다(늦은 오후 U-33과도 맞음)
+ */
 const OUTDOOR: TemplateLook['outdoor'] = {
   exposure: 0.85,
-  hemisphere: { sky: '#aeb1c4', ground: '#3b322b', intensity: 0.95 },
+  hemisphere: { sky: '#c4b4a2', ground: '#3b322b', intensity: 0.9 },
   environment: 0.28,
-  bakedTint: '#9a908d',
+  bakedTint: '#b08a6c',
   sky: { zenith: '#232a3d', horizon: '#c39a7c', ground: '#3a4630' },
   entranceGlow: { color: '#ffd7a3', opacity: 0.6, spillM: 2.6, insideM: 0.6, spread: 1.4 },
 };
@@ -145,15 +156,21 @@ const FRAME: TemplateLook['frame'] = {
 const ART: TemplateLook['art'] = { center: 1.0, edge: 0.95 };
 /** 숯색 판(시안 A `--surface` 계열) */
 const SIGN_FACE = '#2b2724';
+/** v4 안내판 글자(PRD_V2 §3.3 팔레트) */
+const SIGN_LETTERS: TemplateLook['signLetters'] = { brass: '#B8925A', bronze: '#6E5A3C', ivory: '#E9E1D3' };
 /** 상아 한 색 */
 const DUST = '#f3eee3';
+/** 벽 와시: 작품 빛(3500K 웅덩이 #ffe2b8)보다 한 단계 따뜻하고 약하게 — 빛 위계 작품 > 건축(W-12) */
+const WASH: TemplateLook['wash'] = { color: '#ffcf96', opacity: 0.2, heightM: 2.6 };
 const SHARED = {
   outdoor: OUTDOOR,
   mat: MAT,
   frame: FRAME,
   art: ART,
   signFace: SIGN_FACE,
+  signLetters: SIGN_LETTERS,
   dust: DUST,
+  wash: WASH,
 } as const;
 /** 근대 역사관: 누렇게 바랜 한지 같은 종이 · 먹색 글자 · 놋쇠 선 */
 const CARD: TemplateLook['card'] = { paper: '#f2e9d6', ink: '#2b251f', inkSub: '#5e5246', rule: '#8f7044' };
@@ -213,12 +230,14 @@ export const templateMoods: Readonly<Record<TemplateId, Readonly<Record<MoodId, 
       finish: {},
       card: CARD,
     },
-    // D 어두운 전시관(U-19-10): 숯색 벽·짙은 바닥·낮은 방 빛, 작품마다 스포트처럼 강한 빛 웅덩이, 방 : 작품 ≈ 1 : 6
+    // D 어두운 전시관(U-19-10): 숯색 벽·짙은 바닥·낮은 방 빛, 작품마다 스포트처럼 강한 빛 웅덩이.
+    // PRD_V2 W-12(2026-11-13 "어두운 톤은 좋은데 많이 어둡다"): 노출 0.95→1.05·구운 빛 0.95→1.15·반구광 0.22→0.30,
+    // 방 : 작품 ≈ 1 : 6 → 1 : 4. 작품 면(`art`)·빛 웅덩이는 그대로 두어 작품이 여전히 가장 밝다.
     d: {
       background: '#0b0a09',
-      exposure: 0.95,
-      baked: { intensity: 0.95, color: '#e9dcc8', hemisphereScale: 0.08, environmentScale: 0.2 },
-      hemisphere: { sky: '#d9cdbb', ground: '#141110', intensity: 0.22 },
+      exposure: 1.05,
+      baked: { intensity: 1.15, color: '#e9dcc8', hemisphereScale: 0.08, environmentScale: 0.2 },
+      hemisphere: { sky: '#d9cdbb', ground: '#141110', intensity: 0.3 },
       environment: 0.12,
       ...SHARED,
       // 빛 중심을 작품 가운데로(V-57: 위쪽 벽에 몰려 작품 아래가 죽어 보였다)
