@@ -320,7 +320,7 @@ test('자동 투어 · 게시 작품 재생 → 진행 증가 → 멈춤 유지 
   await captureTeacher(page, 'tour-03-returned');
 });
 
-test('3D 미리 보기 · 열기 → 첫 작품까지 안내 걷기 → 작품을 누르면 그 작품 패널 → 닫기', async ({
+test('3D 미리 보기 · 열기 → 첫 작품까지 안내 걷기 → 작품을 누르면 그 작품 패널 → 닫기 → 고른 작품 앞에서 다시 열기', async ({
   page,
   secondary,
 }) => {
@@ -370,4 +370,20 @@ test('3D 미리 보기 · 열기 → 첫 작품까지 안내 걷기 → 작품�
   await layer.getByTestId('overlay-close').click();
   await expect(layer).toBeHidden();
   await expect(page.getByTestId('teacher-manage')).toHaveAttribute('data-state', 'ready');
+
+  // HT-06: 작품 패널을 연 채 `미리 보기`를 열면 광장이 아니라 그 작품 앞에서 시작한다
+  await page.getByTestId('cell-1').locator('img').click();
+  const panel = page.getByTestId('artwork-panel');
+  await expect(panel).toBeVisible();
+  const picked = (await page.getByTestId('cell-1').getByRole('heading').textContent())?.trim() ?? '';
+  expect(picked).not.toBe('');
+  await page.getByTestId('open-preview').click();
+  await expect(layer.getByTestId('visit-screen')).toHaveAttribute('data-ready', '1', {
+    timeout: TEACHER_READY_MS,
+  });
+  await expect(perf).not.toHaveAttribute('data-stop', '0');
+  await expect(layer.getByTestId('near-card').getByRole('heading')).toHaveText(picked, { timeout: WALK_MS });
+  await captureTeacher(page, 'preview-03-start-at-artwork');
+  await layer.getByTestId('overlay-close').click();
+  await expect(layer).toBeHidden();
 });

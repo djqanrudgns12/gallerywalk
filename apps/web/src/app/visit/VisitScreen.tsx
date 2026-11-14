@@ -36,6 +36,7 @@ import type { Fallback2dReason, VisitScreenProps } from './contract.ts';
 import { type LiveVisit, useLiveVisit } from './useLiveVisit.ts';
 import { activeProbe } from '../perf/visitProbe.ts';
 import { resumeStop } from '../../viewer/updates/applyRules.ts';
+import { startAtArtwork } from '../../viewer/walk/startAt.ts';
 import {
   PublicReactionsFor,
   ReactionLayer,
@@ -107,6 +108,7 @@ export const VisitScreen = ({
   sound,
   onFallback2d,
   onPickArtwork,
+  startArtworkId,
   liveAs,
 }: VisitScreenProps) => {
   const fresh = useMemo(() => visitModelOf(view), [view]);
@@ -285,7 +287,18 @@ export const VisitScreen = ({
     if (!webgl2) fallBack('webgl');
   }, [webgl2, fallBack]);
   const [lost, setLost] = useState(false);
+  // 교사 미리 보기(HT-06): 처음 한 번, 고른 작품 앞 자리에서 시작
   const resume = useRef<WalkStart | undefined>(undefined);
+  const startRead = useRef(false);
+  if (!startRead.current) {
+    startRead.current = true;
+    if (startArtworkId !== undefined)
+      resume.current = startAtArtwork(
+        model.layout,
+        startArtworkId,
+        window.innerWidth / Math.max(1, window.innerHeight),
+      );
+  }
   // 배치가 바뀌면(P4-9): 캐릭터는 그 자리에서 새 벽으로 이어 가고(`WalkView`), 정지 지점은 새 배치에서 이어 볼 곳으로
   const shownLayout = useRef(model.layout);
   if (shownLayout.current !== model.layout) {

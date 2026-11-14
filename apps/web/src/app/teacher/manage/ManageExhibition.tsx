@@ -67,6 +67,8 @@ export const ManageExhibition = () => {
   const st = useTeacherStore.getState;
   const [arrival, clearArrival] = useArrivalToast();
   const [previewing, setPreviewing] = useState(false);
+  /** 미리 보기를 이 작품 앞에서 시작(HT-06) */
+  const [previewAt, setPreviewAt] = useState<string | null>(null);
   // `···` 메뉴는 자기 덮개(메뉴·확인 시트)를 스스로 연다. 관리 화면의 덮개(패널·시트·열기)를 열면 메뉴를 새로 그려 닫는다
   const [menuEpoch, setMenuEpoch] = useState(0);
   // 글 붙여넣기 시트(V-01)도 덮개 하나: 열 때 관리 화면 덮개를 닫고, 관리 화면 덮개가 열리면 닫힌다
@@ -325,6 +327,8 @@ export const ManageExhibition = () => {
                   type="button"
                   className={s.secondary}
                   onClick={() => {
+                    // 작품 패널이 열려 있었으면 그 작품 앞에서 시작(HT-06)
+                    setPreviewAt(art?.id ?? null);
                     close();
                     setPreviewing(true);
                   }}
@@ -465,6 +469,7 @@ export const ManageExhibition = () => {
                 exhibitionId={id}
                 revision={view}
                 onPick={pickInPreview}
+                startArtworkId={previewAt}
                 onClose={() => {
                   close();
                   setPreviewing(false);
