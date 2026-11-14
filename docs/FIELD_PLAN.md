@@ -736,3 +736,15 @@ H0 진단·계측(1일) ─┬─▶ H1 학교망 접속 보강(1.5일, 최우�
     - 번들 기준선 HT-17, `check:rules` 범위를 `ui/`·`app/`로
     - H4는 전용 작업 트리, L3를 못 돌리면 수동 CI `e2e.yml`
   - 앱 코드는 바꾸지 않음. 커밋하지 않음.
+- 2026-11-14(4): **H4 구현**(사용자: "파트별로 세션을 새로 열어 병렬로, 이 세션은 H4 준비부터, phase에 나누어 모두 수행하고 결정이 필요한 것은 마지막에 한 번에"). 가지 `feat/h4-teacher-v3`(작업 트리 `.local/wt/h4-teacher-v3`), main에는 아직 합치지 않음.
+  - H4 준비(Claude): PR #3(HT-08)·#4(HT-06)를 main에 합침(둘 다 CI `verify` 통과 확인 뒤), 계획 문서 커밋 `17446ab`(main, push 안 함), 작업 트리를 main + PR 합친 것에서 만듦.
+  - 누가 무엇을 했나
+    - 세션 h4-server(Claude): HT-15 서버 `arrangement`·`rooms/order` base·되살리기/올리기 순서·웹 포트·어댑터, HT-16 `/live` 전시실별 수. Claude가 diff와 서버 경로 시험 64개로 확인 후 합침.
+    - 세션 h4-ui-base(Claude): HT-13 manage 토큰·부품 9개, HT-14 `check:rules` 그라데이션·순검정. Claude가 diff·부품 시험 30개·검사 도구 시험 15개로 확인 후 합침.
+    - 세션 h4-inspect(Claude): HT-05 살펴보기 칸 `InspectPanel`(새 파일). 시험 27개. 지운 `ArtworkBoard` 가져오기 경로를 Claude가 고쳐 합침.
+    - 세션 h4-class(Claude): HT-07 수업 탭 `ClassTab`·`useLiveStats`, `LIVE_TEACHER_POLL_SEC`. 시험 14개. Claude가 확인 후 합침.
+    - Claude(통합): HT-17 첫 받기 크기 기록·5×8 시드, HT-04 축측 지도(`axo.ts`·`FloorPlan`), HT-03c 저장·되돌리기 한 길, HT-02·HT-03a·HT-03b 위 줄·판 보드·끌어 놓기, HT-03d 지도에 놓기·여러 개 끌기, HT-09 키, 좁은 화면 TSX(판 접기·지도 띠·아래 시트 닫기), 통합, e2e·문서.
+    - Claude 서브에이전트: HT-10 좁은 화면 CSS, HT-11 독립 코드 검토(결과는 다음 기록).
+  - 확인(실행한 것): 교사 화면·어댑터·부품 폴더 vitest(마지막 31파일 306개 통과), 서버 경로 시험, 축측 지도 22개, `check:rules` 종료 0, 타입 검사, prettier. 1440 캡처(작품·끄는 중·살펴보기·수업)를 시안 v3.1과 비교 — `.local` 스크래치 캡처.
+  - 미실행(자원 대기 75, 아바타 제작 작업이 잠금을 잡음): 번들 기준선·이후 빌드(3회 시도), e2e(teacher·teacher-drag), 전체 단위 시험·`npm run verify`.
+  - 과업 누름 수(분석으로 센 값, 실측 아님): T1 끌기 1 · T2 판 손잡이 끌기 1 · T3 약 4 · T4 약 3 · T5 약 6, 합계 약 15(기준선 34의 절반 이하). 실기기 확인은 U-27.
