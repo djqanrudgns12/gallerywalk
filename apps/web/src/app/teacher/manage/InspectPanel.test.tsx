@@ -7,7 +7,7 @@ import { click, flush, key, typeInto, wait } from '../../../dev/teacherDom.tsx';
 import { T_EX, teacherArtwork, teacherRoom } from '../../../dev/teacherFixtures.ts';
 import { testExhibitionView, testRoomId } from '../../../dev/testView.ts';
 import type { PatchArtworkInput } from '../../../ports/index.ts';
-import { thumbOf } from './ArtworkBoard.tsx';
+import { thumbOf } from './artworkLook.ts';
 import { AUTOSAVE_DELAY_MS } from './AutosaveField.tsx';
 import { InspectPanel, type InspectPanelProps } from './InspectPanel.tsx';
 

@@ -133,7 +133,7 @@ describe('전시 관리 화면', () => {
     expect(srv.named('exhibition')).toHaveLength(loads + 1);
 
     click(cell(m, A(2)));
-    click(m.q('[data-testid="nudge-earlier"]'));
+    click(m.q(`[data-testid="artwork-panel"] button[aria-label="${copy.teacher.panel.earlier}"]`));
     await flush();
     expect(cellIds(m).slice(0, 3)).toEqual([A(1), A(2), A(0)]);
   });

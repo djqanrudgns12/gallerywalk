@@ -738,6 +738,7 @@ export const copy = {
       open: '전시 열기',
       tabsLabel: '전시 관리',
       tabArtworks: '작품',
+      tabClass: '수업',
       tabReactions: '반응',
       roomsLabel: '전시실',
       roomDefault: '전시실 {n}',

@@ -8,6 +8,7 @@ import type { ManageFrameSize } from '../../../ports/index.ts';
 import { Icon } from '../../../ui/Icon.tsx';
 import { Frame, Seg, StatNumber, StatusPill, type FrameSize } from '../../../ui/patterns/teacher/index.ts';
 import { useWalk } from '../../../viewer/walk/walkStore.ts';
+import { PATHS } from '../../routes.ts';
 import { useServices } from '../../services.ts';
 import { useArrivalToast } from '../shared/nav.ts';
 import { Toast } from '../shared/Toast.tsx';
@@ -22,20 +23,22 @@ import {
 import { UploadTray } from '../upload/UploadTray.tsx';
 import { useUploads } from '../upload/useUploads.ts';
 import { columnsOf, type Arrangement } from './arrange.ts';
-import { ArtworkPanel } from './ArtworkPanel.tsx';
 import { isUntitled, needsCheck, thumbOf } from './artworkLook.ts';
 import { AutosaveField } from './AutosaveField.tsx';
 import { BatchBar } from './BatchBar.tsx';
+import { ClassTab } from './ClassTab.tsx';
 import { parseKey } from './dnd.ts';
 import { FloorPlan } from './FloorPlan.tsx';
+import { InspectPanel } from './InspectPanel.tsx';
 import { ManageDnd, useDragState } from './ManageDnd.tsx';
 import { ManageMenu } from './ManageMenu.tsx';
 import { OpenSheet } from './OpenSheet.tsx';
 import { PasteSheet } from './PasteSheet.tsx';
+import { PreloadSheet } from './PreloadSheet.tsx';
 import { ReactionsTab } from './ReactionsTab.tsx';
 import { RoomBoards } from './RoomBoard.tsx';
 import { RoomSheet } from './RoomSheet.tsx';
-import { liveArtworks, roomArtworks, useTeacherStore, type ManageTab } from './teacherStore.ts';
+import { liveArtworks, useTeacherStore, type ManageTab } from './teacherStore.ts';
 import { ManageContext, toastMs, useCreateManageActions } from './useManage.ts';
 import { isUndoKey } from './undo.ts';
 import s from './ManageExhibition.module.css';
@@ -217,10 +220,14 @@ export const ManageExhibition = () => {
   const [pasting, setPasting] = useState(false);
   const [frameSize, setFrameSize] = useState<ManageFrameSize>(() => device.manageFrameSize());
   const [selectMode, setSelectMode] = useState(false);
+  // 수업 탭의 `수업 전 미리 불러오기` 시트(덮개 하나)
+  const [preloading, setPreloading] = useState(false);
+  const [reactionCount, setReactionCount] = useState(0);
   const tablet = useMedia(TABLET_QUERY);
   useEffect(() => {
     if (overlay !== null) setMenuEpoch(n => n + 1);
     if (overlay !== null) setPasting(false);
+    if (overlay !== null) setPreloading(false);
   }, [overlay]);
 
   const uploads = useUploads(api.teacher, id);
@@ -234,7 +241,12 @@ export const ManageExhibition = () => {
   const reload = useCallback(() => {
     setLoad({ kind: 'loading' });
     actions.reload().then(
-      () => setLoad({ kind: 'ready' }),
+      () => {
+        // 열린 전시는 수업 탭이 먼저(FIELD_PLAN HT-07)
+        if (useTeacherStore.getState().view?.exhibition.status === 'OPEN')
+          useTeacherStore.getState().setTab('class');
+        setLoad({ kind: 'ready' });
+      },
       (err: unknown) => setLoad({ kind: 'error', code: err instanceof AppError ? err.code : 'E_SERVER' }),
     );
   }, [actions]);
@@ -274,6 +286,17 @@ export const ManageExhibition = () => {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [st, previewing, actions]);
+
+  // 수업 탭 반응 수 타일: 탭을 열 때 한 번 센다
+  useEffect(() => {
+    if (tab !== 'class') return;
+    const ctrl = new AbortController();
+    api.teacher.reactions(id, { signal: ctrl.signal }).then(
+      list => setReactionCount(list.length),
+      () => undefined,
+    );
+    return () => ctrl.abort();
+  }, [api, id, tab]);
 
   const live = useMemo(() => liveArtworks(view), [view]);
   const columns = useMemo(() => columnsOf(view), [view]);
@@ -342,7 +365,17 @@ export const ManageExhibition = () => {
   });
   const room = overlay?.kind === 'room' ? (view.rooms.find(r => r.id === overlay.id) ?? null) : null;
   const art = overlay?.kind === 'artwork' ? (byId.get(overlay.id) ?? null) : null;
-  const artRoom = art ? roomArtworks(view, art.roomId) : [];
+  const artColumn = art ? (columns.find(c => c.roomId === art.roomId)?.ids ?? []) : [];
+  const readAt = art ? reading.indexOf(art.id) : -1;
+  const inspectAt = (aid: string | undefined) => () => {
+    if (aid !== undefined) st().setOverlay({ kind: 'artwork', id: aid });
+  };
+  const previewFrom = (aid: string | null) => {
+    // 살펴보던 작품이 있으면 그 작품 앞에서 시작(HT-06)
+    setPreviewAt(aid);
+    close();
+    setPreviewing(true);
+  };
   const close = () => st().setOverlay(null);
   const selecting = selectMode || selected.length > 0;
   const size: FrameSize = frameSize === 'big' && tablet ? 'tablet' : frameSize;
@@ -405,16 +438,22 @@ export const ManageExhibition = () => {
 
   const side =
     art !== null ? (
-      <ArtworkPanel
+      <InspectPanel
         key={art.id}
+        exhibitionId={id}
         artwork={art}
         rooms={view.rooms}
-        index={artRoom.findIndex(a => a.id === art.id)}
-        count={artRoom.length}
+        roomCounts={counts}
+        index={artColumn.indexOf(art.id)}
+        count={artColumn.length}
+        layout={view.layout}
         onPatch={patch => actions.patchArtwork(art.id, patch)}
         onNudge={delta => void actions.nudgeArtwork(art.id, delta)}
+        onMoveRoom={rid => void actions.moveArtworks([art.id], rid)}
+        onPrev={readAt > 0 ? inspectAt(reading[readAt - 1]) : null}
+        onNext={readAt >= 0 && readAt < reading.length - 1 ? inspectAt(reading[readAt + 1]) : null}
+        onPreviewHere={published > 0 ? () => previewFrom(art.id) : null}
         onDelete={() => void actions.deleteArtwork(art.id)}
-        onClose={close}
       />
     ) : room !== null ? (
       <RoomSheet
@@ -457,6 +496,7 @@ export const ManageExhibition = () => {
   };
   const tabs: readonly { key: ManageTab; label: string; count?: number }[] = [
     { key: 'artworks', label: m.tabArtworks, count: live.length },
+    { key: 'class', label: m.tabClass },
     { key: 'reactions', label: m.tabReactions },
   ];
 
@@ -528,12 +568,7 @@ export const ManageExhibition = () => {
                 <button
                   type="button"
                   className={s.quiet}
-                  onClick={() => {
-                    // 살펴보던 작품이 있으면 그 작품 앞에서 시작(HT-06)
-                    setPreviewAt(art?.id ?? null);
-                    close();
-                    setPreviewing(true);
-                  }}
+                  onClick={() => previewFrom(art?.id ?? null)}
                   data-testid="open-preview"
                 >
                   <Icon name="eye" />
@@ -653,6 +688,34 @@ export const ManageExhibition = () => {
                 <div className={s.scrim} onClick={close} aria-hidden="true" data-testid="side-scrim" />
               ) : null}
             </div>
+          ) : tab === 'class' ? (
+            <div className={s.tabBody}>
+              <ClassTab
+                exhibition={ex}
+                layout={view.layout}
+                roomOrder={roomOrder}
+                reactionCount={reactionCount}
+                showBubbles={false}
+                onShowQr={() => st().setOverlay({ kind: 'open' })}
+                onStartTour={() => void navigate(`/t/e/${id}/tour`)}
+                onOpenReactions={() => st().setTab('reactions')}
+                onCheckNetwork={() => globalThis.open?.(PATHS.check, '_blank', 'noopener')}
+                onPreload={() => {
+                  close();
+                  setPreloading(true);
+                }}
+                onOpen={() => st().setOverlay({ kind: 'open' })}
+                onCloseExhibition={() =>
+                  void api.teacher.changeStatus(id, 'close').then(
+                    next => {
+                      onChanged(next);
+                      st().showToast({ text: copy.teacher.menu.closed, ms: toastMs() });
+                    },
+                    (err: unknown) => actions.fail(err),
+                  )
+                }
+              />
+            </div>
           ) : (
             <div className={s.tabBody}>
               <ReactionsTab exhibitionId={id} artworks={live} />
@@ -675,6 +738,8 @@ export const ManageExhibition = () => {
           {overlay?.kind === 'open' ? (
             <OpenSheet exhibition={ex} publishedCount={published} onChanged={onChanged} onClose={close} />
           ) : null}
+
+          {preloading ? <PreloadSheet exhibitionId={id} onClose={() => setPreloading(false)} /> : null}
 
           {pasting ? (
             <PasteSheet

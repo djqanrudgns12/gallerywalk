@@ -15,7 +15,7 @@ import {
   type RoomTile,
 } from '../../../ui/index.ts';
 import { radioKeyStep } from '../../../ui/patterns/radioKeys.ts';
-import { isUntitled, thumbOf } from './ArtworkBoard.tsx';
+import { isUntitled, thumbOf } from './artworkLook.ts';
 import { AutosaveField } from './AutosaveField.tsx';
 import { FloorPlan } from './FloorPlan.tsx';
 import s from './InspectPanel.module.css';
