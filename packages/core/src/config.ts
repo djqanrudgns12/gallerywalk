@@ -1104,6 +1104,17 @@ export const configDefaults = {
     labelHalfH: 0.55,
     labelClearPx: 4,
   },
+  /**
+   * 교사 작업 화면 v3 끌어 놓기(FIELD_PLAN §5.5): 액자 비율이 이 범위 밖이면 형태 갈래 비율로 · 키보드로 옮길 때 놓는 자리
+   * (액자 폭의 앞·뒤 이만큼) · 보드 위·아래 끝에서 저절로 스크롤되는 문턱(화면 높이 비율) · 끄는 액자 확대 ·
+   * 휴대폰 접힌 판 머리 위에 머물면 펼쳐지기까지
+   */
+  MANAGE_FRAME_RATIO_MIN: 0.45,
+  MANAGE_FRAME_RATIO_MAX: 2.4,
+  MANAGE_KEYBOARD_EDGE: 0.25,
+  MANAGE_AUTOSCROLL_THRESHOLD: 0.15,
+  MANAGE_DRAG_SCALE: 1.06,
+  MANAGE_DROP_EXPAND_MS: 600,
 } as const;
 
 /** 숫자·참거짓은 넓은 타입으로(기본값의 리터럴 타입에 묶이면 시험·환경 변수로 값을 바꿀 수 없다). 문자열 합집합은 그대로. */

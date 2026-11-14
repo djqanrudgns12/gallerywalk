@@ -733,11 +733,28 @@ export const copy = {
       previewLoading: '미리 보기를 준비하고 있어요',
       previewNo3d: '이 기기에서는 3D 미리 보기를 볼 수 없어요',
       previewEmpty: '게시한 작품이 있어야 미리 볼 수 있어요',
+      /** v3 요약 줄(G-32) */
+      statArtworks: '작품',
+      statRooms: '전시실',
+      checkCount: '확인할 것',
+      sizeLabel: '액자 크기',
+      sizeBig: '크게',
+      sizeSmall: '작게',
+      selectMany: '여러 개 고르기',
       /** 축측 지도(G-32, HT-04) */
       mapLabel: '전시 지도',
       mapEntry: '입구',
       mapPeople: '{n}명',
       mapEmpty: '게시한 작품이 있으면 지도가 그려져요',
+    },
+    /** 전시실 줄 보드(G-26·G-32) */
+    board: {
+      featured: '대표',
+      cellLabel: '{n}번째 · {title}',
+      boardLabel: '{n} {name}',
+      bgm: '배경음악',
+      handle: '‘{name}’ 전시실 순서 바꾸기',
+      edit: '고치기',
     },
     /** 올리기(P5-3, PLAN §5.2·§5.3). 막힘 문구는 `errorCopy`, 해결법은 `fix` */
     upload: {

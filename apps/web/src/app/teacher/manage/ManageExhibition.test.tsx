@@ -1,6 +1,7 @@
 import { config } from '@gallery/core/config';
 import { copy, errorCopy, fill, roAfter } from '@gallery/core/copy';
 import { AppError } from '@gallery/core/errors';
+import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { testArtworkId, testExhibitionView, testRoomId } from '../../../dev/testView.ts';
 import {
@@ -43,20 +44,31 @@ const open = async (view = teacherView(), over: Partial<TeacherApi> = {}) => {
 
 const cellIds = (m: ReturnType<typeof mountManage>) => m.all('[data-cell-id]').map(c => c.dataset.cellId);
 const A = (i: number) => testArtworkId(0, i);
+/** 보드의 액자(작품 ID로) */
+const cell = (m: ReturnType<typeof mountManage>, id: string) => m.q(`[data-cell-id="${id}"]`);
 
 describe('전시 관리 화면', () => {
-  it('불러오면 전시 이름·상태·삭제 예정일·전시실 칩·지금 전시실 작품, 게시가 있으면 주요 버튼 `전시 열기`', async () => {
+  it('불러오면 돌 바탕 틀·전시 이름·상태 알약·모든 전시실 판·요약 줄, 게시가 있으면 주요 버튼 `전시 열기`', async () => {
     const { m } = await open();
+    expect(m.q('[data-testid="teacher-manage"]')?.getAttribute('data-surface')).toBe('manage');
     expect(m.q<HTMLInputElement>('[data-testid="exhibition-title"]')?.value).toBe(T_TITLE);
-    expect(m.q('[data-testid="exhibition-status"]')?.textContent).toBe(copy.teacher.exhibitionStatus.DRAFT);
+    expect(m.q('[data-testid="exhibition-status"]')?.textContent).toContain(
+      copy.teacher.exhibitionStatus.DRAFT,
+    );
+    expect(m.all('[data-testid^="room-board-"]')).toHaveLength(2);
     expect(m.text()).toContain(T_ROOM_TITLES[0]);
     expect(m.text()).toContain(T_ROOM_TITLES[1]);
-    expect(cellIds(m)).toEqual([A(0), A(1), A(2)]);
+    expect(cellIds(m)).toEqual([A(0), A(1), A(2), testArtworkId(1, 0)]);
+    const summary = m.q('[data-testid="summary"]');
+    expect(summary?.textContent).toContain('4');
+    expect(summary?.textContent).toContain(copy.teacher.manage.statRooms);
     const primary = m.q<HTMLButtonElement>('[data-testid="primary-open"]');
     expect(primary?.textContent).toBe(copy.teacher.manage.open);
     expect(primary?.disabled).toBe(false);
     expect(m.q('[data-testid="drop-strip"]')).not.toBeNull();
-    expect(m.q('[data-testid="check-line"]')).toBeNull();
+    expect(m.q('[data-testid="check-chip"]')).toBeNull();
+    // 오른쪽 칸: 고른 작품이 없으면 전시 지도 자리
+    expect(m.q('[data-testid="manage-side"]')?.textContent).toContain(copy.teacher.manage.mapLabel);
   });
 
   it('열린 전시면 주요 버튼이 `QR·주소 다시 보기`(누르면 같은 시트)', async () => {
@@ -83,48 +95,51 @@ describe('전시 관리 화면', () => {
     expect(mounted.text()).toContain(errorCopy.E_NOTHING_PUBLISHED);
   });
 
-  it('카드 제목을 누르면 바로 입력, 입력이 멈추고 0.6초 뒤 자동 저장(그 전에는 보내지 않음)', async () => {
+  it('액자를 누르면 오른쪽 칸에 살펴보기, 제목 칸은 입력이 멈추고 0.6초 뒤 자동 저장', async () => {
     const { m, srv } = await open();
-    click(m.q('[data-testid="cell-0"] h3'));
-    const input = m.q<HTMLInputElement>('[data-testid="inline-title"]');
-    expect(input).not.toBeNull();
-    // 편집 중 끌기를 꺼도 칸이 "잠김"으로 알려지면 안 된다(안의 제목 칸까지 잠긴 것으로 읽힘 — 교사 e2e에서 발견)
-    expect(m.q('[data-testid="cell-0"]')?.getAttribute('aria-disabled')).not.toBe('true');
-    typeInto(input, T_NEW_TITLE);
+    click(cell(m, A(0)));
+    expect(m.q('[data-testid="artwork-panel"]')?.getAttribute('data-artwork-id')).toBe(A(0));
+    expect(cell(m, A(0))?.getAttribute('aria-current')).toBe('true');
+    typeInto(m.q('[data-testid="panel-title"]'), T_NEW_TITLE);
     await wait(AUTOSAVE_DELAY_MS / 2);
     expect(srv.named('patchArtwork')).toHaveLength(0);
     await wait(AUTOSAVE_DELAY_MS);
     expect(srv.named('patchArtwork').map(c => c.args.slice(1))).toEqual([[A(0), 1, { title: T_NEW_TITLE }]]);
-    key(input, 'Enter');
-    await flush();
-    expect(m.q('[data-testid="inline-title"]')).toBeNull();
-    expect(m.q('[data-testid="cell-0"] h3')?.textContent).toBe(T_NEW_TITLE);
   });
 
-  it('순서 바꾸기: 카드에서 Alt+→, 패널의 `앞으로` — 전체 순서를 보내고 새로 불러온다', async () => {
+  it('액자 크기 `크게/작게`는 기기에 기억한다', async () => {
+    const { m } = await open();
+    expect(m.q('[data-frame]')?.getAttribute('data-size')).toBe('big');
+    click(buttonByText(m.q('[data-testid="summary"]')!, copy.teacher.manage.sizeSmall));
+    await flush();
+    expect(m.q('[data-frame]')?.getAttribute('data-size')).toBe('small');
+    expect(m.device.manageFrameSize()).toBe('small');
+  });
+
+  it('순서 바꾸기: 액자에서 Alt+→, 패널의 `앞으로` — 한 번에 놓기로 보내고 새로 불러온다', async () => {
     const { m, srv } = await open();
     const loads = srv.named('exhibition').length;
-    key(m.q('[data-testid="cell-0"]'), 'ArrowRight', { altKey: true });
+    key(cell(m, A(0)), 'ArrowRight', { altKey: true });
     await flush();
     // 한 번에 놓기(ADR-074): 바뀐 판만, 바꾸기 전 배열과 함께
     expect(srv.arranged()).toEqual([[{ roomId: testRoomId(0), ids: [A(1), A(0), A(2)] }]]);
     expect(srv.named('putArrangement')[0]?.args[1]).toMatchObject({
       base: [{ roomId: testRoomId(0), ids: [A(0), A(1), A(2)] }],
     });
-    expect(cellIds(m)).toEqual([A(1), A(0), A(2)]);
+    expect(cellIds(m).slice(0, 3)).toEqual([A(1), A(0), A(2)]);
     expect(srv.named('exhibition')).toHaveLength(loads + 1);
 
-    click(m.q('[data-testid="cell-2"]'));
+    click(cell(m, A(2)));
     click(m.q('[data-testid="nudge-earlier"]'));
     await flush();
-    expect(cellIds(m)).toEqual([A(1), A(2), A(0)]);
+    expect(cellIds(m).slice(0, 3)).toEqual([A(1), A(2), A(0)]);
   });
 
   it('편집 되돌리기(HT-08): 순서를 바꾼 뒤 Ctrl+Z면 처음 순서로, 글 칸 안의 Ctrl+Z는 그 칸 몫', async () => {
     const { m, srv } = await open();
-    key(m.q('[data-testid="cell-0"]'), 'ArrowRight', { altKey: true });
+    key(cell(m, A(0)), 'ArrowRight', { altKey: true });
     await flush();
-    expect(cellIds(m)).toEqual([A(1), A(0), A(2)]);
+    expect(cellIds(m).slice(0, 3)).toEqual([A(1), A(0), A(2)]);
     expect(useTeacherStore.getState().toast?.action?.label).toBe(copy.teacher.undo.action);
 
     key(m.q('[data-testid="exhibition-title"]'), 'z', { ctrlKey: true });
@@ -137,14 +152,14 @@ describe('전시 관리 화면', () => {
       [{ roomId: testRoomId(0), ids: [A(1), A(0), A(2)] }],
       [{ roomId: testRoomId(0), ids: [A(0), A(1), A(2)] }],
     ]);
-    expect(cellIds(m)).toEqual([A(0), A(1), A(2)]);
+    expect(cellIds(m).slice(0, 3)).toEqual([A(0), A(1), A(2)]);
     expect(useTeacherStore.getState().toast?.text).toBe(copy.teacher.undo.undone);
   });
 
-  it('여러 장 고르기(Shift+누르기 → 고른 동안은 누를 때마다) → 아래 띠 `숨기기`·`전시실 옮기기`', async () => {
+  it('여러 개 고르기(Shift+누르기 → 고른 동안은 누를 때마다) → 아래 띠 `숨기기`·`전시실 옮기기`', async () => {
     const { m, srv } = await open();
-    click(m.q('[data-testid="cell-0"]'), { shiftKey: true });
-    click(m.q('[data-testid="cell-1"]'));
+    click(cell(m, A(0)), { shiftKey: true });
+    click(cell(m, A(1)));
     const bar = m.q('[data-testid="batch-bar"]');
     expect(bar?.textContent).toContain(fill(copy.teacher.selectedCount, { n: 2 }));
     expect(m.q('[data-testid="artwork-panel"]')).toBeNull();
@@ -154,7 +169,7 @@ describe('전시 관리 화면', () => {
     expect(m.q('[data-testid="batch-bar"]')).toBeNull();
     expect(m.all('[data-status="HIDDEN"]')).toHaveLength(2);
 
-    click(m.q('[data-testid="cell-2"]'), { shiftKey: true });
+    click(cell(m, A(2)), { shiftKey: true });
     click(buttonByText(m.q('[data-testid="batch-bar"]')!, copy.teacher.manage.batchMove));
     click(buttonByText(m.q('[data-testid="batch-rooms"]')!, T_ROOM_TITLES[1]));
     await flush();
@@ -165,7 +180,17 @@ describe('전시 관리 화면', () => {
         { roomId: testRoomId(1), ids: [testArtworkId(1, 0), A(2)] },
       ],
     ]);
-    expect(cellIds(m)).toEqual([A(0), A(1)]);
+    expect(cellIds(m)).toEqual([A(0), A(1), testArtworkId(1, 0), A(2)]);
+  });
+
+  it('`여러 개 고르기` 단추: 누르면 누를 때마다 고르기, 다시 누르면 풀린다', async () => {
+    const { m } = await open();
+    click(m.q('[data-testid="select-many"]'));
+    click(cell(m, A(1)));
+    expect(useTeacherStore.getState().selected).toEqual([A(1)]);
+    expect(m.q('[data-testid="artwork-panel"]')).toBeNull();
+    click(m.q('[data-testid="select-many"]'));
+    expect(useTeacherStore.getState().selected).toEqual([]);
   });
 
   it('작품 패널: 저장이 실패하면 칸 옆에 다시 시도, 누르면 다시 보낸다', async () => {
@@ -176,7 +201,7 @@ describe('전시 관리 화면', () => {
         return teacherArtwork(0, 1, { id, ...(patch as object), rev: 2 });
       },
     });
-    click(m.q('[data-testid="cell-1"]'));
+    click(cell(m, A(1)));
     expect(m.q('[data-testid="artwork-panel"]')?.getAttribute('data-artwork-id')).toBe(A(1));
     typeInto(m.q('[data-testid="panel-title"]'), T_NEW_TITLE);
     await wait(AUTOSAVE_DELAY_MS + 100);
@@ -187,15 +212,15 @@ describe('전시 관리 화면', () => {
     await flush();
     expect(srv.named('patchArtwork')).toHaveLength(2);
     expect(m.q('[data-testid="panel-title-retry"]')).toBeNull();
-    expect(m.q('[data-testid="cell-1"] h3')?.textContent).toBe(T_NEW_TITLE);
+    expect(useTeacherStore.getState().view?.artworks.find(a => a.id === A(1))?.title).toBe(T_NEW_TITLE);
   });
 
   it('삭제하면 바로 사라지고 토스트 `되살리기`(10초), 누르면 되살린다', async () => {
     const { m, srv } = await open();
-    click(m.q('[data-testid="cell-1"]'));
+    click(cell(m, A(1)));
     click(m.q('[data-testid="panel-delete"]'));
     await flush();
-    expect(cellIds(m)).toEqual([A(0), A(2)]);
+    expect(cellIds(m).slice(0, 2)).toEqual([A(0), A(2)]);
     expect(m.q('[data-testid="artwork-panel"]')).toBeNull();
     expect(srv.named('deleteArtwork').map(c => c.args.slice(1))).toEqual([[A(1), 1]]);
     const toast = m.q('[data-testid="teacher-toast"]');
@@ -204,13 +229,13 @@ describe('전시 관리 화면', () => {
     click(buttonByText(toast!, copy.teacher.panel.restore));
     await flush();
     expect(srv.named('restoreArtwork').map(c => c.args[1])).toEqual([A(1)]);
-    expect(cellIds(m)).toEqual([A(0), A(1), A(2)]);
+    expect(cellIds(m).slice(0, 3)).toEqual([A(0), A(1), A(2)]);
     expect(m.q('[data-testid="teacher-toast"]')).toBeNull();
   });
 
-  it('전시실 시트: 지금 전시실 칩을 다시 누르면 열림, 작품이 있으면 옮겨짐을 확인한 뒤 지운다', async () => {
+  it('전시실 시트: 판의 `고치기`로 열림, 작품이 있으면 옮겨짐을 확인한 뒤 지운다', async () => {
     const { m, srv } = await open();
-    click(m.q('[data-testid="room-chip-0"]'));
+    click(m.q(`[data-testid="room-edit-${testRoomId(0)}"]`));
     expect(m.q('[data-testid="room-sheet"]')?.getAttribute('data-room-id')).toBe(testRoomId(0));
     click(m.q('[data-testid="room-delete"]'));
     expect(srv.named('deleteRoom')).toHaveLength(0);
@@ -223,7 +248,7 @@ describe('전시 관리 화면', () => {
     await flush();
     expect(srv.named('deleteRoom').map(c => c.args.slice(1))).toEqual([[testRoomId(0), 1]]);
     expect(m.q('[data-testid="room-sheet"]')).toBeNull();
-    expect(m.all('[data-room-chip]')).toHaveLength(1);
+    expect(m.all('[data-testid^="room-board-"]')).toHaveLength(1);
     expect(cellIds(m)).toEqual([testArtworkId(1, 0), A(0), A(1), A(2)]);
   });
 
@@ -232,28 +257,30 @@ describe('전시 관리 화면', () => {
     const loads = srv.named('exhibition').length;
     srv.state.artworks[0]!.rev = 7;
     srv.state.artworks[0]!.title = T_NEW_TITLE;
-    click(m.q('[data-testid="cell-0"] h3'));
-    typeInto(m.q('[data-testid="inline-title"]'), 'x');
+    click(cell(m, A(0)));
+    typeInto(m.q('[data-testid="panel-title"]'), 'x');
     await wait(AUTOSAVE_DELAY_MS + 100);
     expect(m.q('[data-testid="teacher-toast"]')?.textContent).toContain(errorCopy.E_CONFLICT);
     expect(srv.named('exhibition')).toHaveLength(loads + 1);
     expect(useTeacherStore.getState().view?.artworks[0]?.rev).toBe(7);
   });
 
-  it('점검 줄: 제목 없음·흐림 수, 누르면 그 전시실의 그 카드로', async () => {
+  it('확인할 것 칩: 제목 없음·흐림 수(작은 그림 겹침), 누르면 보드 차례 첫 작품을 살펴본다', async () => {
     const view = teacherView([1, 2]);
     view.artworks[2]!.title = '';
     view.artworks[1]!.warnings = ['LOW_RES'];
     const { m } = await open(view);
-    const line = m.q('[data-testid="check-line"]');
-    expect(line?.textContent).toContain(fill(copy.teacher.manage.checkUntitled, { n: 1 }));
-    expect(line?.textContent).toContain(fill(copy.teacher.manage.checkBlurry, { n: 1 }));
-    click(buttonByText(line!, fill(copy.teacher.manage.checkUntitled, { n: 1 })));
-    expect(useTeacherStore.getState().roomId).toBe(testRoomId(1));
-    expect(useTeacherStore.getState().flashId).toBe(testArtworkId(1, 1));
+    const chip = m.q('[data-testid="check-chip"]');
+    expect(chip?.textContent).toContain('2');
+    expect(chip?.textContent).toContain(copy.teacher.manage.checkCount);
+    expect(chip?.querySelectorAll('[data-frame]')).toHaveLength(2);
+    expect(m.all('[data-frame][data-flag="true"]')).toHaveLength(2);
+    click(chip);
+    expect(useTeacherStore.getState().flashId).toBe(testArtworkId(1, 0));
+    expect(useTeacherStore.getState().overlay).toEqual({ kind: 'artwork', id: testArtworkId(1, 0) });
   });
 
-  it('파일 두 장을 고르면 지금 전시실 끝에 올라가고 격자에 들어온다(진행 목록에 결과)', async () => {
+  it('파일 두 장을 고르면 올릴 전시실 끝에 올라가고 보드에 들어온다(진행 목록에 결과)', async () => {
     const { m, srv } = await open();
     pickFiles(m.q('[data-testid="pick-files"]'), [
       pngFile(N.first, 1200, 900, 1),
@@ -269,7 +296,8 @@ describe('전시 관리 화면', () => {
     ]);
     expect(m.all('[data-testid="upload-row"]').map(r => r.dataset.phase)).toEqual(['done', 'done']);
     expect(m.all('[data-testid="upload-row"]')[1]?.textContent).toContain(copy.teacher.upload.lowRes);
-    expect(cellIds(m)).toHaveLength(5);
+    // v3 보드는 모든 판을 그린다 — 올린 두 장은 첫 판 끝
+    expect(m.all(`[data-testid="room-wall-${testRoomId(0)}"] [data-cell-id]`)).toHaveLength(5);
   });
 
   it('막힌 파일은 올리지 않고 이유와 해결법 한 줄', async () => {
@@ -293,13 +321,13 @@ describe('전시 관리 화면', () => {
 
   it('창은 하나: `···` 메뉴를 열면 패널이 닫히고, 패널을 열면 메뉴가 닫힌다', async () => {
     const { m } = await open();
-    click(m.q('[data-testid="cell-0"]'));
+    click(cell(m, A(0)));
     expect(m.q('[data-testid="artwork-panel"]')).not.toBeNull();
     click(m.q('[data-testid="manage-menu-trigger"]'));
     await flush();
     expect(m.q('[data-testid="artwork-panel"]')).toBeNull();
     expect(m.q('[data-testid="manage-menu"]')).not.toBeNull();
-    click(m.q('[data-testid="cell-1"]'));
+    click(cell(m, A(1)));
     await flush();
     expect(m.q('[data-testid="artwork-panel"]')).not.toBeNull();
     expect(m.q('[data-testid="manage-menu"]')).toBeNull();
@@ -335,10 +363,12 @@ describe('전시 관리 화면', () => {
     for (let i = 0; i < 200 && !m.q('[data-testid="preview-layer"] [data-state="no3d"]'); i++) await wait(10);
     expect(m.q('[data-testid="preview-layer"]')?.textContent).toContain(copy.teacher.manage.previewNo3d);
     const fetched = srv.named('exhibition').length;
-    // 미리 보기 동안에도 카드 제목을 고치면(묶음이 바뀜) 저장 뒤 다시 받는다
-    click(m.q('[data-testid="cell-0"] h3'));
-    typeInto(m.q('[data-testid="inline-title"]'), T_NEW_TITLE);
-    await wait(AUTOSAVE_DELAY_MS + 50);
+    // 미리 보기 동안에도 작품이 바뀌면(묶음이 바뀜) 잠시 뒤 다시 받는다
+    act(() => {
+      const art = useTeacherStore.getState().view?.artworks[0];
+      if (art) useTeacherStore.getState().upsertArtwork({ ...art, title: T_NEW_TITLE, rev: art.rev + 1 });
+    });
+    await wait(AUTOSAVE_DELAY_MS / 2);
     expect(srv.named('exhibition').length).toBe(fetched);
     await wait(config().AUTOSAVE_DELAY_MS + 50);
     expect(srv.named('exhibition').length).toBeGreaterThan(fetched);

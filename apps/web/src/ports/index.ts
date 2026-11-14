@@ -342,7 +342,13 @@ export interface DeviceStore {
   /** 이 기기 선생님의 캐릭터(PRD 15.8 "선생님은 교사 화면에서 고름") — 투어·3D 미리 보기·함께 관람에 쓴다. 기본 `teacher-m` */
   teacherCharacter(): TeacherCharacter;
   setTeacherCharacter(character: TeacherCharacter): void;
+
+  /** 교사 작업 화면 액자 크기(G-32 "크게/작게", 기기에 기억). 기본 크게 */
+  manageFrameSize(): ManageFrameSize;
+  setManageFrameSize(size: ManageFrameSize): void;
 }
+
+export type ManageFrameSize = 'big' | 'small';
 
 export type TeacherCharacter = Extract<CharacterId, `teacher-${string}`>;
 

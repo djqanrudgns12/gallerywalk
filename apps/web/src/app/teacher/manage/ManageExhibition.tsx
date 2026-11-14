@@ -2,8 +2,11 @@ import { config } from '@gallery/core/config';
 import { copy, errorCopy, fill } from '@gallery/core/copy';
 import { AppError, type ErrorCode } from '@gallery/core/errors';
 import type { ExhibitionTeacher } from '@gallery/core/types';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import type { ManageFrameSize } from '../../../ports/index.ts';
+import { Icon } from '../../../ui/Icon.tsx';
+import { Frame, Seg, StatNumber, StatusPill, type FrameSize } from '../../../ui/patterns/teacher/index.ts';
 import { useWalk } from '../../../viewer/walk/walkStore.ts';
 import { useServices } from '../../services.ts';
 import { useArrivalToast } from '../shared/nav.ts';
@@ -11,25 +14,30 @@ import { Toast } from '../shared/Toast.tsx';
 import { DragCover, DropZone, useFilePickers, useWindowDrop } from '../upload/DropZone.tsx';
 import { UploadTray } from '../upload/UploadTray.tsx';
 import { useUploads } from '../upload/useUploads.ts';
-import { Icon } from '../../../ui/Icon.tsx';
-import { ArtworkBoard, CardFace, isBlurry, isUntitled } from './ArtworkBoard.tsx';
+import { columnsOf, type Arrangement } from './arrange.ts';
 import { ArtworkPanel } from './ArtworkPanel.tsx';
+import { isUntitled, needsCheck, thumbOf } from './artworkLook.ts';
 import { AutosaveField } from './AutosaveField.tsx';
 import { BatchBar } from './BatchBar.tsx';
-import { parseKey, type DropIntent } from './dnd.ts';
-import { ManageDnd } from './ManageDnd.tsx';
+import { parseKey } from './dnd.ts';
+import { FloorPlan } from './FloorPlan.tsx';
+import { ManageDnd, useDragState } from './ManageDnd.tsx';
 import { ManageMenu } from './ManageMenu.tsx';
 import { OpenSheet } from './OpenSheet.tsx';
 import { PasteSheet } from './PasteSheet.tsx';
 import { ReactionsTab } from './ReactionsTab.tsx';
-import { ChipFace, RoomChips } from './RoomChips.tsx';
+import { RoomBoards } from './RoomBoard.tsx';
 import { RoomSheet } from './RoomSheet.tsx';
-import { liveArtworks, roomArtworks, useTeacherStore } from './teacherStore.ts';
+import { liveArtworks, roomArtworks, useTeacherStore, type ManageTab } from './teacherStore.ts';
 import { ManageContext, toastMs, useCreateManageActions } from './useManage.ts';
 import { isUndoKey } from './undo.ts';
-import s from './manage.module.css';
+import s from './ManageExhibition.module.css';
 
 const MS_PER_SEC = 1000;
+/** 오른쪽 칸 지도 크기(px): 칸 폭 420 − 안쪽 여백 */
+const SIDE_MAP = { width: 380, height: 260 } as const;
+/** 확인할 것 칩에 겹쳐 보일 작은 그림 수 */
+const CHECK_THUMBS = 3;
 
 // 3D 미리 보기(P5-6)는 누를 때 받는다 — 관리 화면 첫 받기에 3D 엔진을 싣지 않게
 const PreviewLayer = lazy(() => import('./PreviewLayer.tsx').then(mod => ({ default: mod.PreviewLayer })));
@@ -39,16 +47,52 @@ type LoadState =
   | { readonly kind: 'ready' }
   | { readonly kind: 'error'; readonly code: ErrorCode };
 
-const formatDay = (epochMs: number): string =>
-  new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric' }).format(epochMs);
+const PILL = { DRAFT: 'draft', OPEN: 'open', CLOSED: 'closed' } as const;
+
+/** 태블릿(터치 + 좁은 화면)에서 `크게`는 72px 액자 */
+const TABLET_QUERY = '(pointer: coarse) and (max-width: 1279px)';
+const useMedia = (query: string): boolean => {
+  const get = () => globalThis.matchMedia?.(query).matches ?? false;
+  const [on, setOn] = useState(get);
+  useEffect(() => {
+    const mq = globalThis.matchMedia?.(query);
+    if (!mq) return;
+    const change = () => setOn(mq.matches);
+    mq.addEventListener('change', change);
+    return () => mq.removeEventListener('change', change);
+  }, [query]);
+  return on;
+};
+
+/** 오른쪽 칸 전시 지도: 끄는 작품이 놓일 전시실을 밝힌다 */
+const SideMap = ({
+  layout,
+  roomOrder,
+  onPickRoom,
+}: {
+  readonly layout: Parameters<typeof FloorPlan>[0]['layout'];
+  readonly roomOrder: readonly string[];
+  readonly onPickRoom: (roomId: string) => void;
+}) => {
+  const drag = useDragState();
+  return (
+    <FloorPlan
+      layout={layout}
+      roomOrder={roomOrder}
+      width={SIDE_MAP.width}
+      height={SIDE_MAP.height}
+      dropRoomId={drag.overRoom}
+      onPickRoom={onPickRoom}
+    />
+  );
+};
 
 /**
- * 전시 관리 `/t/e/{id}`(PLAN §7.4 G-10~G-13, P5-3·4·5).
- * 위: 전시 이름(눌러서 고침) · 상태 점 · "{날짜}에 지워져요" · `···` · 전시실 칩 줄. 점검 줄 · 탭(작품/반응).
- * 작품 탭: 놓기 영역(빈 상태는 크게) · 올리는 중 목록 · 격자 · 여러 장 띠. 오른쪽(1280↑) 작품 패널·전시실 시트.
- * `미리 보기`(게시 작품이 있을 때): 학생 화면과 같은 3D 전체 화면, 작품을 누르면 그 작품 패널(서랍으로 위에, ADR-057 —
- * 오른쪽 미리 보기 칸은 두지 않는다).
- * 주요 버튼: 작품이 없으면 `작품 올리기`, 게시 작품이 있으면 `전시 열기`(없으면 잠김 + 안내).
+ * 교사 작업 화면 v3 `/t/e/{id}`(PRD 18장 G-26·G-32, FIELD_PLAN §5.1·§5.4·§5.5, PLAN §7.4).
+ * - 위 줄: 뒤로 · 전시 이름(눌러 고침, 22px 명조) · 상태 알약 · 모드 탭 `작품 / 수업 / 반응` · `미리 보기` · 주요 버튼 · `···`.
+ * - 작품 탭: 요약 줄(큰 숫자 · 확인할 것 그림 칩 · 크게/작게 · 여러 개 고르기 · 작품 올리기) → 모든 전시실 판(끌어 놓기).
+ *   오른쪽 칸(이 화면의 유일한 지도 자리): 고른 작품 살펴보기, 고르지 않았으면 전시 전체 지도.
+ * - 바깥 틀에 `data-surface="manage"`(돌 바탕·종이 칸·액자 토큰).
  */
 export const ManageExhibition = () => {
   const { id = '' } = useParams();
@@ -58,7 +102,6 @@ export const ManageExhibition = () => {
   const [load, setLoad] = useState<LoadState>({ kind: 'loading' });
 
   const view = useTeacherStore(st => st.view);
-  const roomId = useTeacherStore(st => st.roomId);
   const selected = useTeacherStore(st => st.selected);
   const overlay = useTeacherStore(st => st.overlay);
   const toast = useTeacherStore(st => st.toast);
@@ -73,6 +116,9 @@ export const ManageExhibition = () => {
   const [menuEpoch, setMenuEpoch] = useState(0);
   // 글 붙여넣기 시트(V-01)도 덮개 하나: 열 때 관리 화면 덮개를 닫고, 관리 화면 덮개가 열리면 닫힌다
   const [pasting, setPasting] = useState(false);
+  const [frameSize, setFrameSize] = useState<ManageFrameSize>(() => device.manageFrameSize());
+  const [selectMode, setSelectMode] = useState(false);
+  const tablet = useMedia(TABLET_QUERY);
   useEffect(() => {
     if (overlay !== null) setMenuEpoch(n => n + 1);
     if (overlay !== null) setPasting(false);
@@ -131,46 +177,44 @@ export const ManageExhibition = () => {
   }, [st, previewing, actions]);
 
   const live = useMemo(() => liveArtworks(view), [view]);
-  const inRoom = useMemo(() => roomArtworks(view, roomId), [view, roomId]);
-  const counts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const a of live) m.set(a.roomId, (m.get(a.roomId) ?? 0) + 1);
-    return m;
-  }, [live]);
+  const columns = useMemo(() => columnsOf(view), [view]);
+  const byId = useMemo(() => new Map(live.map(a => [a.id, a] as const)), [live]);
+  const roomOrder = useMemo(() => columns.map(c => c.roomId), [columns]);
+  const counts = useMemo(() => new Map(columns.map(c => [c.roomId, c.ids.length] as const)), [columns]);
+  /** 보드 읽는 차례(살펴보기 이전·다음) */
+  const reading = useMemo(() => columns.flatMap(c => c.ids), [columns]);
 
-  // 끌어 옮기기(ADR-032): 안내 문구의 이름, 놓은 결과 → 서버 일, 끄는 동안 손끝을 따라다니는 모양
+  // 끌어 놓기(ADR-032·074): 안내 문구의 이름, 놓은 결과 → 한 번에 놓기, 끄는 동안 손끝을 따라다니는 모양
   const nameOf = useCallback(
     (key: string): string => {
       const k = parseKey(key);
       if (!k || !view) return '';
-      if (k.kind === 'chip') return view.rooms.find(r => r.id === k.id)?.title ?? '';
+      if (k.kind !== 'card') return view.rooms.find(r => r.id === k.id)?.title ?? '';
       const a = view.artworks.find(x => x.id === k.id);
       return !a || isUntitled(a) ? copy.teacher.manage.untitled : a.title;
     },
     [view],
   );
-  const onDrop = useCallback(
-    (intent: DropIntent) => {
-      switch (intent.kind) {
-        case 'reorderArtworks':
-          void actions.reorderArtworks(intent.roomId, intent.ids);
-          return;
-        case 'moveToRoom':
-          void actions.moveArtworks(intent.ids, intent.roomId);
-          return;
-        case 'reorderRooms':
-          void actions.reorderRooms(intent.ids);
-          return;
-        case 'toggleSelect':
-          useTeacherStore.getState().toggleSelect(intent.id);
-      }
-    },
+  const onArrange = useCallback(
+    (a: Arrangement, moved: readonly string[]) => void actions.arrange(a, { moved }),
     [actions],
   );
+  const onReorderRooms = useCallback((ids: readonly string[]) => void actions.reorderRooms(ids), [actions]);
+  const toggleSelect = useCallback((aid: string) => useTeacherStore.getState().toggleSelect(aid), []);
+  const openArtwork = useCallback(
+    (aid: string) => useTeacherStore.getState().setOverlay({ kind: 'artwork', id: aid }),
+    [],
+  );
+  const nudge = useCallback((aid: string, delta: -1 | 1) => void actions.nudgeArtwork(aid, delta), [actions]);
+  const editRoom = useCallback(
+    (rid: string) => useTeacherStore.getState().setOverlay({ kind: 'room', id: rid }),
+    [],
+  );
+  const setUploadRoom = useCallback((rid: string) => useTeacherStore.getState().setRoom(rid), []);
 
   if (load.kind === 'error' && !view)
     return (
-      <section className={s.notice} data-testid="teacher-manage" data-state="error">
+      <section className={s.notice} data-surface="manage" data-testid="teacher-manage" data-state="error">
         <p className={s.noticeText}>{errorCopy[load.code]}</p>
         {load.code === 'E_AUTH' || load.code === 'E_NOT_FOUND' ? (
           <button type="button" className={s.primary} onClick={() => void navigate('/t')}>
@@ -186,38 +230,51 @@ export const ManageExhibition = () => {
 
   if (!view || !ex)
     return (
-      <section className={s.notice} data-testid="teacher-manage" data-state="loading">
+      <section className={s.notice} data-surface="manage" data-testid="teacher-manage" data-state="loading">
         <p className={s.noticeText}>{copy.teacher.manage.loading}</p>
       </section>
     );
 
   const m = copy.teacher.manage;
   const published = live.filter(a => a.status === 'PUBLISHED').length;
-  const untitled = live.filter(isUntitled);
-  const blurry = live.filter(isBlurry);
+  const checks = reading.flatMap(aid => {
+    const a = byId.get(aid);
+    return a && needsCheck(a) ? [a] : [];
+  });
   const room = overlay?.kind === 'room' ? (view.rooms.find(r => r.id === overlay.id) ?? null) : null;
-  const art = overlay?.kind === 'artwork' ? (live.find(a => a.id === overlay.id) ?? null) : null;
+  const art = overlay?.kind === 'artwork' ? (byId.get(overlay.id) ?? null) : null;
   const artRoom = art ? roomArtworks(view, art.roomId) : [];
   const close = () => st().setOverlay(null);
-  const renderOverlay = (key: string) => {
+  const selecting = selectMode || selected.length > 0;
+  const size: FrameSize = frameSize === 'big' && tablet ? 'tablet' : frameSize;
+
+  const renderOverlay = (key: string, count: number): ReactNode => {
     const k = parseKey(key);
-    if (k?.kind === 'chip') {
+    if (k?.kind === 'board') {
+      const i = roomOrder.indexOf(k.id);
       const r = view.rooms.find(x => x.id === k.id);
       return r ? (
-        <span className={`${s.chip} ${s.dragOverlay}`}>
-          <ChipFace title={r.title} count={counts.get(r.id) ?? 0} current={r.id === roomId} />
-        </span>
+        <div className={s.boardOverlay}>
+          <span className={s.boardOverlayNo}>{String(i + 1).padStart(2, '0')}</span>
+          {r.title}
+        </div>
       ) : null;
     }
-    const a = k ? live.find(x => x.id === k.id) : undefined;
+    const a = k ? byId.get(k.id) : undefined;
     if (!a) return null;
-    const many = selected.includes(a.id) && selected.length > 1;
     return (
-      <div className={s.dragOverlay} data-testid="drag-overlay">
-        <CardFace exhibitionId={id} artwork={a} selected={many} dragging={false} />
-        {many ? (
-          <span className={s.dragCount}>{fill(copy.teacher.selectedCount, { n: selected.length })}</span>
-        ) : null}
+      <div
+        className={s.dragOverlay}
+        style={{ transform: `scale(${config().MANAGE_DRAG_SCALE})` }}
+        data-testid="drag-overlay"
+      >
+        <Frame
+          src={thumbOf(id, a)}
+          alt={isUntitled(a) ? m.untitled : a.title}
+          size={size}
+          featured={a.featured}
+        />
+        {count > 1 ? <span className={s.dragCount}>{fill(copy.teacher.dnd.group, { n: count })}</span> : null}
       </div>
     );
   };
@@ -227,8 +284,15 @@ export const ManageExhibition = () => {
     const target = live.find(a => a.id === artworkId);
     if (!target) return;
     st().setTab('artworks');
-    st().setRoom(target.roomId);
     st().flash(target.id);
+    st().setOverlay({ kind: 'artwork', id: target.id });
+  };
+
+  const uploadHere = () => {
+    // 고른 작품의 전시실, 없으면 마지막 전시실(FIELD_PLAN §5.5 올리기)
+    const target = art?.roomId ?? roomOrder[roomOrder.length - 1];
+    if (target) st().setRoom(target);
+    pickers.pickFiles();
   };
 
   const side =
@@ -260,7 +324,7 @@ export const ManageExhibition = () => {
 
   const primary =
     live.length === 0 ? (
-      <button type="button" className={s.primary} onClick={pickers.pickFiles} data-testid="primary-upload">
+      <button type="button" className={s.primary} onClick={uploadHere} data-testid="primary-upload">
         {m.upload}
       </button>
     ) : (
@@ -279,55 +343,85 @@ export const ManageExhibition = () => {
       </span>
     );
   const pickInPreview = (aid: string) => {
-    const a = live.find(x => x.id === aid);
-    if (!a) return;
+    if (!byId.has(aid)) return;
     st().setTab('artworks');
-    st().setRoom(a.roomId);
     st().setOverlay({ kind: 'artwork', id: aid });
   };
+  const tabs: readonly { key: ManageTab; label: string; count?: number }[] = [
+    { key: 'artworks', label: m.tabArtworks, count: live.length },
+    { key: 'reactions', label: m.tabReactions },
+  ];
 
   return (
     <ManageContext value={actions}>
       <ManageDnd
-        roomId={roomId}
-        artworkIds={inRoom.map(a => a.id)}
-        roomIds={view.rooms.map(r => r.id)}
+        columns={columns}
         selected={selected}
         nameOf={nameOf}
-        onDrop={onDrop}
+        onArrange={onArrange}
+        onReorderRooms={onReorderRooms}
+        onToggleSelect={toggleSelect}
         renderOverlay={renderOverlay}
       >
         <section
           className={previewing ? `${s.page} ${s.previewing}` : s.page}
+          data-surface="manage"
           data-testid="teacher-manage"
           data-state="ready"
         >
           {pickers.inputs}
           <header className={s.top}>
-            <div className={s.topRow}>
-              <AutosaveField
-                key={`ex-title-${ex.id}`}
-                label={m.titleLabel}
-                hideLabel
-                required
-                value={ex.title}
-                maxChars={config().EXHIBITION_TITLE_MAX_CHARS}
-                onSave={title => actions.renameExhibition(title)}
-                className={s.exTitle}
-                testId="exhibition-title"
+            <button
+              type="button"
+              className={s.back}
+              onClick={() => void navigate('/t')}
+              aria-label={m.goHome}
+              data-testid="go-home"
+            >
+              <Icon name="chevron-left" />
+            </button>
+            <AutosaveField
+              key={`ex-title-${ex.id}`}
+              label={m.titleLabel}
+              hideLabel
+              required
+              value={ex.title}
+              maxChars={config().EXHIBITION_TITLE_MAX_CHARS}
+              onSave={title => actions.renameExhibition(title)}
+              className={s.exTitle}
+              testId="exhibition-title"
+            />
+            <span data-testid="exhibition-status" data-status={ex.status}>
+              <StatusPill
+                status={PILL[ex.status]}
+                label={copy.teacher.exhibitionStatus[ex.status]}
+                onClick={live.length > 0 ? () => st().setOverlay({ kind: 'open' }) : undefined}
+                expanded={overlay?.kind === 'open'}
               />
-              <span className={s.status} data-status={ex.status} data-testid="exhibition-status">
-                <span className={s.statusDot} aria-hidden="true" />
-                {copy.teacher.exhibitionStatus[ex.status]}
-              </span>
-              <span className={s.expires}>{fill(m.deletesOn, { date: formatDay(ex.expiresAt) })}</span>
-              <span className={s.spacer} />
+            </span>
+            <nav className={s.tabs} role="tablist" aria-label={m.tabsLabel}>
+              {tabs.map(t => (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.key}
+                  className={tab === t.key ? `${s.tab} ${s.tabOn}` : s.tab}
+                  onClick={() => st().setTab(t.key)}
+                  data-testid={`tab-${t.key}`}
+                >
+                  {t.label}
+                  {t.count !== undefined ? <span className={s.tabCount}>{t.count}</span> : null}
+                </button>
+              ))}
+            </nav>
+            <span className={s.topActions}>
               {published > 0 ? (
                 <button
                   type="button"
-                  className={s.secondary}
+                  className={s.quiet}
                   onClick={() => {
-                    // 작품 패널이 열려 있었으면 그 작품 앞에서 시작(HT-06)
+                    // 살펴보던 작품이 있으면 그 작품 앞에서 시작(HT-06)
                     setPreviewAt(art?.id ?? null);
                     close();
                     setPreviewing(true);
@@ -349,103 +443,139 @@ export const ManageExhibition = () => {
                   onOpenSheet={() => st().setOverlay({ kind: 'open' })}
                 />
               </span>
-            </div>
-            <RoomChips
-              rooms={view.rooms}
-              currentId={roomId}
-              counts={counts}
-              onPick={rid => st().setRoom(rid)}
-              onEdit={rid => st().setOverlay({ kind: 'room', id: rid })}
-              onReorder={ids => void actions.reorderRooms(ids)}
-              onAdd={() =>
-                void actions.createRoom().then(rid => {
-                  if (rid) st().setOverlay({ kind: 'room', id: rid });
-                })
-              }
-            />
+            </span>
           </header>
 
-          {untitled.length > 0 || blurry.length > 0 ? (
-            <p className={s.checkLine} data-testid="check-line">
-              {untitled.length > 0 ? (
-                <button type="button" className={s.checkItem} onClick={() => jumpTo(untitled[0]?.id)}>
-                  {fill(m.checkUntitled, { n: untitled.length })}
-                </button>
-              ) : null}
-              {untitled.length > 0 && blurry.length > 0 ? <span aria-hidden="true">·</span> : null}
-              {blurry.length > 0 ? (
-                <button type="button" className={s.checkItem} onClick={() => jumpTo(blurry[0]?.id)}>
-                  {fill(m.checkBlurry, { n: blurry.length })}
-                </button>
-              ) : null}
-            </p>
-          ) : null}
-
-          <div className={s.tabs} role="tablist" aria-label={m.tabsLabel}>
-            {(['artworks', 'reactions'] as const).map(t => (
-              <button
-                key={t}
-                type="button"
-                role="tab"
-                aria-selected={tab === t}
-                className={tab === t ? `${s.tab} ${s.tabOn}` : s.tab}
-                onClick={() => st().setTab(t)}
-                data-testid={`tab-${t}`}
-              >
-                {t === 'artworks' ? m.tabArtworks : m.tabReactions}
-              </button>
-            ))}
-          </div>
-
-          <div className={s.body}>
-            <div className={s.main}>
-              {tab === 'artworks' ? (
-                <>
-                  <DropZone
-                    empty={live.length === 0}
-                    pickers={pickers}
-                    onPasteText={() => {
-                      close();
-                      setPasting(true);
+          {tab === 'artworks' ? (
+            <div className={s.body}>
+              <div className={s.main}>
+                <div className={s.summary} data-testid="summary">
+                  <StatNumber value={live.length} label={m.statArtworks} />
+                  <span className={s.divider} aria-hidden="true" />
+                  <StatNumber value={view.rooms.length} label={m.statRooms} />
+                  {checks.length > 0 ? (
+                    <button
+                      type="button"
+                      className={s.checkChip}
+                      onClick={() => jumpTo(checks[0]?.id)}
+                      data-testid="check-chip"
+                    >
+                      <span className={s.checkThumbs} aria-hidden="true">
+                        {checks.slice(0, CHECK_THUMBS).map(a => (
+                          <Frame key={a.id} src={thumbOf(id, a)} alt="" size="small" />
+                        ))}
+                      </span>
+                      <span className={s.checkNo}>{checks.length}</span>
+                      {m.checkCount}
+                    </button>
+                  ) : null}
+                  <span className={s.spacer} />
+                  <Seg
+                    label={m.sizeLabel}
+                    value={frameSize}
+                    options={[
+                      { value: 'big', label: m.sizeBig },
+                      { value: 'small', label: m.sizeSmall },
+                    ]}
+                    onChange={next => {
+                      setFrameSize(next);
+                      device.setManageFrameSize(next);
                     }}
                   />
-                  <UploadTray tasks={uploads.tasks} onClear={uploads.clearFinished} artworks={live} />
-                  {live.length > 0 ? (
-                    <ArtworkBoard
-                      exhibitionId={id}
-                      artworks={inRoom}
-                      selected={selected}
-                      flashId={flashId}
-                      onOpen={aid => st().setOverlay({ kind: 'artwork', id: aid })}
-                      onToggleSelect={aid => st().toggleSelect(aid)}
-                      onRename={(aid, title) => actions.patchArtwork(aid, { title })}
-                      onNudge={(aid, delta) => void actions.nudgeArtwork(aid, delta)}
+                  <button
+                    type="button"
+                    className={selecting ? `${s.quiet} ${s.quietOn}` : s.quiet}
+                    aria-pressed={selecting}
+                    onClick={() => {
+                      if (selecting) {
+                        setSelectMode(false);
+                        st().clearSelection();
+                      } else setSelectMode(true);
+                    }}
+                    data-testid="select-many"
+                  >
+                    {m.selectMany}
+                  </button>
+                  <button
+                    type="button"
+                    className={s.outline}
+                    onClick={uploadHere}
+                    data-testid="summary-upload"
+                  >
+                    <Icon name="plus" />
+                    {m.upload}
+                  </button>
+                </div>
+                <DropZone
+                  empty={live.length === 0}
+                  pickers={pickers}
+                  onPasteText={() => {
+                    close();
+                    setPasting(true);
+                  }}
+                />
+                <UploadTray tasks={uploads.tasks} onClear={uploads.clearFinished} artworks={live} />
+                <RoomBoards
+                  exhibitionId={id}
+                  rooms={view.rooms}
+                  artworks={byId}
+                  size={size}
+                  inspectedId={art?.id ?? null}
+                  selected={selected}
+                  selecting={selecting}
+                  flashId={flashId}
+                  onOpen={openArtwork}
+                  onToggleSelect={toggleSelect}
+                  onNudge={nudge}
+                  onEditRoom={editRoom}
+                  onDropTarget={setUploadRoom}
+                  onAddRoom={() =>
+                    void actions.createRoom().then(rid => {
+                      if (rid) st().setOverlay({ kind: 'room', id: rid });
+                    })
+                  }
+                />
+              </div>
+              <aside
+                className={side ? `${s.side} ${s.sideOpen}` : s.side}
+                aria-label={m.sideLabel}
+                data-testid="manage-side"
+              >
+                {side ?? (
+                  <div className={s.sideMap}>
+                    <h2 className={s.sideTitle}>{m.mapLabel}</h2>
+                    <SideMap
+                      layout={view.layout}
+                      roomOrder={roomOrder}
+                      onPickRoom={rid => {
+                        const first = columns.find(c => c.roomId === rid)?.ids[0];
+                        if (first) st().flash(first);
+                      }}
                     />
-                  ) : null}
-                </>
-              ) : (
-                <ReactionsTab exhibitionId={id} artworks={live} />
-              )}
+                    <p className={s.sideHint}>{m.sideHint}</p>
+                  </div>
+                )}
+              </aside>
+              {side ? (
+                <div className={s.scrim} onClick={close} aria-hidden="true" data-testid="side-scrim" />
+              ) : null}
             </div>
-            <aside
-              className={side ? `${s.side} ${s.sideOpen}` : s.side}
-              aria-label={m.sideLabel}
-              data-testid="manage-side"
-            >
-              {side ?? (tab === 'artworks' ? <p className={s.sideHint}>{m.sideHint}</p> : null)}
-            </aside>
-            {side ? (
-              <div className={s.scrim} onClick={close} aria-hidden="true" data-testid="side-scrim" />
-            ) : null}
-          </div>
+          ) : (
+            <div className={s.tabBody}>
+              <ReactionsTab exhibitionId={id} artworks={live} />
+            </div>
+          )}
 
           {tab === 'artworks' ? (
             <BatchBar
               selected={selected}
               rooms={view.rooms}
-              currentRoomId={roomId}
+              currentRoomId={null}
               onBatch={b => void actions.batch(b)}
-              onClear={() => st().clearSelection()}
+              onClear={() => {
+                setSelectMode(false);
+                st().clearSelection();
+              }}
             />
           ) : null}
 

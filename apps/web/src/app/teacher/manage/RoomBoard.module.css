@@ -1,0 +1,269 @@
+/* 전시실 줄 보드(G-26·G-32, FIELD_PLAN §5.4 ②⑤). 색·그림자·크기는 tokens.css [data-surface='manage']에서만 온다 */
+.boards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.board {
+  position: relative;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  border-radius: var(--manage-r-panel);
+  background-color: var(--manage-surface);
+  box-shadow: var(--elev-1);
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  transition:
+    outline-color var(--t-hover) var(--ease-out),
+    box-shadow var(--t-hover) var(--ease-out);
+}
+
+/* 다른 판에서 끌고 온 액자가 놓일 판: 남색 테 */
+.incoming,
+.fileOver {
+  outline-color: var(--accent);
+}
+
+.boardLifted {
+  z-index: 2;
+  box-shadow: var(--elev-2);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-height: var(--manage-touch);
+  margin-bottom: var(--space-3);
+}
+
+.no {
+  font-family: var(--font-display);
+  font-size: var(--manage-fs-room-no);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--manage-ink-quiet);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.name {
+  margin: 0;
+  font-size: var(--manage-fs-room-name);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  color: var(--manage-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.count,
+.bgm {
+  font-size: var(--text-sm);
+  color: var(--manage-ink-3);
+  white-space: nowrap;
+}
+
+.bgm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.bgm svg {
+  width: 15px;
+  height: 15px;
+}
+
+.rail {
+  flex: 1;
+  align-self: center;
+  height: 1px;
+  background-color: var(--manage-rule-soft);
+}
+
+.dropHint {
+  flex: 1;
+  align-self: center;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.handle,
+.edit {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: var(--manage-touch);
+  min-height: var(--manage-touch);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--manage-r-control);
+  background: none;
+  color: var(--manage-ink-3);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+/* 손잡이: 마우스면 손댄 판에만, 터치 기기·키보드 초점이면 늘 보인다 */
+.handle {
+  padding: 0;
+  opacity: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.board:hover .handle,
+.handle:focus-visible,
+.boardLifted .handle {
+  opacity: 1;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .handle {
+    opacity: 1;
+  }
+}
+
+.edit {
+  border: 1px solid var(--manage-rule);
+  background-color: var(--manage-raised);
+  color: var(--manage-ink-2);
+  box-shadow: var(--manage-shadow-tile);
+}
+
+.edit svg {
+  width: 16px;
+  height: 16px;
+}
+
+.handle:focus-visible,
+.edit:focus-visible,
+.cell:focus-visible,
+.addRoom:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 벽: 액자를 한 줄로 걸고 넘치면 다음 줄 */
+.wall {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5) var(--space-5);
+  min-height: calc(var(--frame-h-small) + var(--space-6));
+  padding: var(--space-2) var(--space-1) 0;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-4) 0;
+  font-size: var(--text-sm);
+  color: var(--manage-ink-3);
+}
+
+.cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: 4px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.caption {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  line-height: 1;
+  color: var(--manage-ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.capFeatured {
+  font-weight: 700;
+  color: var(--manage-gilt);
+}
+
+.capStatus {
+  color: var(--manage-ink-2);
+}
+
+/* 여러 개 고르기: 귀퉁이 체크 */
+.check {
+  position: absolute;
+  top: calc(-1 * var(--space-2));
+  left: calc(-1 * var(--space-2));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--manage-rule);
+  border-radius: var(--r-pill);
+  background-color: var(--manage-raised);
+  color: var(--manage-on-accent);
+}
+
+.checkOn {
+  border-color: var(--accent);
+  background-color: var(--accent);
+}
+
+.check svg {
+  width: 14px;
+  height: 14px;
+}
+
+.flash {
+  animation: flash 1.2s var(--ease-out) 2;
+}
+
+@keyframes flash {
+  50% {
+    box-shadow: 0 0 0 6px var(--manage-accent-soft);
+  }
+}
+
+.addRoom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--manage-touch);
+  border: 1.5px dashed var(--manage-rule);
+  border-radius: var(--manage-r-panel);
+  background: none;
+  color: var(--manage-ink-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.addRoom svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board {
+    transition: none;
+  }
+
+  .flash {
+    animation: none;
+    box-shadow: 0 0 0 4px var(--manage-accent-soft);
+  }
+}

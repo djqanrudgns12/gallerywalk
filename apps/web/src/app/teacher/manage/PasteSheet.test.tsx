@@ -87,8 +87,12 @@ describe('글 붙여넣기', () => {
     expect(body.kind === 'TEXT' ? body.textBody : null).toBe(BODY);
     const rows = m.all('[data-testid="upload-row"]');
     expect(rows.map(r => r.dataset.phase)).toEqual(['done']);
-    expect(m.all('[data-cell-id]')).toHaveLength(4);
-    expect(m.q('[data-cell-id] [data-form="TEXTCARD"]')).not.toBeNull();
+    // v3 보드는 모든 판을 그린다 — 글 작품은 첫 판 끝
+    const wall = m.all(`[data-testid="room-wall-${testRoomId(0)}"] [data-cell-id]`);
+    expect(wall).toHaveLength(4);
+    const made = useTeacherStore.getState().view?.artworks.find(a => a.id === body.id);
+    expect(made?.form).toBe('TEXTCARD');
+    expect(wall[3]?.dataset.cellId).toBe(body.id);
   });
 
   it('창은 하나: 시트를 열면 작품 패널이 닫히고, 다른 덮개가 열리면 시트가 닫힌다', async () => {

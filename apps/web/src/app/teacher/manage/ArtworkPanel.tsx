@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Icon } from '../../../ui/index.ts';
 import type { PatchArtworkInput } from '../../../ports/index.ts';
 import { AutosaveField } from './AutosaveField.tsx';
-import { isUntitled } from './ArtworkBoard.tsx';
+import { isUntitled } from './artworkLook.ts';
 import s from './manage.module.css';
 
 const FORMS: readonly ArtworkForm[] = [
