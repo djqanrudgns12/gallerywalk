@@ -63,7 +63,8 @@ test('데스크톱 · 만들기 → 그림·제목 → 열기 → 학생 반응 
   await uploadTeacherArtworks(page);
   await captureTeacher(page, 'desktop-02-uploaded');
 
-  // 글 붙여넣기(V-01, PRD G-10·15.3-5): 놓기 띠 아래 링크 → 시트 → 같은 올리기 줄 → 격자 끝에 글 카드
+  // 글 붙여넣기(V-01, PRD G-10·15.3-5): `작품 올리기` 차림표 → 시트 → 같은 올리기 줄 → 보드 끝에 글 작품
+  await page.getByTestId('summary-upload').click();
   await page.getByTestId('paste-open').click();
   const paste = page.getByTestId('paste-sheet');
   await expect(paste).toBeVisible();
@@ -75,14 +76,18 @@ test('데스크톱 · 만들기 → 그림·제목 → 열기 → 학생 반응 
   await expect(page.getByTestId('upload-row').nth(2)).toHaveAttribute('data-phase', 'done', {
     timeout: TEACHER_READY_MS,
   });
-  await expect(page.getByTestId('cell-2').locator('[data-form="TEXTCARD"]')).toHaveCount(1);
-  await expect(page.getByTestId('cell-2').getByRole('heading')).toHaveText('가상 감상 글');
+  const cells = page.getByTestId('room-boards').locator('[data-cell-id]');
+  await expect(cells.nth(2)).toHaveAccessibleName(
+    fill(copy.teacher.board.cellLabel, { n: 3, title: '가상 감상 글' }),
+  );
 
-  const card = page.getByTestId('cell-0');
+  // 제목은 액자를 눌러 오른쪽 살펴보기 칸에서 고친다(0.6초 뒤 자동 저장)
+  const card = cells.nth(0);
   const artworkId = UuidSchema.parse(await card.getAttribute('data-cell-id'));
   const title = '다시 만난 상상의 산';
-  await card.getByRole('heading').click();
-  const input = card.getByTestId('inline-title');
+  await card.click();
+  await expect(page.getByTestId('artwork-panel')).toHaveAttribute('data-artwork-id', artworkId);
+  const input = page.getByTestId('panel-title');
   const renamed = page.waitForResponse(
     response =>
       new URL(response.url()).pathname.endsWith(`/artworks/${artworkId}`) &&
@@ -98,7 +103,7 @@ test('데스크톱 · 만들기 → 그림·제목 → 열기 → 학생 반응 
   await expect(input.locator('xpath=../..')).toHaveAttribute('data-save-state', 'idle');
   await page.reload();
   await expect(page.getByTestId('teacher-manage')).toHaveAttribute('data-state', 'ready');
-  await expect(page.getByTestId('cell-0').getByRole('heading')).toHaveText(title);
+  await expect(cells.nth(0)).toHaveAccessibleName(fill(copy.teacher.board.cellLabel, { n: 1, title }));
   await captureTeacher(page, 'desktop-03-renamed');
 
   await page.getByRole('button', { name: copy.teacher.manage.open, exact: true }).click();
@@ -240,7 +245,7 @@ test('데스크톱 · 만들기 → 그림·제목 → 열기 → 학생 반응 
   await captureTeacher(page, 'desktop-09-deleted');
 });
 
-test('휴대폰 · 다른 전시 PIN 재입장 → 2열 격자 → 작품 아래 시트', async ({ browser, secondary }) => {
+test('휴대폰 · 다른 전시 PIN 재입장 → 접이식 판 → 작품 아래 시트', async ({ browser, secondary }) => {
   const context = await browser.newContext({
     baseURL: 'http://127.0.0.1:4522',
     viewport: PHONE,
@@ -252,19 +257,19 @@ test('휴대폰 · 다른 전시 PIN 재입장 → 2열 격자 → 작품 아래
     const page = await context.newPage();
     await keepTeacherPageVersion(page);
     await enterTeacherPin(page, secondary);
-    const board = page.getByTestId('artwork-board');
-    await expect(board.locator('article')).toHaveCount(2);
-    const columns = await board.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' '));
-    expect(columns).toHaveLength(2);
-    const left = await page.getByTestId('cell-0').boundingBox();
-    const right = await page.getByTestId('cell-1').boundingBox();
+    // 휴대폰(G-32): 판은 카드, 처음엔 첫 판만 펼친다 — 액자는 한 줄에 여럿
+    const cells = page.getByTestId('room-boards').locator('[data-cell-id]');
+    await expect(cells).toHaveCount(2);
+    await expect(page.getByTestId('room-boards').locator('[data-collapsed="false"]')).toHaveCount(1);
+    const left = await cells.nth(0).boundingBox();
+    const right = await cells.nth(1).boundingBox();
     expect(left).not.toBeNull();
     expect(right).not.toBeNull();
     expect(right!.x).toBeGreaterThanOrEqual(left!.x + left!.width);
-    expect(right!.y).toBe(left!.y);
+    expect(Math.abs(right!.y + right!.height - (left!.y + left!.height))).toBeLessThanOrEqual(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(PHONE.width);
     await captureTeacher(page, 'phone-01-grid');
-    await page.getByTestId('cell-0').locator('img').tap();
+    await cells.nth(0).locator('img').tap();
     await expect(page.getByTestId('artwork-panel')).toBeVisible();
     const side = page.getByTestId('manage-side');
     await expect(side).toHaveCSS('position', 'fixed');
@@ -275,7 +280,7 @@ test('휴대폰 · 다른 전시 PIN 재입장 → 2열 격자 → 작품 아래
     expect(sheet!.y).toBeGreaterThan(0);
     expect(sheet!.y + sheet!.height).toBeCloseTo(PHONE.height, 0);
     await captureTeacher(page, 'phone-02-artwork-sheet');
-    await page.getByTestId('artwork-panel').getByRole('button', { name: copy.teacher.panel.close }).tap();
+    await side.getByRole('button', { name: copy.teacher.manage.sideClose, exact: true }).tap();
     await expect(page.getByTestId('artwork-panel')).toBeHidden();
   } catch (error) {
     const phonePage = context.pages()[0];
@@ -372,10 +377,11 @@ test('3D 미리 보기 · 열기 → 첫 작품까지 안내 걷기 → 작품�
   await expect(page.getByTestId('teacher-manage')).toHaveAttribute('data-state', 'ready');
 
   // HT-06: 작품 패널을 연 채 `미리 보기`를 열면 광장이 아니라 그 작품 앞에서 시작한다
-  await page.getByTestId('cell-1').locator('img').click();
+  await page.getByTestId('tab-artworks').click();
+  await page.getByTestId('room-boards').locator('[data-cell-id]').nth(1).click();
   const panel = page.getByTestId('artwork-panel');
   await expect(panel).toBeVisible();
-  const picked = (await page.getByTestId('cell-1').getByRole('heading').textContent())?.trim() ?? '';
+  const picked = (await panel.getByTestId('panel-title').inputValue()).trim();
   expect(picked).not.toBe('');
   await page.getByTestId('open-preview').click();
   await expect(layer.getByTestId('visit-screen')).toHaveAttribute('data-ready', '1', {
