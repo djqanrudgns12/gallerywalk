@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { config } from '@gallery/core/config';
 import { copy, fill } from '@gallery/core/copy';
 import type { ErrorCode } from '@gallery/core/errors';
-import { PEER_NUMBER_MAX, pushPose } from '@gallery/core/live';
+import { PEER_NUMBER_MAX, cleanBubbleText, pushPose, takeRate } from '@gallery/core/live';
 import { isGone } from '@gallery/core/retention';
 import {
   LiveClientMessageSchema,
@@ -47,6 +47,10 @@ import type { Deps } from '../ports/index.ts';
  * - 점프 시작(PRD_V2 W-05): 판 2 기기의 `jump`를 받은 즉시 같은 방 다른 판 2 기기에 `{t:'jump', sid, at}`로 넘긴다(꼭 가야
  *   하는 것이라 `send`). 한 연결은 `JUMP_RELAY_WINDOW_MS` 안에 `LIVE_JUMP_MAX_PER_SEC`번까지, 넘는 것은 조용히 버린다. 판 1 연결이
  *   보내면 형식 틀림으로 닫는다(판 1 기기는 이 종류를 모른다).
+ * - 머리 위 말풍선(PRD_V2 W-02, M4-2): 판 2 기기의 `bubble`을 받으면 그때마다 전시 설정(`settings.bubbles`)을 다시 읽어 꺼졌거나
+ *   글을 받지 않으면 버리고, `BUBBLE_RATE` 창마다 개수를 넘으면 버리고, 글이면 `cleanBubbleText`(줄바꿈·길이·거름)로 다듬어
+ *   같은 방 다른 판 2 기기에 `{t:'bubble', sid, at, …}`로 넘긴다. 거절은 모두 조용히(닫지 않음). **내용은 저장·기록하지 않는다**
+ *   — 1분 수에 넘긴 수·버린 수만. 판 1 연결이 보내면 형식 틀림으로 닫는다.
  */
 
 /** 웹소켓 닫기 코드(RFC 6455 §7.4) */
@@ -183,6 +187,8 @@ interface Member {
   lastPoseAt: number;
   /** 최근 넘긴 점프 시각(ms, 오래된 것부터 — 속도 제한용, 길이 ≤ `LIVE_JUMP_MAX_PER_SEC`) */
   readonly jumps: number[];
+  /** 최근 넘긴 말풍선 시각(ms, 오래된 것부터 — `BUBBLE_RATE`, 길이 ≤ 가장 긴 창의 개수) */
+  bubbles: number[];
 }
 
 interface Room {
@@ -213,6 +219,7 @@ type Admission = { readonly exhibitionId: string; readonly role: Role } & (
 
 type Hello = Extract<LiveClientMessage, { t: 'hello' }>;
 type PoseMessage = Extract<LiveClientMessage, { t: 'pose' }>;
+type BubbleMessage = Extract<LiveClientMessage, { t: 'bubble' }>;
 
 /** 토큰 해시 = 토큰 글의 UTF-8 SHA-256 소문자 16진(웹 `adapters/tokens.ts`와 같음) */
 const tokenHash = (token: string): string => createHash('sha256').update(token, 'utf8').digest('hex');
@@ -238,6 +245,9 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
     /** 판 2 위치 글을 만든 수·밀려 건너뛴 수(1분, `server_stats`에) */
     built: 0,
     skipped: 0,
+    /** 넘긴 말풍선 수·설정·속도 제한·거름으로 버린 수(1분, 내용은 없음) */
+    bubbles: 0,
+    bubblesDropped: 0,
   };
   /** 루프가 바빠 위치 빈도를 줄였는가(HS-10) */
   let degraded = false;
@@ -538,6 +548,7 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
       sentTick: -1,
       lastPoseAt: at,
       jumps: [],
+      bubbles: [],
     };
     if (conn.helloTimer !== undefined) clearTimeout(conn.helloTimer);
     conn.helloTimer = undefined;
@@ -577,6 +588,43 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
     broadcast(room, to => (to.version === 2 ? { t: 'jump', sid: member.sid, at: stamp } : null), member.sid);
   };
 
+  /**
+   * 말풍선을 같은 방 다른 판 2 기기에 넘긴다. 전시 설정 → 속도 제한 → 글 다듬기 순서로 보고, 걸리면 조용히 버린다.
+   * 내용은 메모리에서도 넘기는 동안만 — 기록·저장하지 않는다.
+   */
+  const bubble = (room: Room, member: Member, message: BubbleMessage): void => {
+    const settings = deps.store.exhibitions.get(room.exhibitionId)?.settings.bubbles;
+    if (!settings?.enabled || (message.text !== undefined && !settings.text)) {
+      stats.bubblesDropped += 1;
+      return;
+    }
+    let body: { s: number } | { w: number } | { text: string };
+    if (message.text !== undefined) {
+      const cleaned = cleanBubbleText(message.text, config().BUBBLE_TEXT_MAX);
+      if (!cleaned.ok) {
+        stats.bubblesDropped += 1;
+        return;
+      }
+      body = { text: cleaned.text };
+    } else if (message.s !== undefined) body = { s: message.s };
+    else if (message.w !== undefined) body = { w: message.w };
+    else return;
+    const at = now();
+    const sent = takeRate(member.bubbles, at, config().BUBBLE_RATE);
+    if (!sent) {
+      stats.bubblesDropped += 1;
+      return;
+    }
+    member.bubbles = sent;
+    stats.bubbles += 1;
+    const stamp = Math.max(0, Math.floor(at));
+    broadcast(
+      room,
+      to => (to.version === 2 ? { t: 'bubble', sid: member.sid, at: stamp, ...body } : null),
+      member.sid,
+    );
+  };
+
   const handle = (conn: Conn, text: string): void => {
     let raw: unknown;
     try {
@@ -604,6 +652,11 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
       // 판 1 기기는 이 종류를 보내지 않는다 — 보냈으면 약속을 어긴 것
       if (conn.member.version !== 2) reject(conn, 'E_VALIDATION');
       else jump(conn.room, conn.member);
+      return;
+    }
+    if (message.t === 'bubble') {
+      if (conn.member.version !== 2) reject(conn, 'E_VALIDATION');
+      else bubble(conn.room, conn.member, message);
       return;
     }
     pose(conn.member, message);
@@ -693,12 +746,21 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
       stats.built = 0;
       stats.skipped = 0;
       const quiet =
-        stats.joined === 0 && stats.timeouts === 0 && stats.rejects.size === 0 && peers === stats.lastPeers;
+        stats.joined === 0 &&
+        stats.timeouts === 0 &&
+        stats.rejects.size === 0 &&
+        stats.bubbles === 0 &&
+        stats.bubblesDropped === 0 &&
+        peers === stats.lastPeers;
       if (quiet) return;
       log.info('live_connections', { count: peers });
       if (stats.joined > 0) log.info('live_joined', { count: stats.joined });
       for (const [code, count] of stats.rejects) log.warn('live_reject', { code, count });
       if (stats.timeouts > 0) log.info('live_timeout', { count: stats.timeouts });
+      if (stats.bubbles > 0) log.info('live_bubbles', { count: stats.bubbles });
+      if (stats.bubblesDropped > 0) log.info('live_bubbles_dropped', { count: stats.bubblesDropped });
+      stats.bubbles = 0;
+      stats.bubblesDropped = 0;
       stats.joined = 0;
       stats.timeouts = 0;
       stats.rejects.clear();

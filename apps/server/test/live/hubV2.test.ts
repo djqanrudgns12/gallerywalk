@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { rm } from 'node:fs/promises';
+import { readFile, readdir, rm } from 'node:fs/promises';
 import { join as joinPath } from 'node:path';
 import { config, overrideConfig, resetConfig } from '@gallery/core/config';
 import { decodePoses } from '@gallery/core/live';
@@ -322,5 +322,118 @@ describe('느린 기기 판정(HS-04)', () => {
     expect(guard.check(0)).toBe('send');
     now += closeMs;
     expect(guard.check(max + 1)).toBe('skip');
+  });
+});
+
+describe('머리 위 말풍선 중계(PRD_V2 W-02, M4-2)', () => {
+  const say = (conn: ReturnType<typeof join>['conn'], body: Record<string, unknown>): void =>
+    conn.receive(JSON.stringify({ t: 'bubble', ...body }));
+  const setBubbles = (id: string, bubbles: { enabled: boolean; text: boolean }): void => {
+    const ex = t.store.exhibitions.get(id)!;
+    t.store.exhibitions.update(id, { settings: { ...ex.settings, bubbles } });
+  };
+
+  it('스티커·정해진 말은 같은 전시 다른 판 2 기기에 send로(자기·판 1·다른 전시 제외), at은 서버가 받은 시각', () => {
+    const ex = seedExhibition(t);
+    const other = seedExhibition(t);
+    const a = join(ex.entryCode, 2, pose(1));
+    const b = join(ex.entryCode, 2, pose(2));
+    const old = join(ex.entryCode, 1, pose(3));
+    const away = join(other.entryCode, 2, pose(1));
+    const sid = a.welcome?.['you'];
+    say(a.conn, { s: 3 });
+    expect(b.socket.messages('bubble')).toEqual([{ t: 'bubble', sid, at: t.at(), s: 3 }]);
+    expect(b.socket.shared).toEqual([]);
+    expect(a.socket.messages('bubble')).toEqual([]);
+    expect(old.socket.texts.some(x => x.includes('"bubble"'))).toBe(false);
+    expect(away.socket.messages('bubble')).toEqual([]);
+    t.advance(1000);
+    say(a.conn, { w: 11 });
+    expect(b.socket.messages('bubble')[1]).toEqual({ t: 'bubble', sid, at: t.at(), w: 11 });
+    expect(a.socket.closedWith).toBeNull();
+  });
+
+  it('속도 제한: 1초 1개 · 10초 5개, 넘는 것은 조용히 버린다(닫지 않음)', () => {
+    const ex = seedExhibition(t);
+    const a = join(ex.entryCode, 2, pose(1));
+    const b = join(ex.entryCode, 2, pose(2));
+    say(a.conn, { s: 0 });
+    say(a.conn, { s: 1 });
+    expect(b.socket.messages('bubble')).toHaveLength(1);
+    for (let i = 0; i < 6; i += 1) {
+      t.advance(1000);
+      say(a.conn, { s: 2 });
+    }
+    // 0·1·2·3·4초에 다섯 개 — 5초에는 1초 창은 비었지만 10초 창이 가득
+    expect(b.socket.messages('bubble')).toHaveLength(5);
+    expect(a.socket.closedWith).toBeNull();
+    expect(a.socket.messages('bye')).toEqual([]);
+    t.advance(4000);
+    say(a.conn, { s: 2 });
+    expect(b.socket.messages('bubble')).toHaveLength(6);
+  });
+
+  it('교사 설정: 끄면(수업 중에도) 버리고, 짧은 글은 켰을 때만 다듬어 넘긴다', () => {
+    const ex = seedExhibition(t);
+    const a = join(ex.entryCode, 2, pose(1));
+    const b = join(ex.entryCode, 2, pose(2));
+    say(a.conn, { text: '같이 보자' });
+    expect(b.socket.messages('bubble')).toEqual([]);
+    setBubbles(ex.id, { enabled: true, text: true });
+    t.advance(1000);
+    say(a.conn, { text: '  같이   보자 ' });
+    expect(b.socket.messages('bubble').map(m => m['text'])).toEqual(['같이 보자']);
+    setBubbles(ex.id, { enabled: false, text: true });
+    t.advance(1000);
+    say(a.conn, { s: 1 });
+    say(a.conn, { text: '안녕' });
+    expect(b.socket.messages('bubble')).toHaveLength(1);
+    expect(a.socket.closedWith).toBeNull();
+  });
+
+  it('글 거름: 줄바꿈·길이 초과는 버리고, 거절된 것은 속도 제한 칸을 쓰지 않는다', () => {
+    const ex = seedExhibition(t);
+    setBubbles(ex.id, { enabled: true, text: true });
+    const a = join(ex.entryCode, 2, pose(1));
+    const b = join(ex.entryCode, 2, pose(2));
+    say(a.conn, { text: '같이\n보자' });
+    say(a.conn, { text: '가'.repeat(config().BUBBLE_TEXT_MAX + 1) });
+    say(a.conn, { s: 4 });
+    expect(b.socket.messages('bubble')).toEqual([{ t: 'bubble', sid: a.welcome?.['you'], at: t.at(), s: 4 }]);
+  });
+
+  it('형식 틀림: 판 1 연결·종류 둘·범위 밖 번호는 닫는다', () => {
+    const ex = seedExhibition(t);
+    const b = join(ex.entryCode, 2, pose(2));
+    const old = join(ex.entryCode, 1, pose(1));
+    say(old.conn, { s: 0 });
+    expect(old.socket.messages('bye')).toEqual([{ t: 'bye', code: 'E_VALIDATION' }]);
+    const two = join(ex.entryCode, 2, pose(1));
+    say(two.conn, { s: 0, w: 0 });
+    expect(two.socket.closedWith).toBe(CLOSE.policy);
+    const big = join(ex.entryCode, 2, pose(1));
+    say(big.conn, { s: config().BUBBLE_STICKER_COUNT });
+    expect(big.socket.closedWith).toBe(CLOSE.policy);
+    expect(b.socket.messages('bubble')).toEqual([]);
+  });
+
+  it('저장하지 않는다: 글 내용은 저장소·기록에 남지 않고 1분 기록에는 수만', async () => {
+    const ex = seedExhibition(t);
+    setBubbles(ex.id, { enabled: true, text: true });
+    const a = join(ex.entryCode, 2, pose(1));
+    join(ex.entryCode, 2, pose(2));
+    const before = JSON.stringify(t.store.exhibitions.get(ex.id));
+    say(a.conn, { text: '비밀표지글' });
+    t.advance(1000);
+    say(a.conn, { text: '가'.repeat(config().BUBBLE_TEXT_MAX + 1) });
+    hub.flushStats();
+    expect(JSON.stringify(t.store.exhibitions.get(ex.id))).toBe(before);
+    const dir = joinPath(root, 'logs');
+    const text = (await Promise.all((await readdir(dir)).map(f => readFile(joinPath(dir, f), 'utf8')))).join(
+      '',
+    );
+    expect(text).not.toContain('비밀표지글');
+    expect(text).toContain('"msg":"live_bubbles"');
+    expect(text).toContain('"msg":"live_bubbles_dropped"');
   });
 });

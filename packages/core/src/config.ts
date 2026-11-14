@@ -583,6 +583,31 @@ export const configDefaults = {
   PEER_JUMP_TAINT_MS: 600,
   PEER_JUMP_RUN_PHASE: 0.4,
   /**
+   * 머리 위 말풍선(PRD_V2 W-02, M4-2·M4-3): 스티커 `BUBBLE_STICKER_COUNT`종 · 정해진 말 `BUBBLE_PHRASE_COUNT`개(문구는 `copy.bubble.phrases`) · 교사가 켤 때만
+   * 짧은 글 `BUBBLE_TEXT_MAX`자. 서버는 저장하지 않고 같은 전시 판 2 기기에 넘긴다. 속도 제한은 `BUBBLE_RATE`의 창마다 개수(모두 만족해야 보냄).
+   * 보이기: 머리 위 `BUBBLE_ABOVE_M` · 튀어 오름 `BUBBLE_POP_SEC`(배율 `BUBBLE_POP_FROM` → 1) · 머묾 `BUBBLE_SHOW_SEC`(말·글은
+   * `BUBBLE_TEXT_SHOW_SEC`) · 사라짐 `BUBBLE_FADE_SEC` · `BUBBLE_MAX_DIST_M` 밖은 숨김 · 화면 높이를 기기별 CSS px 범위로 자름
+   * (`BUBBLE_STICKER_PX`, 기준 세계 크기 `BUBBLE_WORLD_M`) · 글자 최소 `BUBBLE_TEXT_MIN_PX` · 겹치면 최대 `BUBBLE_STACK_MAX`단.
+   */
+  BUBBLE_STICKER_COUNT: 12,
+  BUBBLE_PHRASE_COUNT: 12,
+  BUBBLE_TEXT_MAX: 20,
+  BUBBLE_RATE: [
+    { ms: 1000, max: 1 },
+    { ms: 10_000, max: 5 },
+  ],
+  BUBBLE_ABOVE_M: 0.35,
+  BUBBLE_POP_SEC: 0.22,
+  BUBBLE_POP_FROM: 1.15,
+  BUBBLE_SHOW_SEC: 5,
+  BUBBLE_TEXT_SHOW_SEC: 6,
+  BUBBLE_FADE_SEC: 0.3,
+  BUBBLE_MAX_DIST_M: 18,
+  BUBBLE_WORLD_M: 0.45,
+  BUBBLE_STICKER_PX: { phone: [56, 88], tablet: [64, 96], desktop: [64, 104] },
+  BUBBLE_TEXT_MIN_PX: 15,
+  BUBBLE_STACK_MAX: 2,
+  /**
    * 도슨트(W-10): `NPC_LOOK_RADIUS_M` 안의 학생 쪽으로 고개·몸을 돌린다(몸은 `NPC_LOOK_MAX_DEG`까지, 돌리는 빠르기 `NPC_TURN_RAD_PER_S`).
    * `NPC_TIP_RADIUS_M` 안에 학생이 있으면 `NPC_TIP_SEC`(무작위 간격) 마다 예절 한마디를 `NPC_TIP_SHOW_SEC` 동안 머리 위에.
    * `말걸기` 대사는 `NPC_TALK_SHOW_SEC` 동안(멀어지거나 걸으면 닫음).

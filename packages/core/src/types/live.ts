@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { config } from '../config.ts';
 import { ACCEPTED_CHARACTER_IDS } from '../domain/characters.ts';
 
 /**
@@ -69,10 +70,36 @@ export const LivePoseSchema = z.strictObject({
  */
 export const LiveJumpSchema = z.strictObject({ t: z.literal('jump') });
 
+/**
+ * 머리 위 말풍선 내용(PRD_V2 W-02): 스티커 번호 `s` · 정해진 말 번호 `w` · 짧은 글 `text` 가운데 **하나만**.
+ * 번호 범위는 `BUBBLE_STICKER_COUNT`·`BUBBLE_PHRASE_COUNT`. 글 길이·줄바꿈·거름은 서버가 `cleanBubbleText`로 본다(여기서는 넉넉한 상한만).
+ */
+const bubbleIndex = z.number().int().nonnegative();
+const bubbleBody = {
+  s: bubbleIndex.optional(),
+  w: bubbleIndex.optional(),
+  text: z.string().min(1).max(200).optional(),
+};
+type BubbleBodyShape = { s?: number | undefined; w?: number | undefined; text?: string | undefined };
+const oneBubbleKind = (b: BubbleBodyShape): boolean =>
+  [b.s, b.w, b.text].filter(v => v !== undefined).length === 1 &&
+  (b.s === undefined || b.s < config().BUBBLE_STICKER_COUNT) &&
+  (b.w === undefined || b.w < config().BUBBLE_PHRASE_COUNT);
+
+/**
+ * 말풍선 보내기(판 2 기기만, PRD_V2 W-02). 서버는 교사 설정(`settings.bubbles`) → 속도 제한(`BUBBLE_RATE`) → 글이면 거름 순서로 보고,
+ * 통과하면 같은 전시 다른 판 2 기기에 `bubble`로 넘긴다. **저장하지 않는다**(메모리·기록에 내용 없음). 거절은 조용히 버린다.
+ */
+export const LiveBubbleSchema = z
+  .strictObject({ t: z.literal('bubble'), ...bubbleBody })
+  .refine(oneBubbleKind, { message: 'one_bubble_kind' });
+export type LiveBubble = z.infer<typeof LiveBubbleSchema>;
+
 export const LiveClientMessageSchema = z.discriminatedUnion('t', [
   LiveHelloSchema,
   LivePoseSchema,
   LiveJumpSchema,
+  LiveBubbleSchema,
 ]);
 export type LiveClientMessage = z.infer<typeof LiveClientMessageSchema>;
 
@@ -127,6 +154,17 @@ export const LiveServerMessageSchema = z.discriminatedUnion('t', [
    * `LIVE_INTERP_DELAY_MS` 늦춰 그 순간부터 포물선을 그린다. 옛 앱은 모르는 종류라 조용히 버린다.
    */
   z.strictObject({ t: z.literal('jump'), sid: PeerIdSchema, at: z.number().int().nonnegative() }),
+  /**
+   * 다른 사람의 말풍선(판 2 기기에만, PRD_V2 W-02). `at` = 서버가 받은 시각(ms). 글은 서버가 다듬은 것. 옛 앱은 모르는 종류라 버린다.
+   */
+  z
+    .strictObject({
+      t: z.literal('bubble'),
+      sid: PeerIdSchema,
+      at: z.number().int().nonnegative(),
+      ...bubbleBody,
+    })
+    .refine(oneBubbleKind, { message: 'one_bubble_kind' }),
   z.strictObject({ t: z.literal('leave'), sid: PeerIdSchema }),
   /** 닫기 직전 이유(오류 코드는 errors.ts) */
   z.strictObject({ t: z.literal('bye'), code: z.string().regex(/^E_[A-Z_]+$/) }),

@@ -45,9 +45,20 @@ export const TourSettingsSchema = z.object({
 });
 export type TourSettings = z.infer<typeof TourSettingsSchema>;
 
+/**
+ * 함께 관람 머리 위 말풍선(PRD_V2 W-02, U-31): 켬/끔(기본 켬) · 짧은 글까지 받기(기본 끔 — 스티커·정해진 말만).
+ * 수업 중 교사가 바로 끌 수 있다(수업 탭). 서버는 보낼 때마다 이 값을 다시 읽는다.
+ */
+export const BubbleSettingsSchema = z.object({
+  enabled: z.boolean().default(true),
+  text: z.boolean().default(false),
+});
+export type BubbleSettings = z.infer<typeof BubbleSettingsSchema>;
+
 export const ExhibitionSettingsSchema = z.object({
   reactions: ReactionSettingsSchema.prefault({}),
   tour: TourSettingsSchema.prefault({}),
+  bubbles: BubbleSettingsSchema.prefault({}),
 });
 export type ExhibitionSettings = z.infer<typeof ExhibitionSettingsSchema>;
 /** 만들기·고치기 본문에서 받는 모양(빠진 칸은 기본값) */
