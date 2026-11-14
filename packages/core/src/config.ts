@@ -26,6 +26,8 @@ export const configDefaults = {
   PIN_LOCK_MIN: 10,
   RECENT_EXHIBITIONS_MAX: 5,
   UNDO_DELETE_SEC: 10,
+  /** 교사 관리 화면 편집 되돌리기(HT-08): 기억하는 편집 수 */
+  UNDO_STACK_MAX: 20,
   /** "지금 삭제" 단추가 잠겨 있는 시간(PRD G-18) · 교사 화면 알림 띠가 떠 있는 시간 */
   DELETE_CONFIRM_SEC: 3,
   TOAST_SEC: 4,

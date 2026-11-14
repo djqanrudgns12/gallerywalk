@@ -118,6 +118,27 @@ describe('전시 관리 화면', () => {
     expect(cellIds(m)).toEqual([A(1), A(2), A(0)]);
   });
 
+  it('편집 되돌리기(HT-08): 순서를 바꾼 뒤 Ctrl+Z면 처음 순서로, 글 칸 안의 Ctrl+Z는 그 칸 몫', async () => {
+    const { m, srv } = await open();
+    key(m.q('[data-testid="cell-0"]'), 'ArrowRight', { altKey: true });
+    await flush();
+    expect(cellIds(m)).toEqual([A(1), A(0), A(2)]);
+    expect(useTeacherStore.getState().toast?.action?.label).toBe(copy.teacher.undo.action);
+
+    key(m.q('[data-testid="exhibition-title"]'), 'z', { ctrlKey: true });
+    await flush();
+    expect(srv.named('reorderArtworks')).toHaveLength(1);
+
+    key(window.document.body, 'z', { ctrlKey: true });
+    await flush();
+    expect(srv.named('reorderArtworks').map(c => c.args.slice(1))).toEqual([
+      [testRoomId(0), [A(1), A(0), A(2)]],
+      [testRoomId(0), [A(0), A(1), A(2)]],
+    ]);
+    expect(cellIds(m)).toEqual([A(0), A(1), A(2)]);
+    expect(useTeacherStore.getState().toast?.text).toBe(copy.teacher.undo.undone);
+  });
+
   it('여러 장 고르기(Shift+누르기 → 고른 동안은 누를 때마다) → 아래 띠 `숨기기`·`전시실 옮기기`', async () => {
     const { m, srv } = await open();
     click(m.q('[data-testid="cell-0"]'), { shiftKey: true });
