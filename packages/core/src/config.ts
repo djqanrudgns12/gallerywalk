@@ -626,6 +626,12 @@ export const configDefaults = {
     edge: '#cfc4b0',
   },
   /**
+   * 스티커 그림(M4-1, `stk-1/`): 3D 아틀라스는 `cols`×`rows` 칸(한 칸 `cell`px, 그림은 칸 안 `pad`px 안쪽에 가운데 맞춤)의 KTX2 UASTC.
+   * 첫 화면 예산 밖이라 처음 말풍선이 뜨거나 붙은 지 `delayMs` 뒤에 받는다. 서랍 단추 그림은 `uiPx`² WebP.
+   * `maxBytes`는 도구(`tools/assets/pipeline/stickers.mjs`)의 아틀라스 파일 상한.
+   */
+  BUBBLE_ATLAS: { cols: 4, rows: 4, cell: 256, pad: 8, uiPx: 144, delayMs: 3000, maxBytes: 1_200_000 },
+  /**
    * 도슨트(W-10): `NPC_LOOK_RADIUS_M` 안의 학생 쪽으로 고개·몸을 돌린다(몸은 `NPC_LOOK_MAX_DEG`까지, 돌리는 빠르기 `NPC_TURN_RAD_PER_S`).
    * `NPC_TIP_RADIUS_M` 안에 학생이 있으면 `NPC_TIP_SEC`(무작위 간격) 마다 예절 한마디를 `NPC_TIP_SHOW_SEC` 동안 머리 위에.
    * `말걸기` 대사는 `NPC_TALK_SHOW_SEC` 동안(멀어지거나 걸으면 닫음).

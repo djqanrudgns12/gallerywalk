@@ -17,6 +17,7 @@ import type { WebGLRenderer } from 'three';
 import '../../ui/tokens.css';
 import '../../ui/themes/modern-history.css';
 import '../../ui/themes/gallery-dark.css';
+import { stickerUiUrl } from '../../viewer/live/bubbleAtlas.ts';
 import { deviceKindFor, visibleMaxFor } from '../../viewer/live/peerBuffer.ts';
 import {
   deviceKindOf,
@@ -518,6 +519,7 @@ export const VisitScreen = ({
             allowText={live.bubbleSettings?.text === true}
             waitMs={bubbleWait}
             device={deviceKindFor(Math.min(window.innerWidth, window.innerHeight), touch)}
+            stickerSrc={stickerUiUrl}
           />
         </div>
       )}

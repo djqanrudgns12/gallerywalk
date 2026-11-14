@@ -55,9 +55,13 @@ export const characterLodUrl = (
 
 /**
  * 2D 얼굴 그림(쌤유니버스 화풍, 그림 세션 `concept/<id>/face.png` → 승인 뒤 `chr-2/<id>-face.webp`): 입장 화면 고르기 칸·도슨트 대사 카드.
- * 들어온 ID를 `FACE_FILES`에 더하면 그 칸·카드에 얼굴이 보인다. 지금은 없다(사용자 승인 전 — AGENTS §6 "승인된 것만 저장소에")
+ * 들어온 ID를 `FACE_FILES`에 더하면 그 칸·카드에 얼굴이 보인다. 2026-11-14 사용자 승인으로 15명 모두
+ * (원본 1254² 투명 PNG → 192² webp, 한 장 약 7KB — 표시는 고르기 칸 32px·대사 카드 44px)
  */
-export const FACE_FILES: ReadonlySet<CharacterKey> = new Set<CharacterKey>([]);
+export const FACE_FILES: ReadonlySet<CharacterKey> = new Set<CharacterKey>([
+  ...VISITOR_CHARACTER_IDS,
+  ...DOCENT_IDS,
+]);
 
 /** 얼굴 그림 주소. 없으면 null(부품이 실루엣·아이콘 자리로 그린다) */
 export const characterFaceUrl = (

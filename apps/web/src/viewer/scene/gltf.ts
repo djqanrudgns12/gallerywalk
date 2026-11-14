@@ -7,6 +7,13 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 export const TRANSCODER_PATH = '/assets/g/basis-r187-csp1/';
 
 const loaders = new WeakMap<WebGLRenderer, GLTFLoader>();
+const ktx2Loaders = new WeakMap<WebGLRenderer, KTX2Loader>();
+
+/** 같은 renderer의 KTX2 불러오기 도구(glTF 도구와 변환 일꾼을 함께 씀) — 말풍선 스티커 아틀라스처럼 낱 KTX2 파일용 */
+export const ktx2LoaderFor = (gl: WebGLRenderer): KTX2Loader => {
+  gltfLoaderFor(gl);
+  return ktx2Loaders.get(gl)!;
+};
 
 /**
  * 그리는 쪽(renderer)마다 glTF 불러오기 도구 하나(템플릿 조각·설비·캐릭터가 함께 씀). KTX2 변환 일꾼을 여럿 띄우면
@@ -19,10 +26,12 @@ export const gltfLoaderFor = (gl: WebGLRenderer): GLTFLoader => {
   const ktx2 = new KTX2Loader().setTranscoderPath(TRANSCODER_PATH).detectSupport(gl);
   const loader = new GLTFLoader().setKTX2Loader(ktx2).setMeshoptDecoder(MeshoptDecoder);
   loaders.set(gl, loader);
+  ktx2Loaders.set(gl, ktx2);
   const release = gl.dispose.bind(gl);
   gl.dispose = () => {
     gl.dispose = release;
     loaders.delete(gl);
+    ktx2Loaders.delete(gl);
     ktx2.dispose();
     release();
   };

@@ -21,6 +21,9 @@ import {
 import '../src/ui/tokens.css';
 import '../src/ui/themes/modern-history.css';
 import '../src/ui/themes/curator.css';
+import { BubbleTray } from '../src/ui/patterns/visitor/index.ts';
+import { stickerUiUrl } from '../src/viewer/live/bubbleAtlas.ts';
+import { studentFaceImages } from '../src/viewer/scene/characterFiles.ts';
 
 const ALL_ICONS: readonly IconName[] = [
   'chevron-left',
@@ -162,6 +165,7 @@ const sectionTitleStyle: CSSProperties = {
 export const PatternsDev = (): JSX.Element => {
   const [stopIdx, setStopIdx] = useState(3);
   const [soundOn, setSoundOn] = useState(true);
+  const [bubbleOpen, setBubbleOpen] = useState(true);
   const [stick, setStick] = useState<StickValue>({ forward: 0, strafe: 0, run: false });
   const [nickname, setNickname] = useState('하늘고래');
   const [studentChar, setStudentChar] = useState<StudentCharacterId>('student-m-01');
@@ -288,11 +292,36 @@ export const PatternsDev = (): JSX.Element => {
           onNicknameChange={setNickname}
           character={studentChar}
           onCharacterChange={setStudentChar}
+          characterImage={studentFaceImages()}
           onEnter={() => {}}
           showInAppBrowserHint={true}
         />
 
         <LoadingMuseum title="S.O.S. 연대기" progress={72} />
+      </section>
+
+      {/* 2-1. 말풍선 서랍(M4-4) — 스티커 그림 `stk-1/sNN.webp`(M4-1) */}
+      <section style={sectionStyle} aria-label="말풍선 서랍">
+        <h2 style={sectionTitleStyle}>2-1. 말풍선 서랍 (BubbleTray · 스티커 그림)</h2>
+        <div
+          style={{
+            position: 'relative',
+            minHeight: 420,
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <BubbleTray
+            open={bubbleOpen}
+            onOpenChange={setBubbleOpen}
+            onSend={() => {}}
+            allowText={true}
+            waitMs={0}
+            device="desktop"
+            stickerSrc={stickerUiUrl}
+          />
+        </div>
       </section>
 
       {/* 3. 교사 작품 관리 격자 (7종 액자 미리 보기) + 교사 캐릭터 대화창 */}

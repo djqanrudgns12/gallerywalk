@@ -3,15 +3,25 @@ import { copy } from '@gallery/core/copy';
 
 /**
  * 말풍선 아틀라스(PRD_V2 W-02, `Bubbles.tsx`가 씀).
- * - 스티커: 4열 × 3줄 칸. M4-1 최종 그림(`stk-1/` KTX2)이 오기 전에는 **임시 칸**(상아 원 + 스티커 이름 글자 + 작은 꼬리)을 캔버스로
- *   그린다 — 이모지·운영체제 글꼴 그림은 쓰지 않는다. 칸 순서는 `copy.bubble.stickers`와 같다.
+ * - 스티커: `BUBBLE_ATLAS` 칸(4열 × 4줄, 12칸 사용). 최종 그림(M4-1)은 `stk-1/atlas.ktx2`(도구 `tools/assets/pipeline/stickers.mjs`,
+ *   왼쪽 아래가 UV (0,0) — 캔버스 아틀라스와 같은 UV)이고, 받기 전·못 받았을 때는 **임시 칸**(상아 원 + 스티커 이름 글자 + 작은 꼬리)을
+ *   캔버스로 그린다 — 이모지·운영체제 글꼴 그림은 쓰지 않는다. 칸 순서는 `copy.bubble.stickers`와 같다. 서랍 단추는 `sNN.webp`.
  * - 말: 정해진 말·짧은 글을 칸마다 상아 둥근 풍선 + 숯색 글자 + 꼬리로 그린다. 같은 글은 칸을 나눠 쓰고, 이번 장면에 쓰지 않는
  *   칸부터 다시 쓴다(`SlotCache`). 칸이 모자라면 그 말풍선은 이번 장면에 숨긴다.
  */
 
-export const STICKER_COLS = 4;
-export const STICKER_ROWS = 3;
-export const STICKER_CELL = 256;
+export const STICKER_COLS = config().BUBBLE_ATLAS.cols;
+export const STICKER_ROWS = config().BUBBLE_ATLAS.rows;
+export const STICKER_CELL = config().BUBBLE_ATLAS.cell;
+/** 스티커 그림 폴더(영구 캐시라 그림을 바꾸면 판 번호를 올린다 — 도구 출력 폴더와 같게) */
+export const STICKER_BASE = '/assets/g/stk-1';
+export const STICKER_ATLAS_URL = `${STICKER_BASE}/atlas.ktx2`;
+
+/** 서랍 단추 그림(`i`번 스티커). 범위 밖이면 null(서랍이 이름 글자로 그린다) */
+export const stickerUiUrl = (i: number): string | null =>
+  Number.isInteger(i) && i >= 0 && i < config().BUBBLE_STICKERS
+    ? `${STICKER_BASE}/s${String(i + 1).padStart(2, '0')}.webp`
+    : null;
 export const TEXT_ATLAS_W = 1024;
 export const TEXT_SLOT_W = 512;
 export const TEXT_SLOT_H = 128;

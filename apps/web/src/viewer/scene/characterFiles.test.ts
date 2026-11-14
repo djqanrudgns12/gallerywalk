@@ -44,7 +44,15 @@ describe('캐릭터 파일 주소(M4-9)', () => {
       'student-m-03': '/assets/g/chr-2/student-m-03-face.webp',
       'student-f-01': '/assets/g/chr-2/student-f-01-face.webp',
     });
-    // 지금(승인 전)은 하나도 없다
-    expect(studentFaceImages()).toEqual({});
+  });
+
+  it('얼굴 그림(2026-11-14 승인): 15명 모두 주소가 있고 그 파일이 저장소에 있다', () => {
+    for (const id of [...VISITOR_CHARACTER_IDS, ...DOCENT_IDS]) {
+      const url = characterFaceUrl(id);
+      expect(url).toBe(`/assets/g/chr-2/${id}-face.webp`);
+      expect(existsSync(join(PUBLIC, url ?? '')), id).toBe(true);
+    }
+    // 입장 화면 고르기 칸: 학생 10명 모두
+    expect(Object.keys(studentFaceImages())).toHaveLength(10);
   });
 });

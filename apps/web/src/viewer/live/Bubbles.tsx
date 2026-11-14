@@ -2,8 +2,8 @@ import { config } from '@gallery/core/config';
 import { copy } from '@gallery/core/copy';
 import type { BubbleContent } from '@gallery/core/live';
 import { buildOf, type CharacterId } from '@gallery/core/types';
-import { useFrame } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   CanvasTexture,
   DynamicDrawUsage,
@@ -14,13 +14,16 @@ import {
   PlaneGeometry,
   ShaderMaterial,
   SRGBColorSpace,
+  type Texture,
   Vector3,
 } from 'three';
+import { ktx2LoaderFor } from '../scene/gltf.ts';
 import {
   type AtlasRect,
   drawPlaceholderStickers,
   drawTextSlot,
   SlotCache,
+  STICKER_ATLAS_URL,
   stickerRect,
   TEXT_ATLAS_W,
   TEXT_GLYPH_RATIO,
@@ -41,6 +44,8 @@ import { placeTags } from './tagLayout.ts';
  *   비켜 `tiers`단까지(`placeTags` — 이름표와 같은 규칙), 그래도 겹치면 숨김.
  * - 다시 그리기: 튀어 오르거나 사라지는 동안만 `LIVE_PEER_REDRAW_FPS` 상한으로 깨우고, 머무는 동안은 사라지기 시작할 때 한 번 깨운다
  *   (정지 상태 다시 그리기 0, PRD 10장).
+ * - 스티커 그림(M4-1): 붙자마자는 임시 캔버스 칸으로 그리고, 처음 말풍선이 뜨거나 `BUBBLE_ATLAS.delayMs` 뒤에 `stk-1/atlas.ktx2`를
+ *   받아 갈아 끼운다(첫 화면 예산 밖). 못 받으면 임시 칸 그대로.
  */
 
 export type BubbleDevice = 'phone' | 'tablet' | 'desktop';
@@ -67,7 +72,7 @@ export interface BubblesProps {
 const MAX_BUBBLES = 40;
 
 /** 화면을 보는 네모: 꼬리 끝(아래 가운데)을 머리 위 점에 두고 CSS px 크기로 세운다 */
-const bubbleMaterial = (atlas: CanvasTexture): ShaderMaterial =>
+const bubbleMaterial = (atlas: Texture): ShaderMaterial =>
   new ShaderMaterial({
     uniforms: { uAtlas: { value: atlas }, uView: { value: [1, 1] } },
     vertexShader: /* glsl */ `
@@ -191,6 +196,7 @@ export const Bubbles = ({
     [limiter],
   );
 
+  const gl = useThree(s => s.gl);
   const parts = useMemo(() => {
     const quad = new PlaneGeometry(1, 1);
     const stickerCanvas = document.createElement('canvas');
@@ -206,19 +212,54 @@ export const Bubbles = ({
       slots: new SlotCache(TEXT_SLOTS),
       rects: new Map<number, AtlasRect>(),
       frame: 0,
+      /** 받은 스티커 아틀라스(KTX2)와 받기 상태 */
+      stickerAtlas: null as Texture | null,
+      atlasState: 'idle' as 'idle' | 'loading' | 'done' | 'failed',
+      gone: false,
     };
   }, []);
   useEffect(
     () => () => {
+      parts.gone = true;
       for (const b of [parts.stickers, parts.texts]) {
         b.atlas.dispose();
         b.geo.dispose();
         b.mat.dispose();
       }
+      parts.stickerAtlas?.dispose();
       parts.quad.dispose();
     },
     [parts],
   );
+
+  /** 스티커 아틀라스 받기(한 번) — 받으면 임시 캔버스 칸을 놓고 갈아 끼운 뒤 한 번 다시 그린다 */
+  const loadStickerAtlas = useCallback(() => {
+    if (parts.atlasState !== 'idle') return;
+    parts.atlasState = 'loading';
+    ktx2LoaderFor(gl)
+      .loadAsync(STICKER_ATLAS_URL)
+      .then(
+        tex => {
+          if (parts.gone) {
+            tex.dispose();
+            return;
+          }
+          tex.colorSpace = SRGBColorSpace;
+          parts.stickers.mat.uniforms['uAtlas']!.value = tex;
+          parts.stickerAtlas = tex;
+          parts.stickers.atlas.dispose();
+          parts.atlasState = 'done';
+          wakeRef.current();
+        },
+        () => {
+          parts.atlasState = 'failed';
+        },
+      );
+  }, [gl, parts]);
+  useEffect(() => {
+    const id = setTimeout(loadStickerAtlas, config().BUBBLE_ATLAS.delayMs);
+    return () => clearTimeout(id);
+  }, [loadStickerAtlas]);
 
   const view = useMemo(() => new Vector3(), []);
   const ndc = useMemo(() => new Vector3(), []);
@@ -229,6 +270,7 @@ export const Bubbles = ({
     const now = Date.now();
     const items = board.active(now);
     parts.frame += 1;
+    if (items.length > 0) loadStickerAtlas();
     const placed: Placed[] = [];
     if (items.length > 0) {
       const cam = state.camera as PerspectiveCamera;

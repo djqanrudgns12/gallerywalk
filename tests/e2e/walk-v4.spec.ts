@@ -255,7 +255,12 @@ test.describe('공간 v4 · 말풍선 30명 · phone 390×844', () => {
     mkdirSync(SHOTS, { recursive: true });
     const errors: string[] = [];
     page.on('pageerror', e => errors.push(e.message));
+    // 스티커 아틀라스(M4-1)는 붙은 지 `BUBBLE_ATLAS.delayMs` 뒤에 받는다 — 재기 전에 실제로 받아졌는지
+    const atlas = page.waitForResponse(r => r.url().endsWith('/assets/g/stk-1/atlas.ktx2'), {
+      timeout: 30_000,
+    });
     await page.goto('/dev/walk?algo=4&rooms=2&peers=30&peerStill=1&bubbles=manual');
+    expect((await atlas).status()).toBe(200);
     await expect.poll(async () => (await snap(page)).stopCount, { timeout: 30_000 }).toBeGreaterThan(4);
     // 시작 자리(광장, 따라오는 카메라라 내 머리 위가 보임)에서 잰다 — 서 있는 사람들이 정지 지점 옆 자리를 차지해 안내 걷기로는
     // 작품 자리에 닿지 못한다(2026-11-14 두 번째 실행). 조각·질감이 다 받아져 그리기 수가 멎을 때까지 기다린다
