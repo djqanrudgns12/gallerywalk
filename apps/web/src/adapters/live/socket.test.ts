@@ -203,6 +203,43 @@ describe('createLiveChannel', () => {
     expect(got).toEqual([]);
   });
 
+  it('말풍선: 판 2 welcome 뒤에만 보내고(잇기 전·판 1·떠난 뒤 버림), 받은 bubble은 스키마 갈래로 넘긴다(W-02)', () => {
+    const h = harness();
+    const got: unknown[] = [];
+    const ch = createLiveChannel(h.deps);
+    ch.join(
+      { code: '482910', token: TOKEN, as: 'visitor', character: 'student-m', pose: pose(0) },
+      { onMessage: msg => got.push(msg), onStatus: () => {} },
+    );
+    const bubbles = (s: FakeSocket) => s.sent.filter(m => (m as { t: string }).t === 'bubble');
+    const s = h.sockets[0]!;
+    ch.sendBubble({ s: 1 });
+    s.open();
+    ch.sendBubble({ s: 1 });
+    expect(bubbles(s)).toEqual([]);
+    s.receive({ ...welcome, n: 1 });
+    ch.sendBubble({ w: 3 });
+    ch.sendBubble({ text: '같이 보자' });
+    expect(bubbles(s)).toEqual([
+      { t: 'bubble', w: 3 },
+      { t: 'bubble', text: '같이 보자' },
+    ]);
+    got.length = 0;
+    s.receive({ t: 'bubble', sid: 'bbbbbbbb', at: 5000, s: 2 });
+    s.receive({ t: 'bubble', sid: 'bbbbbbbb', at: 5000, s: 2, w: 1 });
+    expect(got).toEqual([{ t: 'bubble', sid: 'bbbbbbbb', at: 5000, s: 2 }]);
+    s.drop();
+    h.advance(config().LIVE_RETRY_MAX_MS * 2);
+    const again = h.sockets[1]!;
+    again.open();
+    again.receive(welcome);
+    ch.sendBubble({ s: 0 });
+    expect(bubbles(again)).toEqual([]);
+    ch.leave();
+    ch.sendBubble({ s: 0 });
+    expect(bubbles(again)).toEqual([]);
+  });
+
   it('보내는 위치는 1cm·0.001rad로 반올림한다', () => {
     const h = harness();
     const ch = createLiveChannel(h.deps);

@@ -369,5 +369,13 @@ export interface LiveChannel {
   sendPose(pose: Pose): void;
   /** 내 점프가 뜨는 순간 한 번(PRD_V2 W-05, ADR-073). 판 2 연결이 이어져 있을 때만 보낸다 */
   sendJump(): void;
+  /**
+   * 머리 위 말풍선 하나(PRD_V2 W-02): 스티커 번호 `s` · 정해진 말 번호 `w` · 짧은 글 `text` 가운데 하나. 판 2 연결이 이어져 있을 때만
+   * 보낸다(끊긴 동안 고른 것은 버린다 — 늦게 뜬 말풍선은 뜻이 없음). 설정·속도 제한·거름은 서버가 본다.
+   */
+  sendBubble(bubble: LiveBubbleBody): void;
   leave(): void;
 }
+
+/** 말풍선 내용(셋 가운데 하나만) */
+export type LiveBubbleBody = { readonly s: number } | { readonly w: number } | { readonly text: string };
