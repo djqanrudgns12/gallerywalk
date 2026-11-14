@@ -729,6 +729,11 @@ export const copy = {
       previewLoading: '미리 보기를 준비하고 있어요',
       previewNo3d: '이 기기에서는 3D 미리 보기를 볼 수 없어요',
       previewEmpty: '게시한 작품이 있어야 미리 볼 수 있어요',
+      /** 축측 지도(G-32, HT-04) */
+      mapLabel: '전시 지도',
+      mapEntry: '입구',
+      mapPeople: '{n}명',
+      mapEmpty: '게시한 작품이 있으면 지도가 그려져요',
     },
     /** 올리기(P5-3, PLAN §5.2·§5.3). 막힘 문구는 `errorCopy`, 해결법은 `fix` */
     upload: {

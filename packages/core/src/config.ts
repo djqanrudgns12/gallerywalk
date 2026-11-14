@@ -1039,6 +1039,68 @@ export const configDefaults = {
   RETENTION_JOB_SEC: 60,
   PURGE_JOB_SEC: 3600,
   LAYOUT_KEEP_VERSIONS: 2,
+
+  // ── 교사 작업 화면 v3 축측 지도 (FIELD_PLAN §5.4 ③·HT-04, `apps/web/src/viewer/map/axo.ts`) ──
+  /**
+   * 투영: 방위 `azimuthDeg`(복도 z가 거의 가로로 눕게)·고도 `elevationDeg`의 정사영. 길이는 m, 화면 값은 px.
+   * 벽은 낮게 자른 두께 `wallThickM`·높이 `wallHeightM`. 문은 벽 방향이 같고(`doorAlignTol`) 벽선에서 `doorSnapM` 안인
+   * 문 폭만큼 벽을 끊는다. `minPieceM`보다 짧은 조각은 버린다. `dedupeM` 안에서 겹치는 벽(이웃 관이 같은 벽을 낼 때)은 한 번만.
+   */
+  AXO: {
+    azimuthDeg: 20,
+    elevationDeg: 35,
+    wallThickM: 0.3,
+    wallHeightM: 1.15,
+    doorAlignTol: 0.01,
+    /** 세운 면이 보는 쪽을 향하는지 가르는 문턱 */
+    faceTol: 0.01,
+    doorSnapM: 0.35,
+    minPieceM: 0.05,
+    dedupeM: 0.01,
+    /** 문 자리 바닥판: 벽 두께 양쪽으로 이만큼 */
+    doorFloorM: 0.32,
+    /** 작품 자리 막대: 벽에서 `frameSnapM` 안인 벽에 붙임, 폭 = 액자 폭 × `frameWidthRatio`, 두께 2×`frameHalfDepthM` */
+    frameSnapM: 0.2,
+    frameWidthRatio: 0.92,
+    frameHalfDepthM: 0.1,
+    frameInsetM: 0.06,
+    frameLiftM: 0.02,
+    easelHalfWidthM: 0.36,
+    easelHeightM: 0.95,
+    /** 이젤 윗변 폭 / 아랫변 폭 */
+    easelTopRatio: 0.8,
+    /** 입구 화살표(정면 `facadeZ` 기준 안쪽 끝·바깥 꼬리·반폭·오목)와 글자 자리 */
+    entryTipInM: 1.3,
+    entryTailOutM: 0.4,
+    entryHalfWidthM: 0.9,
+    entryNotchM: 0.6,
+    entryLabelOutM: 3.6,
+    /** 고른 작품 핀: 벽에서 앞으로 `pinOffsetM`, 바닥 고리 반지름, 세운 높이(m), 머리 반지름(px), 위 여백(px) */
+    pinOffsetM: 1.4,
+    pinRingM: 1.1,
+    pinRingSegments: 28,
+    pinHeightM: 4.6,
+    pinHeadPx: 7,
+    pinTopPx: 26,
+    padPx: 12,
+    /** 전시실 번호: 글자 크기 = max(`labelMinPx`, 축척 × `labelPerM`). 이젤이 있는 방은 번호를 −z로 `labelShiftM` 옮김 */
+    labelMinPx: 12,
+    labelPerM: 2.1,
+    labelShiftM: 3,
+    /** 수업 지도에서 번호 옆 학생 수 글자의 간격(번호 글자 크기 배) */
+    countGapRatio: 0.33,
+    /** 학생 점: 반지름 = max(`dotMinPx`, 축척 × `dotPerM`). 벽에서 `dotMarginM` 안쪽에, 점끼리 `dotGapM`(시도가 늘면 차례로 풂) */
+    dotMinPx: 3.2,
+    dotPerM: 0.36,
+    dotMarginM: 1.7,
+    dotGapM: [1.5, 1.1, 0.8],
+    dotRelaxEvery: 1500,
+    dotMaxTries: 6000,
+    /** 번호 둘레 비우기: 반폭 = 글자 × `labelHalfW`, 반높이 = 글자 × `labelHalfH`, 여유 px */
+    labelHalfW: 0.6,
+    labelHalfH: 0.55,
+    labelClearPx: 4,
+  },
 } as const;
 
 /** 숫자·참거짓은 넓은 타입으로(기본값의 리터럴 타입에 묶이면 시험·환경 변수로 값을 바꿀 수 없다). 문자열 합집합은 그대로. */
