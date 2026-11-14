@@ -32,6 +32,7 @@ import {
   restoreArtwork,
 } from '../../application/artworks.ts';
 import { liveExhibition } from '../../application/common.ts';
+import { countLiveRooms } from '../../application/liveRooms.ts';
 import { deleteExhibition } from '../../application/deleteExhibition.ts';
 import {
   changeStatus,
@@ -82,10 +83,13 @@ export interface TeacherRouteOptions {
   /** PLAN §9.4에 단계만 있고 core 설정 키가 없어, 통합 담당이 정책을 정한 뒤 연결하는 속도 칸. */
   readonly uploadRateLimits?: { readonly device: number; readonly ip: number; readonly windowSec: number };
   /**
-   * 함께 관람 허브: 전시를 닫으면 방문자 연결을 끊는다(ADR-057), 지금 이어진 수를 읽는다(HT-07). 없으면 건너뜀·0.
+   * 함께 관람 허브: 전시를 닫으면 방문자 연결을 끊는다(ADR-057), 지금 이어진 수를 읽는다(HT-07), 학생 바닥 위치를 읽어
+   * 전시실별 수만 낸다(HT-16). 없으면 건너뜀·0.
    * 가벼운 화면으로 들어온 수(HW-02)는 `deps.diag`에서 읽는다.
    */
-  readonly live?: (Pick<LiveHub, 'closeExhibition'> & Partial<Pick<LiveHub, 'exhibitionCounts'>>) | undefined;
+  readonly live?:
+    | (Pick<LiveHub, 'closeExhibition'> & Partial<Pick<LiveHub, 'exhibitionCounts' | 'exhibitionFloor'>>)
+    | undefined;
   /** PIN 응답 지연 기다리기(기본 `setTimeout`). 시험은 가짜로 */
   readonly sleep?: ((ms: number) => Promise<void>) | undefined;
 }
@@ -288,15 +292,23 @@ export const teacherRoutes = ({
   r.get('/api/teacher/exhibitions/:id', auth, c => ok(c, teacherView(deps, ownExhibition(c))));
 
   // 지금 관람 수(HT-07·HW-02): 함께 관람에 이어진 학생·교사 수 + 최근 창 안 가벼운 화면 수. 토큰·별명은 없다
+  // 수업 지도(HT-16): 학생 위치를 지금 배치의 전시실로 세어 수만 낸다 — 좌표는 응답·기록에 남기지 않는다
   r.get('/api/teacher/exhibitions/:id/live', auth, c => {
     const id = ownExhibition(c);
     const audience = live?.exhibitionCounts?.(id) ?? { visitors: 0, teachers: 0 };
     const recent = deps.diag?.recent(id) ?? { light: 0, reasons: {} };
+    const where = countLiveRooms(
+      deps.store.layouts.latest(id)?.data ?? null,
+      live?.exhibitionFloor?.(id) ?? { positions: [], noPose: 0 },
+    );
     const stats: LiveStats = {
       visitors: audience.visitors,
       teachers: audience.teachers,
       light: recent.light,
       reasons: recent.reasons,
+      rooms: where.rooms,
+      elsewhere: where.elsewhere,
+      noPose: where.noPose,
     };
     return ok(c, stats);
   });
