@@ -71,6 +71,67 @@ export async function seedStudentExhibition(): Promise<SeededExhibition> {
   return parsed.data;
 }
 
+/** 교사 작업 화면 v3(G-32) 시험 전시: 전시실 5 · 그림 40(전시실마다 8). FIELD_PLAN HT-17 */
+export const MANAGE_SEED = { rooms: 5, perRoom: 8, title: '교사 작업 화면 합성 전시' } as const;
+const ManageSeedSchema = SeedSchema.extend({ pin: z.string().regex(/^\d+$/) });
+
+export interface ManageSeed {
+  readonly id: string;
+  readonly title: string;
+  readonly entryCode: string;
+  readonly artworks: number;
+  /** 시험 메모리에서만 보관한다(`enterTeacherPin`). 출력·첨부·storageState에 쓰지 않는다. */
+  readonly pin: string;
+  /** Node fetch로 교사 요청을 보낼 때만 쓴다. Playwright 호출에 넘기지 않는다. */
+  readonly teacherToken: string;
+}
+
+/**
+ * 끌어 놓기·지도·과업 누름 수를 재는 전시(5×8). 그림만 넣고 글·여러 쪽 자료는 넣지 않는다.
+ * 자식의 stdout에는 자격 정보가 있으므로 메모리에서만 읽는다.
+ */
+export async function seedManageExhibition(): Promise<ManageSeed> {
+  let stdout: string;
+  try {
+    ({ stdout } = await runFile(
+      process.execPath,
+      [
+        'tools/dev/seed-exhibition.mjs',
+        '--rooms',
+        String(MANAGE_SEED.rooms),
+        '--per-room',
+        String(MANAGE_SEED.perRoom),
+        '--text',
+        '0',
+        '--title',
+        MANAGE_SEED.title,
+      ],
+      { cwd: ROOT, timeout: 420_000 },
+    ));
+  } catch {
+    throw new Error('교사 작업 화면 시드 실행 실패. 자격 정보가 포함된 자식 출력은 기록하지 않았습니다.');
+  }
+  let wire: unknown;
+  try {
+    wire = JSON.parse(stdout);
+  } catch {
+    throw new Error('교사 작업 화면 시드 응답이 JSON이 아닙니다.');
+  }
+  const parsed = ManageSeedSchema.safeParse(wire);
+  if (!parsed.success) throw new Error('교사 작업 화면 시드 응답 형식이 올바르지 않습니다.');
+  const seed = parsed.data;
+  if (seed.artworks !== MANAGE_SEED.rooms * MANAGE_SEED.perRoom)
+    throw new Error(`교사 작업 화면 시드 작품 수가 다릅니다: ${seed.artworks}`);
+  return {
+    id: seed.exhibitionId,
+    title: MANAGE_SEED.title,
+    entryCode: seed.entryCode,
+    artworks: seed.artworks,
+    pin: seed.pin,
+    teacherToken: seed.teacherToken,
+  };
+}
+
 /** 교사 요청은 Node fetch로만 보낸다. Playwright API 호출 기록에 인증 머리를 남기지 않는다. */
 async function requestData<T>(path: string, schema: z.ZodType<T>, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${SERVER}${path}`, {
