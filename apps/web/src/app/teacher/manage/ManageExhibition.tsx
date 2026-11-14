@@ -694,6 +694,7 @@ export const ManageExhibition = () => {
                   type="button"
                   className={s.quiet}
                   onClick={() => previewFrom(art?.id ?? null)}
+                  aria-label={m.preview}
                   data-testid="open-preview"
                 >
                   <Icon name="eye" />

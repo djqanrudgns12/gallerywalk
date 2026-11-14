@@ -910,6 +910,8 @@ export const copy = {
       walls: { N: '입구 쪽 벽', F: '안쪽 벽', L: '옆벽', R: '옆벽', easel: '가운데 이젤' },
       notHung: '지금은 걸려 있지 않아요',
       previewHere: '3D에서 이 자리 보기',
+      /** 휴대폰 시트 아래 줄(시안 04) */
+      previewHereShort: '3D에서 보기',
     },
     /** 편집 되돌리기(HT-08). `{eul}` = 제목 뒤 '을/를'(`eulReul`), `{ro}` = 전시실 이름 뒤 '으로/로'(`roAfter`) */
     undo: {

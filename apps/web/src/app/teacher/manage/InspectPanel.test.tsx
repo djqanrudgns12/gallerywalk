@@ -106,7 +106,9 @@ describe('InspectPanel', () => {
       p.textHeavy,
     ]);
     expect(m.q('[data-testid="floor-plan"]')).not.toBeNull();
-    expect(m.q('[data-testid="inspect-preview"]')?.textContent).toBe(p.previewHere);
+    // 휴대폰은 짧은 글(`3D에서 보기`)을 보이므로 단추 이름은 aria-label로 늘 같다
+    expect(m.q('[data-testid="inspect-preview"]')?.getAttribute('aria-label')).toBe(p.previewHere);
+    expect(m.q('[data-testid="inspect-preview"]')?.textContent).toContain(p.previewHere);
     expect(m.q('[data-testid="panel-delete"]')?.textContent).toBe(p.delete);
   });
 

@@ -482,9 +482,26 @@ const InspectBody = ({
           disabled={onPreviewHere === null}
           onClick={() => onPreviewHere?.()}
           data-testid="inspect-preview"
+          aria-label={p.previewHere}
         >
           <Icon name="eye" size={18} />
-          {p.previewHere}
+          <span className={s.long} aria-hidden="true">
+            {p.previewHere}
+          </span>
+          <span className={s.short} aria-hidden="true">
+            {p.previewHereShort}
+          </span>
+        </button>
+        {/* 휴대폰 시트(시안 04): 감상 상자의 앞뒤 단추 대신 아래 줄의 `다음 작품` */}
+        <button
+          type="button"
+          className={s.nextFoot}
+          disabled={onNext === null}
+          onClick={() => onNext?.()}
+          data-testid="inspect-next-foot"
+        >
+          {p.next}
+          <Icon name="chevron-right" size={18} />
         </button>
         <button type="button" className={s.delete} onClick={onDelete} data-testid="panel-delete">
           {p.delete}

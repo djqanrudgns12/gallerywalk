@@ -496,6 +496,54 @@
   outline-offset: 2px;
 }
 
+/* ── 767↓(시안 05): 큰 숫자 → 납작한 지도 → QR·코드(QR 크게는 온 폭) → 타일 2열 ── */
+
+@media (max-width: 767px) {
+  .root {
+    gap: var(--s-3);
+  }
+
+  .stats {
+    gap: var(--s-3);
+  }
+
+  .split {
+    flex-basis: 100%;
+  }
+
+  .mapCard {
+    padding: var(--s-4) var(--s-4) var(--s-3);
+  }
+
+  .mapBox {
+    aspect-ratio: 16 / 10;
+  }
+
+  .entry {
+    gap: var(--s-3) var(--s-4);
+    padding: var(--s-4);
+  }
+
+  .entryText .primary {
+    align-self: stretch;
+  }
+
+  .tile {
+    min-height: 120px;
+    padding: var(--s-3) var(--s-4);
+    word-break: keep-all;
+  }
+
+  .preload {
+    margin: 0 var(--s-3);
+    word-break: keep-all;
+  }
+
+  .tileHit {
+    padding: var(--s-3) var(--s-4);
+  }
+}
+
 /* ── 768~1023: 한 줄, 타일 넷 ─────────────────── */
 
 @media (min-width: 768px) {
