@@ -166,7 +166,9 @@ export const fakeTeacherServer = (
         state.artworks
           .filter(a => a.roomId === roomId && a.deletedAt === null)
           .sort((a, b) => a.order - b.order || (a.id < b.id ? -1 : 1));
+      const known = new Set(body.known ?? []);
       for (const r of body.base) {
+        if (now(r.roomId).some(a => !seen.has(a.id) && known.has(a.id))) throw new AppError('E_CONFLICT');
         const ids = now(r.roomId)
           .filter(a => seen.has(a.id))
           .map(a => a.id);
@@ -208,7 +210,13 @@ export const fakeTeacherServer = (
       if (rev !== a.rev) throw new AppError('E_CONFLICT');
       bump(a, { deletedAt: 1 });
     },
-    restoreArtwork: async (_e, id) => clone(bump(art(id), { deletedAt: null })),
+    // 서버처럼 되살린 작품은 그 전시실 끝으로(지운 작품의 옛 순서까지 넘어서, ADR-074)
+    restoreArtwork: async (_e, id) => {
+      const a = art(id);
+      const end =
+        state.artworks.filter(x => x.roomId === a.roomId).reduce((m, x) => Math.max(m, x.order), -1) + 1;
+      return clone(bump(a, { deletedAt: null, order: end }));
+    },
     createRoom: async (_e, body) => {
       const r: RoomTeacher = {
         id: body.id,

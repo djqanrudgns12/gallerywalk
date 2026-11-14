@@ -21,10 +21,6 @@ import { FloorPlan } from './FloorPlan.tsx';
 import s from './InspectPanel.module.css';
 import m from './manage.module.css';
 
-/** 걸린 자리 작은 지도의 그리기 크기(px, 칸 폭 420 − 안쪽 여백). SVG가 칸 폭에 맞춰 줄어든다. 설정 키 후보 — 보고 */
-const MAP_W = 372;
-const MAP_H = 176;
-
 /** 그림 칩이 있는 형태(세로 액자·가로 액자). 나머지는 `다른 형태` 칩 줄에서 고른다 */
 type ChipForm = 'PORTRAIT' | 'LANDSCAPE';
 const CHIP_FORMS: readonly FormChipOption<ChipForm>[] = [
@@ -33,9 +29,6 @@ const CHIP_FORMS: readonly FormChipOption<ChipForm>[] = [
 ];
 const OTHER_FORMS: readonly ArtworkForm[] = ['SQUARE', 'PANORAMA', 'TALL', 'TEXTCARD', 'MULTIPAGE', 'SOUND'];
 const isChipForm = (f: ArtworkForm): f is ChipForm => f === 'PORTRAIT' || f === 'LANDSCAPE';
-
-/** 그림이 없을 때 액자 비율(글 = 세로, 소리 = 정사각) */
-const PORTRAIT_RATIO = 0.7;
 
 export interface InspectPanelProps {
   readonly exhibitionId: string;
@@ -83,7 +76,9 @@ const focusOnly = (e: KeyboardEvent<HTMLDivElement>): void => {
 const frameLook = (a: ArtworkTeacher): { readonly ratio: number; readonly shape: FrameShape } => {
   const px = a.image ?? a.pages?.[0] ?? null;
   if (px && px.w > 0 && px.h > 0) return { ratio: px.w / px.h, shape: 'landscape' };
-  return a.kind === 'AUDIO' ? { ratio: 1, shape: 'square' } : { ratio: PORTRAIT_RATIO, shape: 'portrait' };
+  return a.kind === 'AUDIO'
+    ? { ratio: 1, shape: 'square' }
+    : { ratio: config().MANAGE_PORTRAIT_RATIO, shape: 'portrait' };
 };
 
 /**
@@ -470,8 +465,8 @@ const InspectBody = ({
           <FloorPlan
             layout={layout}
             roomOrder={roomOrder}
-            width={MAP_W}
-            height={MAP_H}
+            width={config().MANAGE_MAP.hung.width}
+            height={config().MANAGE_MAP.hung.height}
             mini
             selectedRoomId={hung?.roomId ?? null}
             selectedArtworkId={a.id}

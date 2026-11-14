@@ -31,7 +31,7 @@ import { ClassTab } from './ClassTab.tsx';
 import { parseKey } from './dnd.ts';
 import { FloorPlan } from './FloorPlan.tsx';
 import { InspectPanel } from './InspectPanel.tsx';
-import { ManageDnd, useDragState } from './ManageDnd.tsx';
+import { isDragActive, ManageDnd, useDragState } from './ManageDnd.tsx';
 import { ManageMenu } from './ManageMenu.tsx';
 import { OpenSheet } from './OpenSheet.tsx';
 import { PasteSheet } from './PasteSheet.tsx';
@@ -47,9 +47,7 @@ import s from './ManageExhibition.module.css';
 
 const MS_PER_SEC = 1000;
 /** 오른쪽 칸 지도 크기(px): 칸 폭 420 − 안쪽 여백 */
-const SIDE_MAP = { width: 380, height: 260 } as const;
 /** 확인할 것 칩에 겹쳐 보일 작은 그림 수 */
-const CHECK_THUMBS = 3;
 
 // 3D 미리 보기(P5-6)는 누를 때 받는다 — 관리 화면 첫 받기에 3D 엔진을 싣지 않게
 const PreviewLayer = lazy(() => import('./PreviewLayer.tsx').then(mod => ({ default: mod.PreviewLayer })));
@@ -68,7 +66,6 @@ const NARROW_QUERY = '(max-width: 1279px)';
 /** 휴대폰: 판을 접고, 살펴보기는 아래 시트, 지도는 수업 탭에만 */
 const PHONE_QUERY = '(max-width: 767px)';
 /** 태블릿 지도 띠의 지도 크기(px) */
-const STRIP_MAP = { width: 330, height: 190 } as const;
 
 /** 끄는 동안 지도 위 손끝 → 전시실(지도에 놓기, HT-03d) */
 export interface MapTarget {
@@ -316,10 +313,15 @@ export const ManageExhibition = () => {
   }, [actions]);
 
   useEffect(() => {
+    actions.activate();
     useTeacherStore.getState().reset();
     reload();
-    return () => useTeacherStore.getState().reset();
-  }, [reload]);
+    return () => {
+      // 늦게 온 답이 다음 화면(다른 전시)의 저장소를 덮지 않게(검토 L4)
+      actions.dispose();
+      useTeacherStore.getState().reset();
+    };
+  }, [reload, actions]);
 
   // 새 전시 만들기에서 넘어온 토스트("30일 동안 열 수 있어요") — 관리 화면의 토스트 칸 하나로
   useEffect(() => {
@@ -336,6 +338,8 @@ export const ManageExhibition = () => {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // 끄는 중의 Esc(끌기 취소)·되돌리기는 끌기 센서 몫 — 덮개를 닫거나 놓기 사이에 끼어들지 않는다(검토 L2)
+      if (isDragActive()) return;
       // 편집 되돌리기(HT-08): 미리 보기 중에는 걷기 키와 섞이지 않게 쓰지 않는다
       if (!previewing && isUndoKey(e)) {
         e.preventDefault();
@@ -491,7 +495,7 @@ export const ManageExhibition = () => {
         data-testid="check-chip"
       >
         <span className={s.checkThumbs} aria-hidden="true">
-          {checks.slice(0, CHECK_THUMBS).map(a => (
+          {checks.slice(0, config().MANAGE_THUMB_STACK).map(a => (
             <Frame key={a.id} src={thumbOf(id, a)} alt="" size="small" />
           ))}
         </span>
@@ -718,7 +722,7 @@ export const ManageExhibition = () => {
                     <DropMap
                       layout={view.layout}
                       roomOrder={roomOrder}
-                      size={STRIP_MAP}
+                      size={config().MANAGE_MAP.strip}
                       target={mapTarget}
                       onPickRoom={flashRoom}
                     />
@@ -809,7 +813,7 @@ export const ManageExhibition = () => {
                       <DropMap
                         layout={view.layout}
                         roomOrder={roomOrder}
-                        size={SIDE_MAP}
+                        size={config().MANAGE_MAP.side}
                         target={mapTarget}
                         onPickRoom={flashRoom}
                       />

@@ -232,7 +232,8 @@ describe('전시 관리 화면', () => {
     click(buttonByText(toast!, copy.teacher.panel.restore));
     await flush();
     expect(srv.named('restoreArtwork').map(c => c.args[1])).toEqual([A(1)]);
-    expect(cellIds(m).slice(0, 3)).toEqual([A(0), A(1), A(2)]);
+    // 되살린 작품은 그 전시실 끝으로(PRD G-32 올리기 줄, ADR-074)
+    expect(cellIds(m).slice(0, 3)).toEqual([A(0), A(2), A(1)]);
     expect(m.q('[data-testid="teacher-toast"]')).toBeNull();
   });
 

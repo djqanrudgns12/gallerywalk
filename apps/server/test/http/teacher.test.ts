@@ -671,14 +671,15 @@ describe.each(STORES)('교사 경로 · $name', ({ make }) => {
       const r1 = (await newRoom(ex, 0, '1 전시실')).id;
       const r2 = (await newRoom(ex, 1, '2 전시실')).id;
       const ids: string[] = [];
-      for (const [room, title] of [
-        [r1, '가'],
-        [r1, '나'],
-        [r1, '다'],
-        [r2, '라'],
-        [r2, '마'],
+      // 기기가 계획한 차례(그 전시실 끝부터)로 만든다 — 올리기 순서는 기기가 정한다(검토 H4)
+      for (const [room, order, title] of [
+        [r1, 0, '가'],
+        [r1, 1, '나'],
+        [r1, 2, '다'],
+        [r2, 0, '라'],
+        [r2, 1, '마'],
       ] as const)
-        ids.push((await newText(ex, room, 0, title)).id);
+        ids.push((await newText(ex, room, order, title)).id);
       const [ga, na, da, ra, ma] = ids as [string, string, string, string, string];
       return { ex, r1, r2, ga, na, da, ra, ma };
     };
@@ -809,7 +810,7 @@ describe.each(STORES)('교사 경로 · $name', ({ make }) => {
         { roomId: r1, ids: [ga, na, da] },
         { roomId: r2, ids: [ra, ma] },
       ];
-      // 올리는 중(처리 중 PDF)·방금 만든 글 — 기기가 보낸 order는 무시된다
+      // 올리는 중(처리 중 PDF)·방금 만든 글 — base에 없으니 충돌이 아니고, 놓은 판의 끝에 붙는다
       const pdf = await data(
         await call('POST', `/api/teacher/exhibitions/${ex.id}/artworks`, {
           token: ex.token,
@@ -946,18 +947,45 @@ describe.each(STORES)('교사 경로 · $name', ({ make }) => {
       expect(restored.order).toBeGreaterThan(1);
     });
 
-    it('올리기(글·PDF)의 순서는 서버가 끝에 붙인다 — 기기가 보낸 order는 무시', async () => {
+    it('올리기(글·PDF)는 기기가 계획한 차례를 쓴다 — 늦게 끝난 것이 먼저 계획됐으면 앞(폴더 차례 유지, 검토 H4)', async () => {
       const { ex, r1, ga, na, da } = await setup();
-      const text = await newText(ex, r1, 0, '맨 앞을 바라는 글');
+      // 계획: 보고서(3번째 뒤) → 글(4번째 뒤). 글이 먼저 끝나 먼저 만들어져도 차례는 계획대로
+      const text = await newText(ex, r1, 4, '나중에 계획한 글');
       const pdf = await data(
         await call('POST', `/api/teacher/exhibitions/${ex.id}/artworks`, {
           token: ex.token,
-          body: { id: randomUUID(), roomId: r1, order: 1, title: '보고서', kind: 'PDF', pageCount: 2 },
+          body: { id: randomUUID(), roomId: r1, order: 3, title: '보고서', kind: 'PDF', pageCount: 2 },
         }),
         ArtworkTeacherSchema,
       );
-      expect([text.order, pdf.order]).toEqual([3, 4]);
-      expect(board(await view(ex), r1)).toEqual([ga, na, da, text.id, pdf.id]);
+      expect([pdf.order, text.order]).toEqual([3, 4]);
+      expect(board(await view(ex), r1)).toEqual([ga, na, da, pdf.id, text.id]);
+    });
+
+    it('다른 기기가 이 판에 옮겨 넣은 작품(이 기기가 아는 known)은 새 작품이 아니라 충돌(검토 M4)', async () => {
+      const { ex, r1, r2, ga, na, da, ra, ma } = await setup();
+      // 다른 기기: r2의 ra를 r1 맨 앞으로
+      await arranged(ex, {
+        base: [
+          { roomId: r1, ids: [ga, na, da] },
+          { roomId: r2, ids: [ra, ma] },
+        ],
+        rooms: [
+          { roomId: r1, ids: [ra, ga, na, da] },
+          { roomId: r2, ids: [ma] },
+        ],
+      });
+      // 옛 보기의 이 기기: r1 순서만 바꿈. ra를 r2에 있다고 알고 있다
+      const res = await call('PUT', `/api/teacher/exhibitions/${ex.id}/arrangement`, {
+        token: ex.token,
+        body: {
+          base: [{ roomId: r1, ids: [ga, na, da] }],
+          rooms: [{ roomId: r1, ids: [da, ga, na] }],
+          known: [ra, ma],
+        },
+      });
+      expect(await codeOf(res)).toBe('E_CONFLICT');
+      expect(board(await view(ex), r1)).toEqual([ra, ga, na, da]);
     });
 
     it('전시실 판 순서 rooms/order: base가 지금 순서와 다르면 E_CONFLICT, 맞으면 바뀐다', async () => {

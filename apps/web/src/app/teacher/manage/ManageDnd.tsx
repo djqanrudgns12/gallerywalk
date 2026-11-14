@@ -9,12 +9,14 @@ import {
   MouseSensor,
   pointerWithin,
   TouchSensor,
+  useDndContext,
   useSensor,
   useSensors,
   type Announcements,
   type ClientRect,
   type CollisionDetection,
   type DragEndEvent,
+  type DragMoveEvent,
   type DragOverEvent,
   type DragStartEvent,
   type KeyboardCoordinateGetter,
@@ -60,6 +62,24 @@ export interface DragState {
   /** 함께 끌리는 나머지 고른 작품(자리에서 흐려짐) */
   readonly group: readonly string[];
 }
+
+/**
+ * 지금 끄는 중인가(모듈 하나에 하나). 창 전체 키(Esc·되돌리기)가 끄는 중에는 끼어들지 않게, 액자가 끌기 상태를 구독하지 않고도
+ * 키를 가를 수 있게 쓴다(검토 L2·L11).
+ */
+let dragging = false;
+export const isDragActive = (): boolean => dragging;
+
+/** 판 높이가 바뀌면(줄바꿈 수) 아래 판들의 자리도 다시 잰다(검토 M6) */
+const Remeasure = ({ dep }: { readonly dep: unknown }) => {
+  const { measureDroppableContainers, droppableContainers } = useDndContext();
+  useEffect(() => {
+    if (dep) measureDroppableContainers([...droppableContainers.keys()]);
+    // droppableContainers는 끄는 동안 바뀌어도 다시 잴 필요가 없다 — 배열이 바뀔 때만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dep, measureDroppableContainers]);
+  return null;
+};
 
 const DragStateContext = createContext<DragState>({
   active: null,
@@ -182,7 +202,15 @@ export const ManageDnd = ({
     useSensor(KeyboardSensor, { ...opts.keyboard, coordinateGetter: keyboardCoordinates }),
   );
   const [active, setActive] = useState<string | null>(null);
-  const [temp, setTemp] = useState<Columns | null>(null);
+  const [temp, setTempState] = useState<Columns | null>(null);
+  /** 마지막으로 정한 임시 배열 — 같은 묶음 안의 안내 문구가 한 칸 늦지 않게 바로 읽는다(검토 M5) */
+  const tempRef = useRef<Columns | null>(null);
+  const setTemp = (next: Columns | null) => {
+    tempRef.current = next;
+    setTempState(next);
+  };
+  /** 부딪힘 판정이 받은 화면 좌표의 손끝(끄는 동안 스크롤해도 화면 기준 — 검토 H2b) */
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const [pending, setPending] = useState<Columns | null>(null);
   const [group, setGroup] = useState<readonly string[]>([]);
   const snapshot = useRef<Columns>(columns);
@@ -220,6 +248,7 @@ export const ManageDnd = ({
     const containers = args.droppableContainers;
     if (parseKey(args.active.id)?.kind === 'board')
       return closestCenter({ ...args, droppableContainers: containers.filter(kindIs('board')) });
+    if (args.pointerCoordinates) pointerRef.current = args.pointerCoordinates;
     if (movedRoom.current) return [{ id: args.active.id }];
     const point = args.pointerCoordinates ?? (args.collisionRect ? centerOf(args.collisionRect) : null);
     if (!point) return [];
@@ -252,21 +281,23 @@ export const ManageDnd = ({
       onDragOver: ({ active: a, over }) => {
         const card = parseKey(a.id);
         if (card?.kind !== 'card' || !over) return over ? fill(d.over, { name: name(over.id) }) : undefined;
-        const at = locate(temp ?? columns, card.id);
+        const at = locate(tempRef.current ?? columns, card.id);
         return at ? fill(d.overSlot, { room: nameOf(roomKey(at.roomId)), n: at.index + 1 }) : undefined;
       },
       onDragEnd: ({ active: a }) => fill(d.dropped, { name: name(a.id) }),
       onDragCancel: () => d.cancelled,
     };
     return { announcements, screenReaderInstructions: { draggable: d.instructions } };
-  }, [nameOf, temp, columns]);
+  }, [nameOf, columns]);
 
   const reset = () => {
+    dragging = false;
     setActive(null);
     setTemp(null);
     setGroup([]);
     lastOver.current = null;
     movedRoom.current = false;
+    pointerRef.current = null;
   };
 
   const onDragStart = (e: DragStartEvent) => {
@@ -274,41 +305,44 @@ export const ManageDnd = ({
     touch.current = isTouchEvent(e.activatorEvent);
     keyboard.current = e.activatorEvent instanceof KeyboardEvent;
     start.current = startPoint(e.activatorEvent);
-    snapshot.current = columns;
+    pointerRef.current = start.current;
+    // 놓아서 저장소에 아직 반영되지 않은 배열이 있으면 그것에서 시작한다(검토 H1)
+    snapshot.current = shown;
+    dragging = true;
     setActive(key);
     const card = parseKey(key);
     if (card?.kind !== 'card') return;
-    setTemp(columns);
+    setTemp(shown);
     setGroup(selected.includes(card.id) && selected.length > 1 ? selected.filter(id => id !== card.id) : []);
   };
 
-  const onDragOver = (e: DragOverEvent) => {
+  /**
+   * 놓일 곳이 바뀌었거나(`onDragOver`) 같은 액자 위에서 손끝이 움직였을 때(`onDragMove`) 임시 배열을 다시 정한다.
+   * dnd-kit은 놓일 곳 ID가 바뀔 때만 `onDragOver`를 부르므로, 같은 액자의 앞 절반 → 뒤 절반은 `onDragMove`가 잡는다(검토 H2a).
+   */
+  const follow = (e: DragOverEvent | DragMoveEvent) => {
     const card = parseKey(e.active.id);
     const over = parseKey(e.over?.id);
-    if (card?.kind !== 'card' || !over || !e.over || !temp) return;
+    const cur = tempRef.current;
+    if (card?.kind !== 'card' || !over || !e.over || !cur) return;
     lastOver.current = e.over.id;
     const translated = e.active.rect.current.translated;
-    const point =
-      !keyboard.current && start.current
-        ? { x: start.current.x + e.delta.x, y: start.current.y + e.delta.y }
-        : translated
-          ? centerOf(translated)
-          : null;
+    const point = keyboard.current ? (translated ? centerOf(translated) : null) : pointerRef.current;
     let target: Over;
     if (over.kind === 'card') {
       if (!point) return;
       target = { kind: 'card', id: over.id, after: isAfter(point, e.over.rect) };
     } else target = { kind: 'room', roomId: over.id };
-    const next = moveOver(temp, card.id, target);
-    if (next === temp) return;
-    if (locate(next, card.id)?.roomId !== locate(temp, card.id)?.roomId) movedRoom.current = true;
+    const next = moveOver(cur, card.id, target);
+    if (next === cur) return;
+    if (locate(next, card.id)?.roomId !== locate(cur, card.id)?.roomId) movedRoom.current = true;
     setTemp(next);
   };
 
   const onDragEnd = (e: DragEndEvent) => {
     const key = parseKey(e.active.id);
     const over = parseKey(e.over?.id);
-    const final = temp;
+    const final = tempRef.current;
     const others = group;
     const before = snapshot.current;
     reset();
@@ -350,10 +384,12 @@ export const ManageDnd = ({
       autoScroll={{ threshold: { x: 0, y: threshold } }}
       accessibility={accessibility}
       onDragStart={onDragStart}
-      onDragOver={onDragOver}
+      onDragOver={follow}
+      onDragMove={follow}
       onDragEnd={onDragEnd}
       onDragCancel={reset}
     >
+      <Remeasure dep={temp} />
       <DragStateContext value={state}>{children}</DragStateContext>
       <DragOverlay dropAnimation={null}>
         {active ? renderOverlay(active, group.length + 1) : null}

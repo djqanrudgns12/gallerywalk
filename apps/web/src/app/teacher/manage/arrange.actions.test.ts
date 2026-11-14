@@ -134,3 +134,107 @@ describe('한 번에 놓기 동작(ADR-074, HT-03c)', () => {
     expect([...srv.state.rooms].sort((p, q) => p.order - q.order).map(r => r.id)).toEqual([R0, R1, R2]);
   });
 });
+
+describe('독립 검토(HT-11) 재현 시험', () => {
+  /** 서버 응답을 늦추는 가짜(느린 학교망) */
+  const slow = (impl: () => Partial<TeacherApi>, ms = 5): Partial<TeacherApi> => ({
+    putArrangement: async (...args) => {
+      await new Promise(r => setTimeout(r, ms));
+      return impl().putArrangement!(...args);
+    },
+    patchArtwork: async (...args) => {
+      await new Promise(r => setTimeout(r, ms));
+      return impl().patchArtwork!(...args);
+    },
+  });
+
+  it('H1: 같은 작품을 연달아 세 번 한 칸씩 — 거짓 충돌 없이 세 칸 간다', async () => {
+    let impl: Partial<TeacherApi> = {};
+    const { srv, actions } = await setup(
+      teacherView([4, 1]),
+      slow(() => impl),
+    );
+    impl = srv.impl;
+    await Promise.all([1, 2, 3].map(() => actions.nudgeArtwork(A(0, 0), 1)));
+    expect(useTeacherStore.getState().toast?.text).not.toBe(errorCopy.E_CONFLICT);
+    expect(serverBoard(srv).find(c => c.roomId === R0)?.ids).toEqual([A(0, 1), A(0, 2), A(0, 3), A(0, 0)]);
+    expect(board()).toEqual(serverBoard(srv));
+  });
+
+  it('H3: 학교망이 끊겨 놓기와 새로 불러오기가 모두 실패하면 놓기 전 모습으로 돌아온다', async () => {
+    const { AppError } = await import('@gallery/core/errors');
+    const over: Partial<TeacherApi> = {};
+    const { actions } = await setup(teacherView([3, 2]), over);
+    const start = board();
+    // 이제부터 끊김(가짜 서버의 바꿔 끼우는 메서드는 부를 때 읽는다)
+    over.putArrangement = async () => {
+      throw new AppError('E_OFFLINE');
+    };
+    over.exhibition = async () => {
+      throw new AppError('E_OFFLINE');
+    };
+    await actions.moveArtworks([A(0, 0)], R1, 0);
+    expect(board()).toEqual(start);
+    expect(useTeacherStore.getState().toast?.text).toBe(errorCopy.E_OFFLINE);
+  });
+
+  it('M1: 놓기 답이 오기 전에 되돌리면 그 놓기를 되돌린다', async () => {
+    let impl: Partial<TeacherApi> = {};
+    const { srv, actions } = await setup(
+      teacherView([3, 2]),
+      slow(() => impl, 15),
+    );
+    impl = srv.impl;
+    const start = serverBoard(srv);
+    const moving = actions.moveArtworks([A(0, 0)], R1, 0);
+    const undoing = actions.undo();
+    await Promise.all([moving, undoing]);
+    expect(serverBoard(srv)).toEqual(start);
+    expect(useTeacherStore.getState().toast?.text).toBe(copy.teacher.undo.undone);
+  });
+
+  it('M2: 놓기 답을 기다리는 동안 같은 판 작품을 고쳐도 스스로 충돌하지 않는다', async () => {
+    let impl: Partial<TeacherApi> = {};
+    const { srv, actions } = await setup(
+      teacherView([3, 2]),
+      slow(() => impl),
+    );
+    impl = srv.impl;
+    const moving = actions.moveArtworks([A(0, 2)], R1, 0);
+    const hiding = actions.patchArtwork(A(0, 0), { status: 'HIDDEN' });
+    await Promise.all([moving, hiding]);
+    expect(srv.state.artworks.find(x => x.id === A(0, 0))?.status).toBe('HIDDEN');
+    expect(useTeacherStore.getState().toast?.text).not.toBe(errorCopy.E_CONFLICT);
+  });
+
+  it('M3: 옮긴 뒤 다른 작품을 지우고 되살려도(끝으로 감) 옮기기 되돌리기가 충돌하지 않는다', async () => {
+    const { srv, actions } = await setup(teacherView([3, 1]));
+    await actions.nudgeArtwork(A(0, 0), 2); // [1,2,0]
+    await actions.deleteArtwork(A(0, 1)); // [2,0]
+    await actions.undo(); // 되살림 → [2,0,1]
+    await actions.undo(); // 옮기기 되돌리기 — 지금 배열에서 다시 계산해 놓기 전 차례로
+    expect(useTeacherStore.getState().toast?.text).toBe(copy.teacher.undo.undone);
+    expect(serverBoard(srv).find(c => c.roomId === R0)?.ids).toEqual([A(0, 0), A(0, 1), A(0, 2)]);
+  });
+
+  it('M4: 다른 기기가 이 판에 옮겨 넣은 작품은 새 작품이 아니라 충돌 — 말없이 덮지 않는다', async () => {
+    const { srv, actions } = await setup(teacherView([3, 2]));
+    // 다른 기기: 둘째 판 첫 작품을 첫 판으로
+    const moved = srv.state.artworks.find(x => x.id === A(1, 0))!;
+    moved.roomId = R0;
+    moved.order = -1;
+    await actions.nudgeArtwork(A(0, 0), 1);
+    expect(useTeacherStore.getState().toast?.text).toBe(errorCopy.E_CONFLICT);
+    expect(srv.named('putArrangement')[0]?.args[1]).toMatchObject({
+      known: expect.arrayContaining([A(1, 0)]),
+    });
+  });
+
+  it('L3: 고른 작품을 지우면 고른 목록에서도 빠진다', async () => {
+    const { actions } = await setup(teacherView([3, 1]));
+    useTeacherStore.getState().toggleSelect(A(0, 1));
+    useTeacherStore.getState().toggleSelect(A(0, 2));
+    await actions.deleteArtwork(A(0, 1));
+    expect(useTeacherStore.getState().selected).toEqual([A(0, 2)]);
+  });
+});

@@ -27,7 +27,7 @@ import { dragHasFiles } from '../upload/collectFiles.ts';
 import { isBlurry, isUntitled, thumbOf } from './artworkLook.ts';
 import { boardKey, cardKey, roomKey } from './dnd.ts';
 import { cellKeyAction } from './keys.ts';
-import { useDragState } from './ManageDnd.tsx';
+import { isDragActive, useDragState } from './ManageDnd.tsx';
 import s from './RoomBoard.module.css';
 
 /**
@@ -116,7 +116,6 @@ const Cell = memo(function Cell({
   onNudge,
   keys,
 }: CellProps) {
-  const drag = useDragState();
   const processing = a.status === 'PROCESSING';
   const { attributes, listeners, setNodeRef, isDragging } = useSortable({
     id: cardKey(a.id),
@@ -128,6 +127,12 @@ const Cell = memo(function Cell({
   const pressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const suppressClick = useRef(false);
   useEffect(() => () => clearTimeout(pressTimer.current), []);
+  // 끌기가 시작되면 길게 누르기(고르기)는 그만둔다(검토 L5)
+  useEffect(() => {
+    if (!isDragging) return;
+    press.current = null;
+    clearTimeout(pressTimer.current);
+  }, [isDragging]);
 
   const sensor = (name: string) => (e: SyntheticEvent) => {
     if (fromControl(e.target)) return;
@@ -136,6 +141,7 @@ const Cell = memo(function Cell({
 
   // 마우스 길게 누르기 → 고르기(터치는 끌기 센서가 맡는다)
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    suppressClick.current = false;
     if (e.pointerType !== 'mouse' || e.button !== 0 || fromControl(e.target)) return;
     press.current = { pointer: e.pointerId, x: e.clientX, y: e.clientY };
     clearTimeout(pressTimer.current);
@@ -171,7 +177,7 @@ const Cell = memo(function Cell({
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
     // 키보드로 끄는 중이면 Space·Enter·화살표는 끌기 센서의 것
-    const action = drag.active === null ? cellKeyAction(e) : null;
+    const action = isDragActive() ? null : cellKeyAction(e);
     if (action === null) {
       sensor('onKeyDown')(e);
       return;
@@ -294,9 +300,6 @@ export interface RoomBoardsProps {
   readonly collapsible?: boolean;
 }
 
-/** 접힌 판 표지에 보일 작은 그림 수 */
-const COVER_COUNT = 3;
-
 interface BoardProps extends Omit<RoomBoardsProps, 'rooms' | 'onAddRoom' | 'collapsible'> {
   readonly room: RoomTeacher;
   readonly index: number;
@@ -358,7 +361,7 @@ const Board = ({
   }, [hovering, onToggle, room.id]);
   const cover = (() => {
     const featured = visible.filter(a => a.featured);
-    return [...featured, ...visible.filter(a => !a.featured)].slice(0, COVER_COUNT);
+    return [...featured, ...visible.filter(a => !a.featured)].slice(0, config().MANAGE_THUMB_STACK);
   })();
 
   return (

@@ -8,7 +8,12 @@ import s from './KeysHelp.module.css';
 export const KeysHelp = ({ onClose }: { readonly onClose: () => void }) => {
   const k = copy.teacher.keys;
   const closeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => closeRef.current?.focus(), []);
+  useEffect(() => {
+    // 닫히면 열기 전 자리(누른 액자)로 초점을 되돌린다(검토 L9)
+    const back = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeRef.current?.focus();
+    return () => back?.focus();
+  }, []);
   return (
     <div className={s.sheet} role="dialog" aria-modal="false" aria-label={k.title} data-testid="keys-help">
       <header className={s.head}>

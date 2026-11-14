@@ -3,7 +3,6 @@ import { AppError } from '@gallery/core/errors';
 import type { CreateTextArtworkSchema } from '@gallery/core/types';
 import type { z } from 'zod';
 import type { ArtworkRecord, Deps } from '../ports/index.ts';
-import { nextOrder } from './artworks.ts';
 import { assertSameExhibition, bump, createHashOf, liveExhibition } from './common.ts';
 
 /**
@@ -35,8 +34,8 @@ export const createTextArtwork = (
       id: body.id,
       exhibitionId: ex.id,
       roomId: body.roomId,
-      // 순서는 서버가 그 전시실 끝에 붙인다(ADR-074) — 기기가 보낸 `order`는 무시(멱등 해시에는 남음)
-      order: nextOrder(deps, ex.id, body.roomId),
+      // 순서는 기기가 계획한 차례(올리기와 같음, 독립 검토 H4)
+      order: body.order,
       title: body.title,
       author: null,
       captionShort: null,

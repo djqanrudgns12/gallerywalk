@@ -2,7 +2,6 @@ import { classifyForm, guessTextHeavy } from '@gallery/core/classify';
 import { AppError, errorCatalog } from '@gallery/core/errors';
 import type { CreateFileArtworkMetaSchema, CreatePdfArtworkSchema } from '@gallery/core/types';
 import type { z } from 'zod';
-import { nextOrder } from '../application/artworks.ts';
 import { assertSameExhibition, bump, createHashOf, liveExhibition } from '../application/common.ts';
 import type { ArtworkRecord, AssetRecord, Deps, UploadTarget } from '../ports/index.ts';
 
@@ -54,8 +53,9 @@ export const newArtwork = (
     id: meta.id,
     exhibitionId,
     roomId: meta.roomId,
-    // 순서는 서버가 그 전시실 끝에 붙인다(ADR-074) — 기기가 보낸 `order`는 무시(멱등 해시에는 남음)
-    order: nextOrder(deps, exhibitionId, meta.roomId),
+    // 순서는 기기가 계획한 차례(그 전시실 끝부터, 파일 이름·폴더 차례 — PLAN §5.2). 기기는 셋씩 함께 올려 끝나는 차례가
+    // 섞이므로 서버가 끝난 차례로 매기면 폴더 차례가 깨진다(독립 검토 H4, ADR-074 결과)
+    order: meta.order,
     title: meta.title,
     author: null,
     captionShort: null,

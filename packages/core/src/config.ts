@@ -1117,6 +1117,17 @@ export const configDefaults = {
   MANAGE_AUTOSCROLL_THRESHOLD: 0.15,
   MANAGE_DRAG_SCALE: 1.06,
   MANAGE_DROP_EXPAND_MS: 600,
+  /**
+   * 교사 작업 화면 지도 그리기 크기(px, SVG는 칸 폭에 맞춰 줄어듦): 오른쪽 칸 전시 지도(칸 420 − 여백) · 태블릿 지도 띠 ·
+   * 살펴보기 칸 "걸린 자리". 작은 그림 겹침(확인할 것 칩·접힌 판 표지)에 보일 수. 빈 액자 비율(글 = 세로)
+   */
+  MANAGE_MAP: {
+    side: { width: 380, height: 260 },
+    strip: { width: 330, height: 190 },
+    hung: { width: 372, height: 176 },
+  },
+  MANAGE_THUMB_STACK: 3,
+  MANAGE_PORTRAIT_RATIO: 0.7,
 } as const;
 
 /** 숫자·참거짓은 넓은 타입으로(기본값의 리터럴 타입에 묶이면 시험·환경 변수로 값을 바꿀 수 없다). 문자열 합집합은 그대로. */

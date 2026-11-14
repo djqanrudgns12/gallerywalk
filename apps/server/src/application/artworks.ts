@@ -127,8 +127,12 @@ export const arrangeArtworks = (deps: Deps, exhibitionId: string, body: Arrangem
     const current = new Map<string, ArtworkRecord[]>(body.base.map(r => [r.roomId, []]));
     for (const a of deps.store.artworks.listByExhibition(ex.id)) current.get(a.roomId)?.push(a);
     for (const list of current.values()) list.sort(byOrder);
+    // 기기가 이미 알던 작품이 그사이 이 판에 들어왔으면(다른 기기가 옮겨 넣음) 말없이 덮지 않고 충돌로(검토 M4)
+    const known = new Set(body.known ?? []);
     for (const r of body.base) {
       const now = (current.get(r.roomId) ?? []).filter(a => seen.has(a.id)).map(a => a.id);
+      if ((current.get(r.roomId) ?? []).some(a => !seen.has(a.id) && known.has(a.id)))
+        throw new AppError('E_CONFLICT');
       if (!sameOrder(now, r.ids)) throw new AppError('E_CONFLICT');
     }
 

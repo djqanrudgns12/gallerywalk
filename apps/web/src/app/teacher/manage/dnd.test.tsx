@@ -166,6 +166,26 @@ describe('관리 화면 v3 보드에서 실제로 끌기', () => {
     expect(wall(m, 0)).toEqual([A(0, 1), A(0, 2), A(0, 0)]);
   });
 
+  it('마우스: 끝 액자에 왼쪽으로 들어간 뒤 같은 액자의 오른쪽 절반으로 가면 판 끝에 놓인다(검토 H2a)', async () => {
+    const { m, srv } = await open();
+    const from = cell(m, A(0, 0));
+    const a = centerOf(from);
+    mouse(from, 'mousedown', a);
+    mouse(document, 'mousemove', { x: a.x + 20, y: a.y });
+    const left = centerOf(cell(m, A(0, 2)));
+    mouse(document, 'mousemove', { x: left.x - W / 4, y: left.y });
+    await flush();
+    expect(wall(m, 0)).toEqual([A(0, 1), A(0, 0), A(0, 2)]);
+    // 같은 액자(끝 작품) 위에서 오른쪽 절반으로 — 놓일 곳 ID는 그대로라 onDragMove가 잡는다
+    const right = centerOf(cell(m, A(0, 2)));
+    mouse(document, 'mousemove', { x: right.x + W / 4, y: right.y });
+    await flush();
+    expect(wall(m, 0)).toEqual([A(0, 1), A(0, 2), A(0, 0)]);
+    mouse(document, 'mouseup', { x: right.x + W / 4, y: right.y });
+    await flush();
+    expect(srv.arranged()).toEqual([[{ roomId: R(0), ids: [A(0, 1), A(0, 2), A(0, 0)] }]]);
+  });
+
   it('마우스: 다른 판 n번째 — 놓일 판에 안내, 두 판을 한 요청으로', async () => {
     const { m, srv } = await open();
     const from = cell(m, A(0, 2));

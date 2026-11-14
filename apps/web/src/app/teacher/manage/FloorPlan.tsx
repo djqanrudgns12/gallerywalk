@@ -90,6 +90,17 @@ export const FloorPlan = memo(function FloorPlan({
       data-state="ready"
       data-drop-room={dropRoomId ?? undefined}
     >
+      {counts ? (
+        // 수업 지도의 전시실별 수를 글로도(점은 눈으로만 보인다 — 검토 L9)
+        <desc>
+          {model.rooms
+            .map(
+              r =>
+                `${String(r.index + 1).padStart(2, '0')} ${fill(text.mapPeople, { n: counts.get(r.roomId) ?? 0 })}`,
+            )
+            .join(', ')}
+        </desc>
+      ) : null}
       <g className={styles.floors}>
         {model.corridor.map((points, i) => (
           <polygon key={`c${i}`} className={styles.corridor} points={points} />

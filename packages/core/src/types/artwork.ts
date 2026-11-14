@@ -187,8 +187,16 @@ export const ArrangementSchema = z
     rooms: arrangementSide,
     restoreFeatured: z
       .array(UuidSchema)
-      .refine(ids => ids.length <= config().ARRANGEMENT_MAX_ROOMS, { message: 'too_many_ids' })
+      .refine(ids => ids.length <= config().ARRANGEMENT_MAX_ROOMS, { message: 'too_many_featured' })
       .refine(ids => new Set(ids).size === ids.length, { message: 'duplicate_ids' })
+      .optional(),
+    /**
+     * 기기가 아는 그 밖의 작품(`base`에 없는 것). 판에 그사이 생긴 작품 중 여기 있는 것은 "새로 올라온 것"이 아니라 다른 기기가
+     * 옮겨 넣은 것이므로 충돌로 본다(독립 검토 M4). 없으면 예전처럼 모두 새 작품으로 끝에 붙인다.
+     */
+    known: z
+      .array(UuidSchema)
+      .refine(ids => ids.length <= config().ARRANGEMENT_MAX_IDS, { message: 'too_many_ids' })
       .optional(),
   })
   .refine(
