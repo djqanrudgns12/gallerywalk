@@ -5,7 +5,7 @@
 
 ## 1. 파일
 
-- 자리: `apps/web/public/assets/g/chr-1/{id}.glb`(배포 전 최적화본만 저장소에, 원본·중간본은 `.local/art/r4/3d/`). 운영 서버는 `/assets/g/*`를 1년 캐시하므로 파일을 바꾸면 폴더 번호(`chr-1` → `chr-2`)와 `Character.tsx` `CHARACTER_BASE`를 함께 올린다.
+- 자리: 판 1 몸 틀 넷은 `apps/web/public/assets/g/chr-1/{몸 틀}.glb`, 판 2 15명은 `chr-2/{id}.glb`(2026-11-14 반영, 관람객 12명은 `{id}-lod1.glb`도 — 도슨트는 LOD를 쓰지 않아 넣지 않음). 배포 전 최적화본만 저장소에, 원본·중간본은 `.local/art/`. 운영 서버는 `/assets/g/*`를 1년 캐시하므로 이미 낸 파일을 바꾸면 폴더 번호를 올리고(`chr-2` → `chr-3`) `characterFiles.ts`의 주소와 목록(`CHARACTER_FILES`)을 함께 고친다.
 - 하나의 glb에 몸 한 덩어리 + 뼈대 + 애니메이션 4개. 먼 거리 LOD `{id}-lod1.glb`는 다른 관람객 인스턴스용(idle 첫 키 하나만, 뷰어가 그 자세로 구워 정적 덩어리로 씀).
 
 ## 2. 예산 (캐릭터 하나)

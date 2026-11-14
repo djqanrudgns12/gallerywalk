@@ -13,8 +13,9 @@ describe('다른 관람객 몸 묶음(M4-9, 그리기 예산)', () => {
       'student-m',
       'student-f',
     ];
-    const got = assignBodyGroups(crowd, k => characterLodUrl(k), bodyOf, SLOTS);
-    for (const k of crowd) expect(got.get(k)).toBe(characterLodUrl(k));
+    const none = new Set<CharacterId>();
+    const got = assignBodyGroups(crowd, k => characterLodUrl(k, none), bodyOf, SLOTS);
+    for (const k of crowd) expect(got.get(k)).toBe(characterLodUrl(k, none));
     expect(new Set(got.values())).toEqual(
       new Set([
         '/assets/g/chr-1/student-m-lod1.glb',

@@ -1,10 +1,12 @@
 import {
   bodyOf,
   type CharacterKey,
+  DOCENT_IDS,
   isDocentId,
   normalizeCharacterId,
   STUDENT_CHARACTER_IDS,
   type StudentCharacterId,
+  VISITOR_CHARACTER_IDS,
 } from '@gallery/core/types';
 
 /**
@@ -19,8 +21,14 @@ import {
 export const CHARACTER_BASE = '/assets/g/chr-1';
 export const CHARACTER_BASE_2 = '/assets/g/chr-2';
 
-/** `chr-2`에 들어온 캐릭터 ID(관람객은 새 ID — 옛 별칭은 01번으로 찾는다). 지금은 없다 */
-export const CHARACTER_FILES: ReadonlySet<CharacterKey> = new Set<CharacterKey>([]);
+/**
+ * `chr-2`에 들어온 캐릭터 ID(관람객은 새 ID — 옛 별칭은 01번으로 찾는다). 2026-11-14 사용자 승인으로 15명 모두
+ * (관람객 12명은 몸 + 먼 거리 LOD, 도슨트 3명은 몸만 — 도슨트는 LOD를 쓰지 않는다)
+ */
+export const CHARACTER_FILES: ReadonlySet<CharacterKey> = new Set<CharacterKey>([
+  ...VISITOR_CHARACTER_IDS,
+  ...DOCENT_IDS,
+]);
 
 const fileOf = (id: CharacterKey, files: ReadonlySet<CharacterKey>): { base: string; name: string } => {
   const key = isDocentId(id) ? id : normalizeCharacterId(id);

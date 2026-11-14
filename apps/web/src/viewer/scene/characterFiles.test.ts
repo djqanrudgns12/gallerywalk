@@ -1,8 +1,32 @@
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import type { CharacterKey } from '@gallery/core/types';
-import { characterFaceUrl, characterGlbUrl, studentFaceImages } from './characterFiles.ts';
+import { type CharacterKey, DOCENT_IDS, VISITOR_CHARACTER_IDS } from '@gallery/core/types';
+import {
+  CHARACTER_FILES,
+  characterFaceUrl,
+  characterGlbUrl,
+  characterLodUrl,
+  studentFaceImages,
+} from './characterFiles.ts';
+
+const PUBLIC = join(dirname(fileURLToPath(import.meta.url)), '../../../public');
 
 describe('캐릭터 파일 주소(M4-9)', () => {
+  it('판 2(2026-11-14 승인): 15명 모두 제 파일이고 그 파일이 저장소에 있다(관람객은 LOD도)', () => {
+    expect(CHARACTER_FILES.size).toBe(VISITOR_CHARACTER_IDS.length + DOCENT_IDS.length);
+    for (const id of [...VISITOR_CHARACTER_IDS, ...DOCENT_IDS]) {
+      const url = characterGlbUrl(id);
+      expect(url).toBe(`/assets/g/chr-2/${id}.glb`);
+      expect(existsSync(join(PUBLIC, url)), url).toBe(true);
+    }
+    for (const id of VISITOR_CHARACTER_IDS)
+      expect(existsSync(join(PUBLIC, characterLodUrl(id))), id).toBe(true);
+    // 옛 별칭은 01번 모습
+    expect(characterGlbUrl('student-m')).toBe('/assets/g/chr-2/student-m-01.glb');
+  });
+
   const files = new Set<CharacterKey>(['student-m-03', 'docent-2', 'student-f-01']);
 
   it('들어온 ID는 chr-2 제 파일, 없으면 같은 몸 틀의 chr-1 파일', () => {

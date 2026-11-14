@@ -8,7 +8,7 @@ import {
   templateGeometry,
   templateMoods,
 } from '@gallery/core/templates';
-import type { CharacterId, Layout } from '@gallery/core/types';
+import { ACCEPTED_CHARACTER_IDS, type CharacterId, type Layout } from '@gallery/core/types';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo } from 'react';
 import { create } from 'zustand';
@@ -60,8 +60,8 @@ Object.assign(window, { __walk: useWalk });
 const params = new URLSearchParams(window.location.search);
 /** 개발 화면은 높음 단계(`?tier=MEDIUM|LOW`로 바꿔 봄) */
 const TIER = (['HIGH', 'MEDIUM', 'LOW'] as const).find(t => t === params.get('tier')) ?? 'HIGH';
-const CHARACTERS: readonly CharacterId[] = ['student-m', 'student-f', 'teacher-m', 'teacher-f'];
-const character: CharacterId = CHARACTERS.find(c => c === params.get('character')) ?? 'student-m';
+/** `?character=`: 관람객 12명 ID(`student-m-02` 등)와 옛 몸 틀 이름(`student-f` 등) */
+const character: CharacterId = ACCEPTED_CHARACTER_IDS.find(c => c === params.get('character')) ?? 'student-m';
 const touch = typeof window !== 'undefined' && (navigator.maxTouchPoints > 0 || params.has('stick'));
 useMapOpen.setState({ open: params.has('map') });
 
