@@ -139,6 +139,33 @@
   box-shadow: var(--manage-shadow-tile);
 }
 
+.fold {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--manage-touch);
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--manage-ink-3);
+  cursor: pointer;
+}
+
+.cover {
+  display: inline-flex;
+  --frame-h-small: 34px;
+}
+
+.cover > * + * {
+  margin-left: calc(-1 * var(--space-2));
+}
+
+.fold svg {
+  width: 20px;
+  height: 20px;
+}
+
 .edit svg {
   width: 16px;
   height: 16px;

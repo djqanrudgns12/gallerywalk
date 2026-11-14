@@ -11,6 +11,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import {
   memo,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -25,6 +26,7 @@ import { Frame, type FrameShape, type FrameSize } from '../../../ui/patterns/tea
 import { dragHasFiles } from '../upload/collectFiles.ts';
 import { isBlurry, isUntitled, thumbOf } from './artworkLook.ts';
 import { boardKey, cardKey, roomKey } from './dnd.ts';
+import { cellKeyAction } from './keys.ts';
 import { useDragState } from './ManageDnd.tsx';
 import s from './RoomBoard.module.css';
 
@@ -86,6 +88,16 @@ interface CellProps {
   readonly onOpen: (id: string) => void;
   readonly onToggleSelect: (id: string) => void;
   readonly onNudge: (id: string, delta: -1 | 1) => void;
+  readonly keys: CellKeys;
+}
+
+/** 액자 키(HT-09)가 부르는 일 */
+export interface CellKeys {
+  /** ←/→로 이웃 액자에 초점이 갔을 때(살펴보는 중이면 그 작품을 살펴본다) */
+  readonly onStep: (id: string) => void;
+  readonly onToggleHidden: (id: string) => void;
+  readonly onDelete: (id: string) => void;
+  readonly onHelp: () => void;
 }
 
 const Cell = memo(function Cell({
@@ -102,6 +114,7 @@ const Cell = memo(function Cell({
   onOpen,
   onToggleSelect,
   onNudge,
+  keys,
 }: CellProps) {
   const drag = useDragState();
   const processing = a.status === 'PROCESSING';
@@ -158,24 +171,43 @@ const Cell = memo(function Cell({
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
     // 키보드로 끄는 중이면 Space·Enter·화살표는 끌기 센서의 것
-    if (drag.active === null) {
-      if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-        e.preventDefault();
-        onNudge(a.id, e.key === 'ArrowLeft' ? -1 : 1);
-        return;
-      }
-      if (e.key === 'Enter') {
-        e.preventDefault();
+    const action = drag.active === null ? cellKeyAction(e) : null;
+    if (action === null) {
+      sensor('onKeyDown')(e);
+      return;
+    }
+    e.preventDefault();
+    switch (action) {
+      case 'open':
         onOpen(a.id);
         return;
-      }
-      if (e.key === ' ') {
-        e.preventDefault();
+      case 'select':
         onToggleSelect(a.id);
         return;
+      case 'nudgePrev':
+      case 'nudgeNext':
+        onNudge(a.id, action === 'nudgePrev' ? -1 : 1);
+        return;
+      case 'prev':
+      case 'next': {
+        const cells = Array.from(document.querySelectorAll<HTMLElement>('[data-cell-id]'));
+        const to = cells[cells.indexOf(e.currentTarget) + (action === 'prev' ? -1 : 1)];
+        const id = to?.dataset.cellId;
+        if (to && id) {
+          to.focus();
+          keys.onStep(id);
+        }
+        return;
       }
+      case 'toggleHidden':
+        keys.onToggleHidden(a.id);
+        return;
+      case 'delete':
+        keys.onDelete(a.id);
+        return;
+      case 'help':
+        keys.onHelp();
     }
-    sensor('onKeyDown')(e);
   };
 
   const title = isUntitled(a) ? copy.teacher.manage.untitled : a.title;
@@ -257,12 +289,21 @@ export interface RoomBoardsProps {
   readonly onAddRoom: () => void;
   /** 판에 파일을 떨어뜨리기 시작함 → 올릴 전시실 */
   readonly onDropTarget: (roomId: string) => void;
+  readonly keys: CellKeys;
+  /** 휴대폰: 판을 접고 펼친다(접힌 판은 표지 그림 셋). 끄는 액자가 접힌 판에 머물면 펼친다 */
+  readonly collapsible?: boolean;
 }
 
-interface BoardProps extends Omit<RoomBoardsProps, 'rooms' | 'onAddRoom'> {
+/** 접힌 판 표지에 보일 작은 그림 수 */
+const COVER_COUNT = 3;
+
+interface BoardProps extends Omit<RoomBoardsProps, 'rooms' | 'onAddRoom' | 'collapsible'> {
   readonly room: RoomTeacher;
   readonly index: number;
   readonly ids: readonly string[];
+  /** 접혔으면 true, 접을 수 없으면 null */
+  readonly collapsed: boolean | null;
+  readonly onToggle: (roomId: string, open?: boolean) => void;
 }
 
 const Board = ({
@@ -281,6 +322,9 @@ const Board = ({
   onNudge,
   onEditRoom,
   onDropTarget,
+  collapsed,
+  onToggle,
+  keys,
 }: BoardProps) => {
   const drag = useDragState();
   const header = useSortable({
@@ -305,6 +349,17 @@ const Board = ({
     const a = artworks.get(id);
     return a ? [a] : [];
   });
+  // 끄는 액자가 접힌 판에 머물면 잠시 뒤 펼친다(FIELD_PLAN §5.5)
+  const hovering = collapsed === true && drag.overRoom === room.id && drag.fromRoom !== room.id;
+  useEffect(() => {
+    if (!hovering) return;
+    const t = setTimeout(() => onToggle(room.id, true), config().MANAGE_DROP_EXPAND_MS);
+    return () => clearTimeout(t);
+  }, [hovering, onToggle, room.id]);
+  const cover = (() => {
+    const featured = visible.filter(a => a.featured);
+    return [...featured, ...visible.filter(a => !a.featured)].slice(0, COVER_COUNT);
+  })();
 
   return (
     <section
@@ -320,6 +375,7 @@ const Board = ({
       style={{ transform: CSS.Translate.toString(header.transform), transition: header.transition }}
       data-testid={`room-board-${room.id}`}
       data-room-id={room.id}
+      data-collapsed={collapsed === null ? undefined : String(collapsed)}
       aria-label={fill(m.boardLabel, { n: two(index + 1), name: room.title })}
       onDragEnter={onDragOverFiles}
       onDragOver={onDragOverFiles}
@@ -366,37 +422,80 @@ const Board = ({
           <Icon name="pencil" />
           {m.edit}
         </button>
+        {collapsed !== null ? (
+          <button
+            type="button"
+            className={s.fold}
+            aria-expanded={!collapsed}
+            aria-label={fill(collapsed ? m.expand : m.collapse, { name: room.title })}
+            onClick={() => onToggle(room.id)}
+            data-testid={`room-fold-${room.id}`}
+          >
+            {collapsed ? (
+              <span className={s.cover} aria-hidden="true">
+                {cover.map(a => (
+                  <Frame key={a.id} src={thumbOf(exhibitionId, a)} alt="" size="small" />
+                ))}
+              </span>
+            ) : null}
+            <Icon name={collapsed ? 'chevron-down' : 'chevron-up'} />
+          </button>
+        ) : null}
       </header>
-      <SortableContext items={ids.map(cardKey)} strategy={noMove}>
-        <div ref={body.setNodeRef} className={s.wall} data-testid={`room-wall-${room.id}`}>
-          {visible.length === 0 ? <p className={s.empty}>{copy.teacher.manage.emptyRoom}</p> : null}
-          {visible.map((a, i) => (
-            <Cell
-              key={a.id}
-              exhibitionId={exhibitionId}
-              artwork={a}
-              roomId={room.id}
-              index={i}
-              size={size}
-              inspected={inspectedId === a.id}
-              selected={selected.includes(a.id)}
-              selecting={selecting}
-              flashing={flashId === a.id}
-              inGroup={drag.group.includes(a.id)}
-              onOpen={onOpen}
-              onToggleSelect={onToggleSelect}
-              onNudge={onNudge}
-            />
-          ))}
-        </div>
-      </SortableContext>
+      {collapsed === true ? null : (
+        <SortableContext items={ids.map(cardKey)} strategy={noMove}>
+          <div ref={body.setNodeRef} className={s.wall} data-testid={`room-wall-${room.id}`}>
+            {visible.length === 0 ? <p className={s.empty}>{copy.teacher.manage.emptyRoom}</p> : null}
+            {visible.map((a, i) => (
+              <Cell
+                key={a.id}
+                exhibitionId={exhibitionId}
+                artwork={a}
+                roomId={room.id}
+                index={i}
+                size={size}
+                inspected={inspectedId === a.id}
+                selected={selected.includes(a.id)}
+                selecting={selecting}
+                flashing={flashId === a.id}
+                inGroup={drag.group.includes(a.id)}
+                onOpen={onOpen}
+                onToggleSelect={onToggleSelect}
+                onNudge={onNudge}
+                keys={keys}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      )}
     </section>
   );
 };
 
 /** 모든 전시실 판(보드). 판 순서는 끌기 상태의 임시 배열을 따른다 */
-export const RoomBoards = ({ rooms, onAddRoom, ...rest }: RoomBoardsProps) => {
+export const RoomBoards = ({ rooms, onAddRoom, collapsible = false, ...rest }: RoomBoardsProps) => {
   const drag = useDragState();
+  // 휴대폰: 펼친 판(처음에는 살펴보는 작품의 판, 없으면 첫 판)
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
+  const inspectedRoom = rest.inspectedId
+    ? drag.columns.find(c => c.ids.includes(rest.inspectedId ?? ''))?.roomId
+    : undefined;
+  const firstRoom = drag.columns[0]?.roomId;
+  const isOpen = (roomId: string): boolean =>
+    open.has(roomId) || (open.size === 0 && roomId === (inspectedRoom ?? firstRoom));
+  const toggle = useCallback(
+    (roomId: string, force?: boolean) =>
+      setOpen(prev => {
+        const next = new Set(
+          prev.size === 0 && (inspectedRoom ?? firstRoom) ? [inspectedRoom ?? firstRoom ?? ''] : prev,
+        );
+        const want = force ?? !next.has(roomId);
+        if (want) next.add(roomId);
+        else next.delete(roomId);
+        return next;
+      }),
+    [inspectedRoom, firstRoom],
+  );
   const byId = new Map(rooms.map(r => [r.id, r] as const));
   const order = drag.columns.flatMap(c => {
     const room = byId.get(c.roomId);
@@ -410,7 +509,15 @@ export const RoomBoards = ({ rooms, onAddRoom, ...rest }: RoomBoardsProps) => {
     <div className={s.boards} data-testid="room-boards">
       <SortableContext items={order.map(o => boardKey(o.room.id))} strategy={verticalListSortingStrategy}>
         {order.map((o, i) => (
-          <Board key={o.room.id} {...rest} room={o.room} index={i} ids={o.ids} />
+          <Board
+            key={o.room.id}
+            {...rest}
+            room={o.room}
+            index={i}
+            ids={o.ids}
+            collapsed={collapsible ? !isOpen(o.room.id) : null}
+            onToggle={toggle}
+          />
         ))}
       </SortableContext>
       <button type="button" className={s.addRoom} onClick={onAddRoom} data-testid="add-room">

@@ -363,6 +363,49 @@
   display: none;
 }
 
+.sheetClose {
+  display: none;
+}
+
+/* 태블릿 지도 띠: 지도 | 숫자·놓을 자리·확인할 것 (HT-10이 다듬음) */
+.strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-4);
+  border-radius: var(--manage-r-panel);
+  background-color: var(--manage-surface);
+  box-shadow: var(--elev-1);
+}
+
+.stripInfo,
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+}
+
+.stripInfo {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.dropAt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--accent);
+  font-size: var(--text-lg);
+}
+
+.dropAtLabel {
+  font-size: var(--text-sm);
+  color: var(--manage-ink-3);
+}
+
 /* 1280 아래: 오른쪽 칸은 고른 작품이 있을 때만 서랍으로(지도 띠·휴대폰 시트는 HT-10) */
 @media (max-width: 1279px) {
   .body {

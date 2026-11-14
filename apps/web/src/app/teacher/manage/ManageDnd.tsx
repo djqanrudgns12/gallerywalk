@@ -35,7 +35,7 @@ import {
   type KeyMove,
   type Over,
 } from './arrange.ts';
-import { dragSensorOptions, isAfter, parseKey, type DragKind } from './dnd.ts';
+import { dragSensorOptions, isAfter, parseKey, roomKey, type DragKind } from './dnd.ts';
 
 /**
  * 관리 화면 v3 끌어 놓기(`@dnd-kit`, ADR-032·ADR-074, FIELD_PLAN §5.5). 모든 전시실 판을 한 `DndContext`로 감싼다.
@@ -160,6 +160,8 @@ export interface ManageDndProps {
   readonly onToggleSelect: (id: string) => void;
   /** 끄는 동안 손끝을 따라다니는 모양(여러 개면 `count`) */
   readonly renderOverlay: (key: string, count: number) => ReactNode;
+  /** 지도에 놓기(HT-03d): 화면 좌표가 지도의 어느 전시실 바닥 위인가(지도가 없거나 바깥이면 null) */
+  readonly mapHit?: (point: { x: number; y: number }) => string | null;
 }
 
 export const ManageDnd = ({
@@ -171,6 +173,7 @@ export const ManageDnd = ({
   onReorderRooms,
   onToggleSelect,
   renderOverlay,
+  mapHit,
 }: ManageDndProps) => {
   const opts = dragSensorOptions();
   const sensors = useSensors(
@@ -221,6 +224,12 @@ export const ManageDnd = ({
     const point = args.pointerCoordinates ?? (args.collisionRect ? centerOf(args.collisionRect) : null);
     if (!point) return [];
     const at = { ...args, pointerCoordinates: point };
+    // 지도의 전시실 바닥 위 → 그 판 끝(투영을 거꾸로 풀어 판정)
+    const onMap = args.pointerCoordinates ? mapHit?.(point) : null;
+    if (onMap) {
+      const key = roomKey(onMap);
+      if (containers.some(c => c.id === key)) return [{ id: key }];
+    }
     const onCard = pointerWithin({ ...at, droppableContainers: containers.filter(kindIs('card')) });
     if (onCard.length > 0) return onCard;
     const onRoom = pointerWithin({ ...at, droppableContainers: containers.filter(kindIs('room')) });
@@ -244,7 +253,7 @@ export const ManageDnd = ({
         const card = parseKey(a.id);
         if (card?.kind !== 'card' || !over) return over ? fill(d.over, { name: name(over.id) }) : undefined;
         const at = locate(temp ?? columns, card.id);
-        return at ? fill(d.overSlot, { room: nameOf(`room:${at.roomId}`), n: at.index + 1 }) : undefined;
+        return at ? fill(d.overSlot, { room: nameOf(roomKey(at.roomId)), n: at.index + 1 }) : undefined;
       },
       onDragEnd: ({ active: a }) => fill(d.dropped, { name: name(a.id) }),
       onDragCancel: () => d.cancelled,

@@ -2,11 +2,12 @@ import { config } from '@gallery/core/config';
 import { copy, errorCopy, fill } from '@gallery/core/copy';
 import { AppError, type ErrorCode } from '@gallery/core/errors';
 import type { ExhibitionTeacher } from '@gallery/core/types';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { ManageFrameSize } from '../../../ports/index.ts';
 import { Icon } from '../../../ui/Icon.tsx';
 import { Frame, Seg, StatNumber, StatusPill, type FrameSize } from '../../../ui/patterns/teacher/index.ts';
+import { axoRoomAt, type AxoModel } from '../../../viewer/map/axo.ts';
 import { useWalk } from '../../../viewer/walk/walkStore.ts';
 import { PATHS } from '../../routes.ts';
 import { useServices } from '../../services.ts';
@@ -36,7 +37,8 @@ import { OpenSheet } from './OpenSheet.tsx';
 import { PasteSheet } from './PasteSheet.tsx';
 import { PreloadSheet } from './PreloadSheet.tsx';
 import { ReactionsTab } from './ReactionsTab.tsx';
-import { RoomBoards } from './RoomBoard.tsx';
+import { KeysHelp } from './KeysHelp.tsx';
+import { RoomBoards, type CellKeys } from './RoomBoard.tsx';
 import { RoomSheet } from './RoomSheet.tsx';
 import { liveArtworks, useTeacherStore, type ManageTab } from './teacherStore.ts';
 import { ManageContext, toastMs, useCreateManageActions } from './useManage.ts';
@@ -61,6 +63,30 @@ const PILL = { DRAFT: 'draft', OPEN: 'open', CLOSED: 'closed' } as const;
 
 /** 태블릿(터치 + 좁은 화면)에서 `크게`는 72px 액자 */
 const TABLET_QUERY = '(pointer: coarse) and (max-width: 1279px)';
+/** 오른쪽 칸이 없는 폭: 지도는 보드 위 띠로, 살펴보기는 서랍으로 */
+const NARROW_QUERY = '(max-width: 1279px)';
+/** 휴대폰: 판을 접고, 살펴보기는 아래 시트, 지도는 수업 탭에만 */
+const PHONE_QUERY = '(max-width: 767px)';
+/** 태블릿 지도 띠의 지도 크기(px) */
+const STRIP_MAP = { width: 330, height: 190 } as const;
+
+/** 끄는 동안 지도 위 손끝 → 전시실(지도에 놓기, HT-03d) */
+export interface MapTarget {
+  model: AxoModel | null;
+  el: HTMLElement | null;
+}
+export const hitMap = (t: MapTarget, point: { x: number; y: number }): string | null => {
+  const svg = t.el?.querySelector('svg');
+  if (!t.model || !svg) return null;
+  const r = svg.getBoundingClientRect();
+  if (r.width <= 0 || point.x < r.left || point.x > r.right || point.y < r.top || point.y > r.bottom)
+    return null;
+  return axoRoomAt(
+    t.model,
+    ((point.x - r.left) * t.model.width) / r.width,
+    ((point.y - r.top) * t.model.height) / r.height,
+  );
+};
 const useMedia = (query: string): boolean => {
   const get = () => globalThis.matchMedia?.(query).matches ?? false;
   const [on, setOn] = useState(get);
@@ -74,26 +100,60 @@ const useMedia = (query: string): boolean => {
   return on;
 };
 
-/** 오른쪽 칸 전시 지도: 끄는 작품이 놓일 전시실을 밝힌다 */
-const SideMap = ({
+/** 전시 지도(오른쪽 칸·태블릿 띠): 끄는 작품이 놓일 전시실을 밝히고, 끄는 작품을 전시실 바닥에 놓을 수 있다 */
+const DropMap = ({
   layout,
   roomOrder,
+  size,
+  target,
   onPickRoom,
 }: {
   readonly layout: Parameters<typeof FloorPlan>[0]['layout'];
   readonly roomOrder: readonly string[];
+  readonly size: { readonly width: number; readonly height: number };
+  readonly target: MapTarget;
   readonly onPickRoom: (roomId: string) => void;
 }) => {
   const drag = useDragState();
+  const onModel = useCallback(
+    (model: AxoModel | null) => {
+      target.model = model;
+    },
+    [target],
+  );
   return (
-    <FloorPlan
-      layout={layout}
-      roomOrder={roomOrder}
-      width={SIDE_MAP.width}
-      height={SIDE_MAP.height}
-      dropRoomId={drag.overRoom}
-      onPickRoom={onPickRoom}
-    />
+    <div
+      ref={el => {
+        target.el = el;
+      }}
+      data-testid="drop-map"
+    >
+      <FloorPlan
+        layout={layout}
+        roomOrder={roomOrder}
+        width={size.width}
+        height={size.height}
+        dropRoomId={drag.overRoom}
+        onPickRoom={onPickRoom}
+        onModel={onModel}
+      />
+    </div>
+  );
+};
+
+/** 태블릿 띠: 끄는 동안 "놓을 자리 03 전시실 · 3번째" */
+const DropAt = ({ roomName }: { readonly roomName: (roomId: string) => { no: string; name: string } }) => {
+  const drag = useDragState();
+  const card = drag.active?.startsWith('card:') ? drag.active.slice('card:'.length) : null;
+  if (!card || !drag.overRoom) return null;
+  const col = drag.columns.find(c => c.roomId === drag.overRoom);
+  const n = (col?.ids.indexOf(card) ?? -1) + 1;
+  const { no, name } = roomName(drag.overRoom);
+  return (
+    <p className={s.dropAt} data-testid="drop-at">
+      <span className={s.dropAtLabel}>{copy.teacher.board.dropAt}</span>
+      <strong>{fill(copy.teacher.board.dropAtValue, { no, name, n })}</strong>
+    </p>
   );
 };
 
@@ -224,6 +284,10 @@ export const ManageExhibition = () => {
   const [preloading, setPreloading] = useState(false);
   const [reactionCount, setReactionCount] = useState(0);
   const tablet = useMedia(TABLET_QUERY);
+  const narrow = useMedia(NARROW_QUERY);
+  const phone = useMedia(PHONE_QUERY);
+  const mapTarget = useRef<MapTarget>({ model: null, el: null }).current;
+  const mapHit = useCallback((point: { x: number; y: number }) => hitMap(mapTarget, point), [mapTarget]);
   useEffect(() => {
     if (overlay !== null) setMenuEpoch(n => n + 1);
     if (overlay !== null) setPasting(false);
@@ -279,6 +343,7 @@ export const ManageExhibition = () => {
         return;
       }
       if (e.key !== 'Escape') return;
+      setHelping(false);
       if (st().overlay !== null) st().setOverlay(null);
       // 미리 보기: 크게 보기·안내 걷기 중이면 그것부터 닫힌다(걷기 키), 그냥 걷는 중이면 미리 보기를 닫는다
       else if (previewing && useWalk.getState().mode === 'free') setPreviewing(false);
@@ -333,6 +398,29 @@ export const ManageExhibition = () => {
     [],
   );
   const setUploadRoom = useCallback((rid: string) => useTeacherStore.getState().setRoom(rid), []);
+  const [helping, setHelping] = useState(false);
+  // 액자 키(HT-09): ←/→로 옮긴 초점은 살펴보는 중이면 그 작품으로, H 숨기기·게시, Delete 삭제, ? 도움말
+  const cellKeys = useMemo<CellKeys>(
+    () => ({
+      onStep: aid => {
+        if (useTeacherStore.getState().overlay?.kind === 'artwork')
+          useTeacherStore.getState().setOverlay({ kind: 'artwork', id: aid });
+      },
+      onToggleHidden: aid => {
+        const a = useTeacherStore.getState().view?.artworks.find(x => x.id === aid);
+        if (a?.status === 'PUBLISHED' || a?.status === 'HIDDEN')
+          void actions
+            .patchArtwork(aid, { status: a.status === 'PUBLISHED' ? 'HIDDEN' : 'PUBLISHED' })
+            .catch(() => undefined);
+      },
+      onDelete: aid => void actions.deleteArtwork(aid),
+      onHelp: () => {
+        useTeacherStore.getState().setOverlay(null);
+        setHelping(true);
+      },
+    }),
+    [actions],
+  );
 
   if (load.kind === 'error' && !view)
     return (
@@ -379,6 +467,38 @@ export const ManageExhibition = () => {
   const close = () => st().setOverlay(null);
   const selecting = selectMode || selected.length > 0;
   const size: FrameSize = frameSize === 'big' && tablet ? 'tablet' : frameSize;
+  const flashRoom = (rid: string) => {
+    const first = columns.find(c => c.roomId === rid)?.ids[0];
+    if (first) st().flash(first);
+  };
+  const roomName = (rid: string) => ({
+    no: String(roomOrder.indexOf(rid) + 1).padStart(2, '0'),
+    name: view.rooms.find(r => r.id === rid)?.title ?? '',
+  });
+  const stats = (
+    <>
+      <StatNumber value={live.length} label={m.statArtworks} />
+      <span className={s.divider} aria-hidden="true" />
+      <StatNumber value={view.rooms.length} label={m.statRooms} />
+    </>
+  );
+  const checkChip =
+    checks.length > 0 ? (
+      <button
+        type="button"
+        className={s.checkChip}
+        onClick={() => jumpTo(checks[0]?.id)}
+        data-testid="check-chip"
+      >
+        <span className={s.checkThumbs} aria-hidden="true">
+          {checks.slice(0, CHECK_THUMBS).map(a => (
+            <Frame key={a.id} src={thumbOf(id, a)} alt="" size="small" />
+          ))}
+        </span>
+        <span className={s.checkNo}>{checks.length}</span>
+        {m.checkCount}
+      </button>
+    ) : null;
 
   const renderOverlay = (key: string, count: number): ReactNode => {
     const k = parseKey(key);
@@ -510,6 +630,7 @@ export const ManageExhibition = () => {
         onReorderRooms={onReorderRooms}
         onToggleSelect={toggleSelect}
         renderOverlay={renderOverlay}
+        mapHit={mapHit}
       >
         <section
           className={previewing ? `${s.page} ${s.previewing}` : s.page}
@@ -592,26 +713,31 @@ export const ManageExhibition = () => {
           {tab === 'artworks' ? (
             <div className={s.body}>
               <div className={s.main}>
-                <div className={s.summary} data-testid="summary">
-                  <StatNumber value={live.length} label={m.statArtworks} />
-                  <span className={s.divider} aria-hidden="true" />
-                  <StatNumber value={view.rooms.length} label={m.statRooms} />
-                  {checks.length > 0 ? (
-                    <button
-                      type="button"
-                      className={s.checkChip}
-                      onClick={() => jumpTo(checks[0]?.id)}
-                      data-testid="check-chip"
-                    >
-                      <span className={s.checkThumbs} aria-hidden="true">
-                        {checks.slice(0, CHECK_THUMBS).map(a => (
-                          <Frame key={a.id} src={thumbOf(id, a)} alt="" size="small" />
-                        ))}
-                      </span>
-                      <span className={s.checkNo}>{checks.length}</span>
-                      {m.checkCount}
-                    </button>
-                  ) : null}
+                {narrow && !phone ? (
+                  <div className={s.strip} data-testid="map-strip">
+                    <DropMap
+                      layout={view.layout}
+                      roomOrder={roomOrder}
+                      size={STRIP_MAP}
+                      target={mapTarget}
+                      onPickRoom={flashRoom}
+                    />
+                    <div className={s.stripInfo}>
+                      <div className={s.stats} data-testid="summary">
+                        {stats}
+                      </div>
+                      <DropAt roomName={roomName} />
+                      {checkChip}
+                    </div>
+                  </div>
+                ) : null}
+                <div className={s.summary} data-testid={narrow && !phone ? 'summary-controls' : 'summary'}>
+                  {narrow && !phone ? null : (
+                    <>
+                      {stats}
+                      {checkChip}
+                    </>
+                  )}
                   <span className={s.spacer} />
                   <Seg
                     label={m.sizeLabel}
@@ -657,6 +783,8 @@ export const ManageExhibition = () => {
                   onNudge={nudge}
                   onEditRoom={editRoom}
                   onDropTarget={setUploadRoom}
+                  collapsible={phone}
+                  keys={cellKeys}
                   onAddRoom={() =>
                     void actions.createRoom().then(rid => {
                       if (rid) st().setOverlay({ kind: 'room', id: rid });
@@ -669,20 +797,25 @@ export const ManageExhibition = () => {
                 aria-label={m.sideLabel}
                 data-testid="manage-side"
               >
-                {side ?? (
-                  <div className={s.sideMap}>
-                    <h2 className={s.sideTitle}>{m.mapLabel}</h2>
-                    <SideMap
-                      layout={view.layout}
-                      roomOrder={roomOrder}
-                      onPickRoom={rid => {
-                        const first = columns.find(c => c.roomId === rid)?.ids[0];
-                        if (first) st().flash(first);
-                      }}
-                    />
-                    <p className={s.sideHint}>{m.sideHint}</p>
-                  </div>
-                )}
+                {side && narrow ? (
+                  <button type="button" className={s.sheetClose} onClick={close} aria-label={m.sideClose}>
+                    <Icon name="close" />
+                  </button>
+                ) : null}
+                {side ??
+                  (narrow ? null : (
+                    <div className={s.sideMap}>
+                      <h2 className={s.sideTitle}>{m.mapLabel}</h2>
+                      <DropMap
+                        layout={view.layout}
+                        roomOrder={roomOrder}
+                        size={SIDE_MAP}
+                        target={mapTarget}
+                        onPickRoom={flashRoom}
+                      />
+                      <p className={s.sideHint}>{m.sideHint}</p>
+                    </div>
+                  ))}
               </aside>
               {side ? (
                 <div className={s.scrim} onClick={close} aria-hidden="true" data-testid="side-scrim" />
@@ -738,6 +871,8 @@ export const ManageExhibition = () => {
           {overlay?.kind === 'open' ? (
             <OpenSheet exhibition={ex} publishedCount={published} onChanged={onChanged} onClose={close} />
           ) : null}
+
+          {helping ? <KeysHelp onClose={() => setHelping(false)} /> : null}
 
           {preloading ? <PreloadSheet exhibitionId={id} onClose={() => setPreloading(false)} /> : null}
 

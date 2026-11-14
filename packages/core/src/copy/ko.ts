@@ -751,6 +751,7 @@ export const copy = {
       emptyRoom: '이 전시실에는 아직 작품이 없어요',
       sideLabel: '작품 고치기',
       sideHint: '작품을 누르면 오른쪽에서 고칠 수 있어요',
+      sideClose: '닫기',
       batchLabel: '고른 작품',
       batchHide: '숨기기',
       batchPublish: '게시',
@@ -780,6 +781,31 @@ export const copy = {
       mapPeople: '{n}명',
       mapEmpty: '게시한 작품이 있으면 지도가 그려져요',
     },
+    /** 액자 키 도움말(G-32, HT-09). `keys`는 누를 키, 나머지는 하는 일 */
+    keys: {
+      title: '키보드로 하기',
+      close: '닫기',
+      open: '살펴보기',
+      select: '여러 개 고르기',
+      prevNext: '이웃 작품으로',
+      nudge: '한 칸 옮기기',
+      pick: '집어서 옮기기 — 화살표로 자리, Space로 놓기, Esc로 그만두기',
+      hide: '숨기기 · 게시',
+      delete: '삭제(되살릴 수 있어요)',
+      undo: '되돌리기',
+      help: '이 도움말',
+      keys: {
+        open: 'Enter',
+        select: 'Space',
+        prevNext: '← →',
+        nudge: 'Alt + ← →',
+        pick: 'M',
+        hide: 'H',
+        delete: 'Delete',
+        undo: 'Ctrl + Z',
+        help: '?',
+      },
+    },
     /** 전시실 줄 보드(G-26·G-32) */
     board: {
       featured: '대표',
@@ -788,6 +814,11 @@ export const copy = {
       bgm: '배경음악',
       handle: '‘{name}’ 전시실 순서 바꾸기',
       edit: '고치기',
+      expand: '‘{name}’ 펼치기',
+      collapse: '‘{name}’ 접기',
+      /** 태블릿 지도 띠: 끄는 동안 놓일 자리 */
+      dropAt: '놓을 자리',
+      dropAtValue: '{no} {name} · {n}번째',
     },
     /** 올리기(P5-3, PLAN §5.2·§5.3). 막힘 문구는 `errorCopy`, 해결법은 `fix` */
     upload: {

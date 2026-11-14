@@ -392,3 +392,89 @@ describe('전시 관리 화면', () => {
     expect(m.q('[data-testid="teacher-home"]')).not.toBeNull();
   });
 });
+
+describe('전시 관리 화면 — 키(HT-09)·좁은 화면(HT-10 준비)·지도에 놓기(HT-03d)', () => {
+  it('액자 키: ←/→ 이웃 액자(살펴보는 중이면 그 작품), H 숨기기, Delete 삭제, ? 도움말', async () => {
+    const { m, srv } = await open();
+    click(cell(m, A(0)));
+    key(cell(m, A(0)), 'ArrowRight');
+    expect(document.activeElement?.getAttribute('data-cell-id')).toBe(A(1));
+    expect(useTeacherStore.getState().overlay).toEqual({ kind: 'artwork', id: A(1) });
+
+    key(cell(m, A(1)), 'h', { code: 'KeyH' });
+    await flush();
+    expect(srv.named('patchArtwork').map(c => c.args.slice(1))).toEqual([[A(1), 1, { status: 'HIDDEN' }]]);
+
+    key(cell(m, A(2)), 'Delete', { code: 'Delete' });
+    await flush();
+    expect(srv.named('deleteArtwork').map(c => c.args[1])).toEqual([A(2)]);
+
+    key(cell(m, A(0)), '?', { code: 'Slash', shiftKey: true });
+    expect(m.q('[data-testid="keys-help"]')?.textContent).toContain(copy.teacher.keys.title);
+    key(window.document.body, 'Escape');
+    expect(m.q('[data-testid="keys-help"]')).toBeNull();
+  });
+
+  it('휴대폰: 판을 접고(처음엔 첫 판만 펼침, 접힌 판은 표지 그림), 누르면 펼친다. 살펴보기에 닫기 단추', async () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('max-width'),
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    })) as unknown as typeof window.matchMedia;
+    try {
+      const { m } = await open();
+      const second = m.q(`[data-testid="room-board-${testRoomId(1)}"]`);
+      expect(m.q(`[data-testid="room-board-${testRoomId(0)}"]`)?.getAttribute('data-collapsed')).toBe(
+        'false',
+      );
+      expect(second?.getAttribute('data-collapsed')).toBe('true');
+      expect(second?.querySelectorAll('[data-cell-id]')).toHaveLength(0);
+      expect(second?.querySelectorAll('[data-frame]')).toHaveLength(1);
+      click(m.q(`[data-testid="room-fold-${testRoomId(1)}"]`));
+      expect(second?.getAttribute('data-collapsed')).toBe('false');
+      expect(m.all('[data-cell-id]')).toHaveLength(4);
+      // 지도는 수업 탭에만(오른쪽 칸 지도·태블릿 띠 없음)
+      expect(m.q('[data-testid="drop-map"]')).toBeNull();
+      click(cell(m, A(0)));
+      expect(m.q('[data-testid="manage-side"] button[aria-label]')?.getAttribute('aria-label')).toBe(
+        copy.teacher.manage.sideClose,
+      );
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
+  it('지도에 놓기 판정: 지도 SVG 위 화면 좌표 → 그 전시실(SVG가 줄어 그려져도), 바깥이면 null', async () => {
+    const { buildAxo, project } = await import('../../../viewer/map/axo.ts');
+    const { hitMap } = await import('./ManageExhibition.tsx');
+    const v = testExhibitionView([3, 1]);
+    const roomOrder = [testRoomId(0), testRoomId(1)];
+    const model = buildAxo(
+      {
+        map: v.layout.map,
+        parts: v.layout.parts,
+        frames: v.layout.frames,
+        facadeZ: v.layout.exterior.facadeZ,
+        roomOrder,
+      },
+      { width: 380, height: 260 },
+    );
+    const el = document.createElement('div');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    el.append(svg);
+    // 화면에는 절반 크기로, (100, 50)에서 시작
+    svg.getBoundingClientRect = () =>
+      ({ left: 100, top: 50, right: 290, bottom: 180, width: 190, height: 130 }) as DOMRect;
+    for (const part of v.layout.map.parts) {
+      const roomId = v.layout.parts.find(p => p.partId === part.partId)?.roomId;
+      const [u, w] = project(part.labelPos[0], part.labelPos[1]);
+      const sx = model.internal.ox + u * model.scale;
+      const sy = model.internal.oy + w * model.scale;
+      expect(hitMap({ model, el }, { x: 100 + sx / 2, y: 50 + sy / 2 })).toBe(roomId);
+    }
+    expect(hitMap({ model, el }, { x: 20, y: 20 })).toBeNull();
+    expect(hitMap({ model: null, el }, { x: 150, y: 100 })).toBeNull();
+  });
+});

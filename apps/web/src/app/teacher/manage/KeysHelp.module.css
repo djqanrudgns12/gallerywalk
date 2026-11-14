@@ -1,0 +1,75 @@
+/* 액자 키 도움말(HT-09): 오른쪽 아래 작은 칸. 3D·보드를 덮지 않는다 */
+.sheet {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  z-index: 30;
+  width: min(380px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--manage-rule);
+  border-radius: var(--manage-r-panel);
+  background-color: var(--manage-raised);
+  color: var(--manage-ink);
+  box-shadow: var(--elev-2);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--manage-touch);
+  height: var(--manage-touch);
+  border: 0;
+  border-radius: var(--manage-r-control);
+  background: none;
+  color: var(--manage-ink-3);
+  cursor: pointer;
+}
+
+.close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.list {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.kbd {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--manage-rule);
+  border-radius: 6px;
+  background-color: var(--manage-surface);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.what {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--manage-ink-2);
+}

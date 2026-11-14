@@ -3,6 +3,8 @@ import type { JSX } from 'react';
 export type IconName =
   | 'chevron-left'
   | 'chevron-right'
+  | 'chevron-up'
+  | 'chevron-down'
   | 'map'
   | 'sound-on'
   | 'sound-off'
@@ -89,6 +91,10 @@ const renderPaths = (name: IconName): JSX.Element => {
       return <polyline points="15 5 8 12 15 19" />;
     case 'chevron-right':
       return <polyline points="9 5 16 12 9 19" />;
+    case 'chevron-up':
+      return <polyline points="5 15 12 8 19 15" />;
+    case 'chevron-down':
+      return <polyline points="5 9 12 16 19 9" />;
     case 'map':
       return (
         <>
