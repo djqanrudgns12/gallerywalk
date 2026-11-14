@@ -56,10 +56,31 @@
 
 .exTitle {
   min-width: 0;
-  max-width: 340px;
+  max-width: 360px;
+}
+
+/* 전시 이름: 평소엔 글자(22px 명조), 손대거나 고칠 때만 칸 테두리 */
+.exTitle input {
+  min-height: var(--manage-touch);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--manage-r-control);
+  background: transparent;
+  color: var(--manage-ink);
   font-family: var(--font-display);
   font-size: var(--manage-fs-title);
   font-weight: 700;
+  text-overflow: ellipsis;
+}
+
+.exTitle input:hover {
+  border-color: var(--manage-rule);
+}
+
+.exTitle input:focus {
+  border-color: var(--accent);
+  background-color: var(--manage-raised);
+  outline: none;
 }
 
 .tabs {
@@ -229,6 +250,53 @@
 
 .spacer {
   flex: 1;
+}
+
+.uploadMenu {
+  position: relative;
+  display: inline-flex;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: var(--space-2);
+  border: 1px solid var(--manage-rule);
+  border-radius: var(--manage-r-panel);
+  background-color: var(--manage-raised);
+  box-shadow: var(--elev-2);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--manage-touch);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--manage-r-control);
+  background: none;
+  color: var(--manage-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuItem:hover,
+.menuItem:focus-visible {
+  background-color: var(--manage-surface);
+  outline: none;
+}
+
+.menuItem svg {
+  width: 18px;
+  height: 18px;
+  color: var(--manage-ink-3);
 }
 
 .checkChip {

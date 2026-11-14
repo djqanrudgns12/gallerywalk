@@ -65,7 +65,10 @@ describe('전시 관리 화면', () => {
     const primary = m.q<HTMLButtonElement>('[data-testid="primary-open"]');
     expect(primary?.textContent).toBe(copy.teacher.manage.open);
     expect(primary?.disabled).toBe(false);
-    expect(m.q('[data-testid="drop-strip"]')).not.toBeNull();
+    // 작품이 있으면 옛 놓기 띠 대신 `작품 올리기` 차림표(파일·폴더·글 붙여넣기)
+    expect(m.q('[data-testid="drop-strip"]')).toBeNull();
+    click(m.q('[data-testid="summary-upload"]'));
+    expect(m.q('[data-testid="upload-menu"]')?.textContent).toContain(copy.teacher.upload.pasteText);
     expect(m.q('[data-testid="check-chip"]')).toBeNull();
     // 오른쪽 칸: 고른 작품이 없으면 전시 지도 자리
     expect(m.q('[data-testid="manage-side"]')?.textContent).toContain(copy.teacher.manage.mapLabel);

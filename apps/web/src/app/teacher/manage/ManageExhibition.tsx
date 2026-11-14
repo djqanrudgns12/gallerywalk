@@ -11,7 +11,14 @@ import { useWalk } from '../../../viewer/walk/walkStore.ts';
 import { useServices } from '../../services.ts';
 import { useArrivalToast } from '../shared/nav.ts';
 import { Toast } from '../shared/Toast.tsx';
-import { DragCover, DropZone, useFilePickers, useWindowDrop } from '../upload/DropZone.tsx';
+import {
+  DragCover,
+  DropZone,
+  useFilePickers,
+  usePhoneUpload,
+  useWindowDrop,
+  type FilePickers,
+} from '../upload/DropZone.tsx';
 import { UploadTray } from '../upload/UploadTray.tsx';
 import { useUploads } from '../upload/useUploads.ts';
 import { columnsOf, type Arrangement } from './arrange.ts';
@@ -84,6 +91,98 @@ const SideMap = ({
       dropRoomId={drag.overRoom}
       onPickRoom={onPickRoom}
     />
+  );
+};
+
+/**
+ * `작품 올리기` 작은 차림표: 파일 고르기 · 폴더 고르기(휴대폰 제외) · 글 붙여넣기. 바깥을 누르거나 Esc면 닫힌다.
+ * 작품이 하나도 없으면 큰 놓기 영역이 같은 일을 한다.
+ */
+const UploadMenu = ({
+  pickers,
+  onPick,
+  onPasteText,
+}: {
+  readonly pickers: FilePickers;
+  readonly onPick: () => void;
+  readonly onPasteText: () => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const phone = usePhoneUpload();
+  const u = copy.teacher.upload;
+  useEffect(() => {
+    if (!open) return;
+    const shut = (e: Event) => {
+      if (e instanceof KeyboardEvent && e.key !== 'Escape') return;
+      if (!(e instanceof KeyboardEvent) && (e.target as Element | null)?.closest?.('[data-upload-menu]'))
+        return;
+      setOpen(false);
+    };
+    window.addEventListener('pointerdown', shut);
+    window.addEventListener('keydown', shut);
+    return () => {
+      window.removeEventListener('pointerdown', shut);
+      window.removeEventListener('keydown', shut);
+    };
+  }, [open]);
+  const run = (f: () => void) => () => {
+    setOpen(false);
+    f();
+  };
+  return (
+    <span className={s.uploadMenu} data-upload-menu="">
+      <button
+        type="button"
+        className={s.outline}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen(o => !o)}
+        data-testid="summary-upload"
+      >
+        <Icon name="plus" />
+        {copy.teacher.manage.upload}
+      </button>
+      {open ? (
+        <span className={s.menu} role="menu" data-testid="upload-menu">
+          <button
+            type="button"
+            role="menuitem"
+            className={s.menuItem}
+            onClick={run(() => {
+              onPick();
+              pickers.pickFiles();
+            })}
+          >
+            <Icon name="upload" />
+            {u.pickFiles}
+          </button>
+          {phone ? null : (
+            <button
+              type="button"
+              role="menuitem"
+              className={s.menuItem}
+              onClick={run(() => {
+                onPick();
+                pickers.pickFolder();
+              })}
+            >
+              <Icon name="grid" />
+              {u.pickFolder}
+            </button>
+          )}
+          <button
+            type="button"
+            role="menuitem"
+            className={s.menuItem}
+            onClick={run(onPasteText)}
+            data-testid="paste-open"
+          >
+            <Icon name="pencil" />
+            {u.pasteText}
+          </button>
+        </span>
+      ) : null}
+    </span>
   );
 };
 
@@ -254,7 +353,7 @@ export const ManageExhibition = () => {
       const i = roomOrder.indexOf(k.id);
       const r = view.rooms.find(x => x.id === k.id);
       return r ? (
-        <div className={s.boardOverlay}>
+        <div className={s.boardOverlay} data-surface="manage">
           <span className={s.boardOverlayNo}>{String(i + 1).padStart(2, '0')}</span>
           {r.title}
         </div>
@@ -265,6 +364,7 @@ export const ManageExhibition = () => {
     return (
       <div
         className={s.dragOverlay}
+        data-surface="manage"
         style={{ transform: `scale(${config().MANAGE_DRAG_SCALE})` }}
         data-testid="drag-overlay"
       >
@@ -288,11 +388,19 @@ export const ManageExhibition = () => {
     st().setOverlay({ kind: 'artwork', id: target.id });
   };
 
-  const uploadHere = () => {
-    // 고른 작품의 전시실, 없으면 마지막 전시실(FIELD_PLAN §5.5 올리기)
+  /** 올릴 전시실: 고른 작품의 전시실, 없으면 마지막 전시실(FIELD_PLAN §5.5 올리기) */
+  const aimUpload = () => {
     const target = art?.roomId ?? roomOrder[roomOrder.length - 1];
     if (target) st().setRoom(target);
+  };
+  const uploadHere = () => {
+    aimUpload();
     pickers.pickFiles();
+  };
+  const openPaste = () => {
+    aimUpload();
+    close();
+    setPasting(true);
   };
 
   const side =
@@ -496,24 +604,9 @@ export const ManageExhibition = () => {
                   >
                     {m.selectMany}
                   </button>
-                  <button
-                    type="button"
-                    className={s.outline}
-                    onClick={uploadHere}
-                    data-testid="summary-upload"
-                  >
-                    <Icon name="plus" />
-                    {m.upload}
-                  </button>
+                  <UploadMenu pickers={pickers} onPick={aimUpload} onPasteText={openPaste} />
                 </div>
-                <DropZone
-                  empty={live.length === 0}
-                  pickers={pickers}
-                  onPasteText={() => {
-                    close();
-                    setPasting(true);
-                  }}
-                />
+                {live.length === 0 ? <DropZone empty pickers={pickers} onPasteText={openPaste} /> : null}
                 <UploadTray tasks={uploads.tasks} onClear={uploads.clearFinished} artworks={live} />
                 <RoomBoards
                   exhibitionId={id}
