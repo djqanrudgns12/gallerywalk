@@ -1,0 +1,628 @@
+/*
+ * 수업 탭(HT-07, G-32, FIELD_PLAN §5.4). 돌 바탕(--manage-ground) 위에 종이 칸(--manage-surface), 그 위 돋움 칸(--manage-raised).
+ * 색·그림자·모서리·글꼴은 토큰만(tokens.css의 manage 묶음·테마 변수). 강조색 면은 주 버튼 하나.
+ * 세 크기: 1024↑ 왼쪽 입장 칸 + 오른쪽(숫자·지도·타일), 768~1023 한 줄(타일 넷), 767↓ 한 줄(타일 둘·QR 작게).
+ */
+
+.root {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'stats'
+    'map'
+    'entry'
+    'tiles'
+    'foot';
+  gap: var(--s-4);
+  color: var(--manage-ink);
+  font-family: var(--font-ui);
+}
+
+/* ── 큰 숫자 · 쌓은 막대 ─────────────────────────── */
+
+.stats {
+  grid-area: stats;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-4) var(--s-8);
+  min-height: var(--manage-fs-num-xl);
+}
+
+.big {
+  flex: none;
+}
+
+.split {
+  flex: 1 1 320px;
+  min-width: 0;
+  padding-bottom: var(--s-1);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-5);
+  margin: var(--s-2) 0 0;
+  font-size: var(--fs-2);
+  color: var(--manage-ink-2);
+}
+
+.teachers {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.plumDot {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: var(--accent-plum);
+}
+
+.metaCount {
+  font-weight: 700;
+  color: var(--manage-ink);
+}
+
+.light {
+  color: var(--manage-ink-3);
+}
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-4) var(--s-6);
+}
+
+.noticeText {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-6);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--manage-ink);
+}
+
+/* ── 지도 ─────────────────────────────────────── */
+
+.mapCard {
+  grid-area: map;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+  padding: var(--s-5) var(--s-6) var(--s-4);
+  border-radius: var(--manage-r-panel);
+  background-color: var(--manage-surface);
+  box-shadow: var(--elev-1);
+}
+
+.mapHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mapTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-4);
+  font-weight: 700;
+  color: var(--manage-ink);
+}
+
+.mapHint {
+  margin: 0;
+  font-size: var(--fs-1);
+  color: var(--manage-ink-3);
+}
+
+/* 크기는 칸이 정하고(지도 SVG가 칸을 늘리지 않게 `contain`), 부품이 재서 지도에 넘긴다 */
+.mapBox {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 4 / 3;
+  contain: size;
+}
+
+/* ── 입장 ─────────────────────────────────────── */
+
+.entry {
+  grid-area: entry;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-3) var(--s-5);
+  padding: var(--s-5);
+  border-radius: var(--manage-r-panel);
+  background-color: var(--manage-surface);
+  box-shadow: var(--elev-1);
+}
+
+.qrSheet {
+  width: 112px;
+  padding: var(--s-2);
+  border-radius: var(--manage-r-control);
+  background-color: var(--manage-raised);
+  box-shadow: var(--elev-1);
+}
+
+.qr {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.qrPaper {
+  fill: var(--manage-raised);
+}
+
+.qrInk {
+  fill: var(--manage-ink);
+}
+
+.entryText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-1);
+  min-width: 0;
+}
+
+.codeLabel {
+  margin: 0;
+  font-size: var(--fs-1);
+  color: var(--manage-ink-3);
+}
+
+.code {
+  margin: 0;
+  font-size: var(--manage-fs-num-md);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  font-feature-settings: 'tnum' 1;
+  color: var(--manage-ink);
+  white-space: nowrap;
+}
+
+.url {
+  margin: 0;
+  font-size: var(--fs-3);
+  color: var(--manage-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.entryHint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--fs-1);
+  color: var(--manage-ink-3);
+}
+
+.primary {
+  min-height: var(--manage-touch);
+  margin-top: var(--s-2);
+  padding: var(--s-2) var(--s-5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  border: none;
+  border-radius: var(--manage-r-control);
+  background-color: var(--accent);
+  color: var(--manage-on-accent);
+  box-shadow: var(--manage-shadow-accent);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notice .primary {
+  margin-top: 0;
+}
+
+/* ── 그림 타일 ─────────────────────────────────── */
+
+.tiles {
+  grid-area: tiles;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 0;
+  min-height: 132px;
+  padding: var(--s-4);
+  border-radius: var(--manage-r-panel);
+  background-color: var(--manage-surface);
+  box-shadow: var(--elev-1);
+}
+
+/* 타일 전체가 누름 영역인 것(반응·학교망): 칸의 안쪽 여백을 단추가 가진다 */
+.flush {
+  padding: 0;
+}
+
+.tileHit {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-height: var(--manage-touch);
+  padding: var(--s-4);
+  border: none;
+  border-radius: var(--manage-r-panel);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tileHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  min-height: var(--s-8);
+}
+
+.tileName {
+  font-size: var(--fs-3);
+  font-weight: 700;
+  color: var(--manage-ink);
+}
+
+.tileHint {
+  font-size: var(--fs-1);
+  color: var(--manage-ink-3);
+}
+
+.chevron {
+  flex: none;
+  color: var(--manage-ink-2);
+}
+
+.tileAction {
+  min-width: var(--manage-touch);
+  min-height: var(--manage-touch);
+  padding: 0 var(--s-4);
+  border: 1px solid var(--manage-rule);
+  border-radius: var(--manage-r-control);
+  background-color: var(--manage-raised);
+  color: var(--manage-ink);
+  box-shadow: var(--manage-shadow-tile);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tileFoot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: auto;
+}
+
+.tileNumber {
+  font-family: var(--font-display);
+  font-size: var(--manage-fs-num-md);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-feature-settings: 'tnum' 1;
+  color: var(--manage-ink);
+}
+
+/* 반응 스티커 더미: 동그라미 둘이 겹침 */
+.pile {
+  display: inline-flex;
+}
+
+.sticker {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--manage-surface);
+  border-radius: 50%;
+  color: var(--manage-on-accent);
+}
+
+.pile .sticker + .sticker {
+  margin-left: -9px;
+}
+
+.sticker[data-sticker='heart'] {
+  background-color: var(--manage-warn);
+}
+
+.sticker[data-sticker='star'] {
+  background-color: var(--brass);
+}
+
+/* 말풍선 타일 스위치 두 줄(받기 · 짧은 글) — 수업 중 바로 끈다 */
+.switches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  margin-top: var(--s-2);
+}
+
+.switch {
+  width: 100%;
+}
+
+/* 말풍선 그림: 돋움 칸 말풍선 + 꼬리 */
+.bubble {
+  position: relative;
+  align-self: flex-start;
+  display: inline-flex;
+  margin-top: auto;
+  padding: var(--s-1) var(--s-4) var(--s-1) var(--s-1);
+  border-radius: var(--r-pill);
+  background-color: var(--manage-raised);
+  box-shadow: var(--elev-1);
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  left: var(--s-5);
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background-color: var(--manage-raised);
+  transform: rotate(45deg);
+}
+
+.bubble .sticker {
+  border-color: var(--manage-raised);
+}
+
+/* 자동 투어 그림 */
+.tourGlyph {
+  display: block;
+  width: 132px;
+  height: auto;
+  margin-top: auto;
+  align-self: flex-end;
+}
+
+.glyphRoom {
+  fill: var(--manage-raised);
+  stroke: var(--axo-wall-b);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.glyphPath {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-dasharray: 4 3;
+  stroke-linecap: round;
+}
+
+/* 학교망 신호 막대 */
+.signal {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 28px;
+  margin-top: auto;
+}
+
+.signalBar {
+  display: block;
+  width: 6px;
+  border-radius: 2px;
+  background-color: var(--manage-ink-3);
+}
+
+.signalBar:nth-child(1) {
+  height: 25%;
+}
+
+.signalBar:nth-child(2) {
+  height: 50%;
+}
+
+.signalBar:nth-child(3) {
+  height: 75%;
+}
+
+.signalBar:nth-child(4) {
+  height: 100%;
+}
+
+.preload {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  min-height: var(--manage-touch);
+  margin: 0 var(--s-4);
+  padding: 0;
+  border: none;
+  border-top: 1px solid var(--manage-rule-soft);
+  background: none;
+  color: var(--accent);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ── 아래 줄: 삭제일 · 전시 닫기 ─────────────────── */
+
+.foot {
+  grid-area: foot;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  font-size: var(--fs-2);
+  color: var(--manage-ink-3);
+}
+
+.close {
+  min-height: var(--manage-touch);
+  padding: 0 var(--s-3);
+  border: none;
+  border-radius: var(--manage-r-control);
+  background: none;
+  color: var(--danger);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ── 초점 ─────────────────────────────────────── */
+
+.primary:focus-visible,
+.tileAction:focus-visible,
+.tileHit:focus-visible,
+.preload:focus-visible,
+.close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── 767↓(시안 05): 큰 숫자 → 납작한 지도 → QR·코드(QR 크게는 온 폭) → 타일 2열 ── */
+
+@media (max-width: 767px) {
+  .root {
+    gap: var(--s-3);
+  }
+
+  .stats {
+    gap: var(--s-3);
+  }
+
+  .split {
+    flex-basis: 100%;
+  }
+
+  .mapCard {
+    padding: var(--s-4) var(--s-4) var(--s-3);
+  }
+
+  .mapBox {
+    aspect-ratio: 16 / 10;
+  }
+
+  .entry {
+    gap: var(--s-3) var(--s-4);
+    padding: var(--s-4);
+  }
+
+  .entryText .primary {
+    align-self: stretch;
+  }
+
+  .tile {
+    min-height: 120px;
+    padding: var(--s-3) var(--s-4);
+    word-break: keep-all;
+  }
+
+  .preload {
+    margin: 0 var(--s-3);
+    word-break: keep-all;
+  }
+
+  .tileHit {
+    padding: var(--s-3) var(--s-4);
+  }
+}
+
+/* ── 768~1023: 한 줄, 타일 넷 ─────────────────── */
+
+@media (min-width: 768px) {
+  /* 말풍선 타일이 숨으면 셋, 있으면 넷 — 있는 만큼 같은 폭 */
+  .tiles {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+
+  .mapBox {
+    aspect-ratio: auto;
+    height: clamp(280px, 44vh, 460px);
+  }
+
+  .qrSheet {
+    width: 152px;
+  }
+}
+
+/* ── 1024↑: 왼쪽 입장 칸 + 오른쪽(숫자·지도·타일) ─────────── */
+
+@media (min-width: 1024px) {
+  .root {
+    grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+    grid-template-areas:
+      'entry stats'
+      'entry map'
+      'entry tiles'
+      'entry foot';
+    grid-template-rows: auto 1fr auto auto;
+    column-gap: var(--s-6);
+  }
+
+  .entry {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    justify-items: center;
+    padding: var(--s-8) var(--s-6) var(--s-6);
+  }
+
+  .qrSheet {
+    width: min(100%, 240px);
+    padding: var(--s-3);
+  }
+
+  .entryText {
+    align-items: center;
+    width: 100%;
+    text-align: center;
+  }
+
+  .entryText .primary {
+    align-self: stretch;
+  }
+
+  .entryHint {
+    text-align: center;
+  }
+
+  .mapBox {
+    height: clamp(300px, 46vh, 520px);
+  }
+}
+
+@media (pointer: coarse) {
+  .tile {
+    min-height: 140px;
+  }
+}

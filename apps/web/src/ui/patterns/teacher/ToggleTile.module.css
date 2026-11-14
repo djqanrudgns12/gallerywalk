@@ -1,0 +1,87 @@
+/* 이름 + 스위치 타일: 칸 전체가 누름 영역. 켜지면 스위치가 남색. */
+.tile {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  min-height: max(48px, var(--manage-touch, var(--touch-min)));
+  padding: 0 var(--s-3) 0 14px;
+  border: 1px solid var(--manage-rule-soft);
+  border-radius: 10px;
+  background-color: var(--manage-raised);
+  color: var(--manage-ink);
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tile:disabled {
+  color: var(--manage-ink-3);
+  cursor: default;
+}
+
+.mark {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background-color: var(--brass);
+  transform: rotate(45deg);
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  padding: 1px 7px;
+  border: 1px solid var(--manage-rule);
+  border-radius: var(--r-pill);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--manage-ink-3);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.switch {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 40px;
+  height: 24px;
+  border-radius: var(--r-pill);
+  background-color: var(--manage-switch-off);
+}
+
+.knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--manage-knob);
+  box-shadow: var(--manage-shadow-knob);
+  transition: left var(--t-hover) var(--ease-out);
+}
+
+.on .switch {
+  background-color: var(--accent);
+}
+
+.on .knob {
+  left: 19px;
+}

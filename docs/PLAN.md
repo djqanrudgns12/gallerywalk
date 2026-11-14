@@ -709,16 +709,19 @@ PRD 6.7의 읽기 배율 s = (그려지는 크기) ÷ (원본 크기)는 **원�
 - PIN 중복: 칸 아래 "이미 쓰이는 PIN이에요"만. 이 확인도 PIN 실패 칸으로 센다(ADR-024).
 - 시작 코드(ADR-048, 기본 켬): 이 기기에서 처음 만들 때만 PIN 아래에 한 칸 더(숫자 키패드). 한 번 맞으면 기기에 기억해 다음부터 보이지 않으므로 평소 화면은 4가지 그대로다(G-09).
 
-**전시 관리 · 작품 탭 (G-10~G-13)**
-- 위: 전시 이름(눌러서 고침) · 상태 점(`준비 중`·`열림`·`닫힘`) · 작은 글자 "{날짜}에 지워져요"(G-18) · `···` · 전시실 칩 줄(끌어서 순서, 끝에 `+`).
-- 점검 줄(문제가 있을 때만): "제목이 없는 작품 2개 · 흐린 작품 1개" → 누르면 해당 카드로 스크롤·깜빡임.
-- 가운데: 작품 카드 격자(썸네일·제목·상태 점·알림 딱지만). 카드 제목 누르면 바로 입력, 끌어서 순서, 전시실 칩 위로 끌어 옮김(`@dnd-kit`, ADR-032). 길게 누르기·Shift로 여러 장 → 아래 띠에 `숨기기` `게시` `전시실 옮기기`만.
-- 빈 상태: 큰 놓기 영역 "작품 파일이나 폴더를 여기에 놓아요" + 주요 버튼 `작품 올리기` + 작은 `글 붙여넣기`. 작품이 있으면 놓기 영역은 격자 위 얇은 띠로 줄고 화면 어디에 놓아도 받는다.
+**전시 관리 v3 (G-10~G-13·G-26·G-32, FIELD_PLAN §5.4~§5.7, ADR-074 — 2026-11-14 H4로 바꿈)**
+- 바깥 틀 `data-surface="manage"`: 돌 바탕·종이 칸·액자 토큰(`tokens.css`), 부품은 `ui/patterns/teacher`(Frame·StatNumber·StatusPill·Seg·RoomTiles·OrderStepper·FormChips·ToggleTile·StackBar).
+- 위 줄(≤ 68px): 뒤로 · 전시 이름(22px 명조, 눌러 고침) · 상태 알약 · 모드 탭 `작품 n / 수업 / 반응`(열린 전시는 수업이 먼저) · `미리 보기` · 주요 버튼 · `···`.
+- 작품 탭: 요약 줄(큰 숫자 작품·전시실 · 확인할 것 그림 겹침 칩 · `크게/작게`(기기에 기억) · `여러 개 고르기` · `작품 올리기` 차림표: 파일·폴더·글 붙여넣기) → **모든 전시실 판**(`manage/RoomBoard.tsx`: 큰 번호·이름·레일·작품 수·배경음악·손잡이·`고치기`, 액자를 한 줄로 걸고 넘치면 다음 줄, 대표작 1.2배·황동 테, 확인할 것 귀퉁이 점). 판에 파일을 떨어뜨리면 그 전시실로 올린다.
+- 끌어 놓기(`manage/ManageDnd.tsx`, 규칙 `arrange.ts`): 같은 판 안 · 다른 판 n번째 · 빈 판 · 지도의 전시실 · 판 머리 손잡이로 판 순서. 마우스 8px·터치 500ms·키보드 M. 끄는 동안 임시 배열(줄바꿈은 flex), 놓일 판 남색 테 + "놓으면 n번째로 걸려요", 여러 개는 "n점"·보드 차례. 놓으면 `PUT …/arrangement` 한 번(`base`로 동시 편집 409), 되돌리기는 `base`↔`rooms`.
+- 키(`keys.ts`): Enter 살펴보기 · Space 고르기 · ←/→ 이웃 · Alt+←/→ 한 칸 · M 집기 · H 숨기기 · Delete 삭제 · ? 도움말 · Ctrl/⌘+Z 되돌리기.
+- 오른쪽 칸(1280↑, 이 화면의 유일한 지도 자리): 고른 작품 살펴보기(아래), 없으면 축측 전시 지도(`FloorPlan`, `viewer/map/axo.ts`).
+- 빈 상태: 큰 놓기 영역 + `작품 올리기` + `글 붙여넣기`. 작품이 있으면 화면 어디에 놓아도 받는다.
 - 3D 미리 보기(ADR-057·063): 모든 크기에서 `미리 보기` 버튼(게시 작품이 있을 때) → 전체 화면 층. 학생 관람 화면 그대로, 서버가 계산한 배치를 받아 쓴다. 작품을 누르면 그 작품 패널이 서랍으로 위에 열린다. 오른쪽(1280px 이상) 칸은 작품 패널·전시실 시트 자리다.
 - 주요 버튼: 열린 전시면 `QR·주소 다시 보기`(같은 열기 시트).
 - 주요 버튼: 작품이 없으면 `작품 올리기`, 게시 작품이 1개 이상이면 `전시 열기`. 게시 작품이 0이면 `전시 열기`·`자동 투어`는 잠기고 "게시한 작품이 있어야 열 수 있어요"(Antigravity 지적).
 
-**작품 패널 (G-11)**: 데스크톱 오른쪽 칸, 768~1279px·미리 보기 중에는 오른쪽 서랍, 휴대폰 아래 시트. 항상: 제목. 접힘: `작가 더하기`, `설명 더하기`(한 줄 + 긴 설명). **글 작품은 `글 고치기`(본문, 5,000자)**(G-11에 빠진 것, Antigravity 지적). 자동값(펼칠 때만): 전시실, 형태·액자, 쪽 나눔 `자동 / 한 장으로 보기`, `글이 많은 작품`, `대표작`. 아래: `숨기기` / `삭제`.
+**살펴보기 칸 (G-11·G-32, `manage/InspectPanel.tsx`)**: 데스크톱 오른쪽 칸, 768~1279px·미리 보기 중에는 오른쪽 서랍, 휴대폰 아래 시트. 접힌 칸 없음: 감상 상자(이전·다음 = 보드 읽는 차례) · 제목·`작가 더하기`·`설명 더하기`·**글 작품은 `글 고치기`(본문, 5,000자)** · 전시실 번호 타일(누르면 그 전시실 끝으로) · 순서 앞뒤+눈금 · 형태 그림 칩(`자동`, 다른 형태) · 대표작·게시·한 장으로 보기·글이 많은 작품 토글 · 걸린 자리 작은 지도(핀) · `3D에서 이 자리 보기` · `삭제`.
 - 저장은 입력이 멈추고 0.6초 뒤 자동(버튼 없음). 실패하면 칸 옆에 다시 시도.
 - 삭제 → 바로 사라지고 토스트 "삭제했어요 `되살리기`" 10초(`UNDO_DELETE_SEC`). 파일은 24시간 뒤 지움.
 
@@ -733,7 +736,7 @@ PRD 6.7의 읽기 배율 s = (그려지는 크기) ÷ (원본 크기)는 **원�
 ### 7.5 반응형 (9.5)
 
 - 학생 관람은 PRD 9.5 표대로. 높이는 `100dvh`, 가장자리는 `env(safe-area-inset-*)`.
-- 교사 관리: 1280px 이상 = 격자 + 오른쪽 패널 칸, 768~1279px = 격자만(패널은 서랍), 767px 이하 = 2열 격자 + 아래 시트 패널. 3D 미리 보기는 모든 크기에서 전체 화면 층(ADR-063).
+- 교사 관리 v3: 1280px 이상 = 판 보드 + 오른쪽 칸(살펴보기·지도), 768~1279px = 보드 위 지도 띠(지도 · 큰 숫자 · 놓을 자리 · 확인할 것) + 판 보드(태블릿 터치는 액자 72px), 살펴보기는 서랍, 767px 이하 = 접이식 판 카드(표지 그림 셋, 끄는 액자가 머물면 0.6초 뒤 펼침) + 비모달 아래 시트, 지도는 수업 탭에만. 3D 미리 보기는 모든 크기에서 전체 화면 층(ADR-063).
 - 회전: 관람 엔진이 즉시 다시 맞춤(§6.7). 교사 화면은 일반 반응형.
 - 터치 영역 44×44px 이상, 버튼 사이 8px 이상.
 
@@ -1627,6 +1630,8 @@ G-20 도록(인쇄 CSS, `print-color-adjust: exact`, 모든 그림 `decode()` �
 | 서버 | `CLIENT_IP_HEADER='x-gw-viewer-ip'`(Cloudflare 직접이면 `'cf-connecting-ip'`) `REACTION_OUTBOX_MAX=200` `UPLOAD_SLOTS_PER_EXHIBITION=3` `UPLOAD_SLOTS_GLOBAL=6` `UPLOAD_RESERVE_FACTOR=3` `UPLOAD_IDLE_TIMEOUT_SEC=120` `SHARP_THREADS=2` `SHARP_LIMIT_INPUT_PIXELS=120000000` `TOOL_TIMEOUT_MS=20000` `AUDIO_AAC_KBPS=160` `PROFILE_BIN_PX=8` `PROFILE_MAX_BINS=4096` `LINE_PITCH_MAX_SHORT_PX=2400` `ANALYSIS_EDGE_RATIO=0.04` `ANALYSIS_BORDER_RATIO=0.08` `LINE_PITCH_MIN_CONFIDENCE=0.6` `LINE_PITCH_PEAK_RATIO=0.9` `AUDIO_ANALYSIS_SAMPLE_RATE=22050` `AUDIO_LOUDNESS_GATE_DBFS=-50` `PDF_INCOMPLETE_PURGE_HOURS=2` `DELETE_WAIT_SEC=30` `MEDIA_STATE_CACHE_SEC=10` `PROCESS_CONCURRENCY=1` `PROCESS_QUEUE_MAX=30` `EXHIBITION_MAX_MB=800` `MEDIA_DISK_MAX_GB=40` `DISK_FREE_MIN_GB=10` `MEDIA_BROWSER_MAX_AGE_SEC=2592000` `MEDIA_CDN_MAX_AGE_SEC=86400` `MEDIA_STALE_IF_ERROR_SEC=86400` `RETENTION_JOB_SEC=60` `PURGE_JOB_SEC=3600` `LAYOUT_KEEP_VERSIONS=2` |
 
 - **P2에서 더한 키**(2026-11-11): `ROOM_SIZE_S_MAX=4` `ROOM_SIZE_M_MAX=8` `ROOM_MAX_DW_RATIO=2` `HIGH_FRAME_LIMIT_M=2.6` `HIGH_FRAME_BOTTOM_M=0.4` `LABEL_OFFSET_M=0.15` `LABEL_HEIGHT_M=1.3` `INTRO_STOP_INSIDE_M=1.2` `HALL_STOP_INSIDE_M=1.5` `DOOR_PATH_OFFSET_M=1.2` `WALKABLE_WALL_MARGIN_M=0.3` `TEXTCARD_ASPECT=0.707` `PATH_FILLET_SEGMENT_RATIO=0.4` `PATH_FILLET_TANGENT_RATIO=0.45` `PAGE_SPLIT_MIN_GAIN=1.02` `ROTATE_HINT_MIN_GAIN=1.2` `POEM_MIN_LINES=4` `POEM_SHORT_LINE_CHARS=20` `POEM_SHORT_LINE_RATIO=0.7` `TEXT_HEAVY_NAME_WORDS` `TOUR_APPROACH_SEC=2.5` `TOUR_LINGER_CLOSEUP_SCALE=1.2` `TOUR_PATH_DISTANCE_SCALE=1.25` `TOUR_HALL_FADE_IN_SEC=2` `TOUR_EXIT_FADE_OUT_SEC=3` `TOUR_NEXT_SONG_AT_LEVEL=0.3` `TOUR_WALK_SPEED_MPS=6` `MEDIA_STALE_IF_ERROR_SEC=86400` `JSON_BODY_MAX_KB=64` `SHUTDOWN_WAIT_SEC=20` `LOG_KEEP_FILES=7` `DB_BUSY_TIMEOUT_MS=5000` `HSTS_MAX_AGE_SEC=31536000` 글자 수 한도 10개(ADR-052). 템플릿마다 다른 공간·꾸밈·정지 지점 연출 수치는 `packages/core/src/domain/templates/geometry.ts`.
+
+- **H4(교사 작업 화면 v3)에서 더한 키**(2026-11-14, ADR-074): `UNDO_STACK_MAX=20`(HT-08) `ARRANGEMENT_MAX_ROOMS=50` `ARRANGEMENT_MAX_IDS=600` `LIVE_TEACHER_POLL_SEC=10` `MANAGE_FRAME_RATIO_MIN=0.45` `MANAGE_FRAME_RATIO_MAX=2.4` `MANAGE_KEYBOARD_EDGE=0.25` `MANAGE_AUTOSCROLL_THRESHOLD=0.15` `MANAGE_DRAG_SCALE=1.06` `MANAGE_DROP_EXPAND_MS=600` `AXO`(축측 지도 묶음: 방위 20°·고도 35°, 벽 두께·높이, 문 자르기, 작품 자리 막대, 핀, 번호 글자, 학생 점 흩기). 액자 높이(92·56·72px)·대표작 배율은 수치가 아니라 CSS 토큰 `--frame-h-*`가 출처다.
 
 - **F1~F9에서 더한 키**(2026-11-13): `PUBLIC_RATE`(바깥 공개 속도 칸, ADR-062) `RESIDENCY_RETRY={max:3,delayMs:5000}` `ZOOM_SWIPE_CLOSE_PX=80` `ZOOM_CAPTION_INSET=0.24` `PAGE_SINGLE_READ_TOLERANCE=0.8` `WALK_HINT_SEC=8` `HOVER_POOL_BOOST=1.22` `MICRO_MOTION`(먼지 수 높음 90·보통 40·낮음 0, 흔들림 세기·속도·사라지는 거리, ADR-013 고침) `VIGNETTE={strength:{HIGH:0.2,MEDIUM:0.2,LOW:0},inner:0.6}`. `ZOOM_POOL_BOOST=1.35`는 F9부터 실제로 쓴다.
 

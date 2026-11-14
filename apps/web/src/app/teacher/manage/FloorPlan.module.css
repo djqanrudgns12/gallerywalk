@@ -1,0 +1,146 @@
+/* 교사 작업 화면 v3 축측 지도(FIELD_PLAN §5.4 ③). 색은 토큰만: 지도 면은 `--axo-*`(tokens.css의 manage 묶음), 강조는 테마 */
+.axo {
+  display: block;
+  overflow: visible;
+  max-width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+.empty {
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  color: var(--manage-ink-3);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+/* 종이 위에 놓인 건축 모형처럼: 바닥 묶음 밑에 부드러운 그림자 하나 */
+.floors {
+  filter: drop-shadow(var(--axo-model-shadow));
+}
+
+.corridor {
+  fill: var(--axo-corridor);
+  stroke: var(--axo-corridor);
+  stroke-width: 0.6;
+}
+
+.floor {
+  fill: var(--axo-floor);
+  stroke: var(--axo-floor);
+  stroke-width: 0.6;
+  transition: fill var(--t-hover) var(--ease-out);
+}
+
+.floor.selected,
+.floor.drop {
+  fill: var(--axo-floor-selected);
+  stroke: var(--axo-floor-selected);
+}
+
+.floor.drop {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.pickable {
+  cursor: pointer;
+}
+
+.top {
+  fill: var(--axo-wall-top);
+  stroke: var(--axo-wall-edge);
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+}
+
+.sideA {
+  fill: var(--axo-wall-a);
+  stroke: var(--axo-wall-a);
+  stroke-width: 0.4;
+}
+
+.sideB {
+  fill: var(--axo-wall-b);
+  stroke: var(--axo-wall-b);
+  stroke-width: 0.4;
+}
+
+.art {
+  fill: var(--axo-art);
+}
+
+.easel,
+.entry {
+  fill: var(--axo-easel);
+}
+
+.art.featured,
+.easel.featured {
+  fill: var(--brass);
+}
+
+.art.selected,
+.easel.selected {
+  fill: var(--accent);
+}
+
+.number {
+  font-family: var(--font-display);
+  font-weight: 600;
+  fill: var(--manage-ink-3);
+  text-anchor: middle;
+  dominant-baseline: central;
+  letter-spacing: -0.02em;
+}
+
+.number.selected {
+  fill: var(--accent);
+}
+
+.count {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  fill: var(--manage-ink-2);
+  letter-spacing: 0;
+}
+
+.entryLabel {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  fill: var(--manage-ink-3);
+  text-anchor: middle;
+}
+
+.ring {
+  fill: var(--axo-ring);
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+
+.stem {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+}
+
+.pin {
+  fill: var(--accent);
+  stroke: var(--manage-raised);
+  stroke-width: 2.5;
+}
+
+.dot {
+  fill: var(--accent);
+  stroke: var(--manage-raised);
+  stroke-width: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floor {
+    transition: none;
+  }
+}

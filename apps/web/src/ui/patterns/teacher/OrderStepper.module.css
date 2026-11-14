@@ -1,0 +1,90 @@
+/* 순서: 앞뒤 단추 + 큰 명조 숫자 + 눈금 줄. */
+.root {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-ui);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.step {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--manage-touch, var(--touch-min));
+  height: var(--manage-touch, var(--touch-min));
+  padding: 0;
+  border: 1px solid var(--manage-rule-soft);
+  border-radius: var(--manage-r-control);
+  background-color: var(--manage-raised);
+  color: var(--manage-ink-2);
+  cursor: pointer;
+}
+
+.step:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.step:disabled {
+  color: var(--manage-ink-quiet);
+  box-shadow: none;
+  cursor: default;
+}
+
+.num {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-display);
+  color: var(--manage-ink);
+  font-feature-settings: 'tnum' 1;
+}
+
+.now {
+  font-size: var(--manage-fs-num-step);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.of {
+  margin-left: 3px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  color: var(--manage-ink-3);
+}
+
+.ticks {
+  display: grid;
+  grid-template-columns: repeat(var(--ticks), minmax(0, 1fr));
+  gap: 3px;
+  margin-top: 7px;
+}
+
+.tick,
+.tickOn {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background-color: var(--manage-tick);
+}
+
+.tickOn {
+  background-color: var(--accent);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

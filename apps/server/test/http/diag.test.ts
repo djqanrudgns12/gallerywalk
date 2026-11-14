@@ -6,11 +6,15 @@ import { ApiErrorSchema, LiveStatsSchema, okEnvelope, type DeviceReport } from '
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDeviceDiag } from '../../src/application/diag.ts';
 import { createExhibition } from '../../src/application/exhibitions.ts';
+import { recomputeLayout } from '../../src/application/layout.ts';
+import { insidePolygon } from '../../src/application/liveRooms.ts';
+import { createRoom } from '../../src/application/rooms.ts';
+import { createTextArtwork } from '../../src/application/textArtworks.ts';
 import { createDeviceReportFiles, type DeviceReportFileWriter } from '../../src/deps.ts';
 import { createApp } from '../../src/http/app.ts';
 import { createLifecycle } from '../../src/http/lifecycle.ts';
 import { createLogger, type Logger } from '../../src/log.ts';
-import type { LiveAudience } from '../../src/live/hub.ts';
+import type { LiveAudience, LiveFloor } from '../../src/live/hub.ts';
 import type { Deps, DeviceDiag } from '../../src/ports/index.ts';
 import { createSecurity } from '../../src/security/index.ts';
 import { tokenHash } from '../../src/security/tokens.ts';
@@ -72,6 +76,7 @@ let exhibitionId: string;
 let code: string;
 let teacherToken: string;
 let audience: Map<string, LiveAudience>;
+let floors: Map<string, LiveFloor>;
 
 const newExhibition = (token: string): string => {
   const id = randomUUID();
@@ -103,6 +108,7 @@ beforeEach(async () => {
   deps.store.exhibitions.update(exhibitionId, { status: 'OPEN', openedAt: s.at() });
   code = deps.store.exhibitions.get(exhibitionId)!.entryCode;
   audience = new Map();
+  floors = new Map();
   app = createApp({
     db: s.db,
     log,
@@ -116,6 +122,7 @@ beforeEach(async () => {
       live: {
         closeExhibition: () => undefined,
         exhibitionCounts: id => audience.get(id) ?? { visitors: 0, teachers: 0 },
+        exhibitionFloor: id => floors.get(id) ?? { positions: [], noPose: 0 },
       },
     },
   });
@@ -360,6 +367,9 @@ describe('교사 지금 관람 수 GET /api/teacher/exhibitions/{id}/live', () =
       teachers: 0,
       light: 0,
       reasons: {},
+      rooms: [],
+      elsewhere: 0,
+      noPose: 0,
     });
     audience.set(exhibitionId, { visitors: 27, teachers: 1 });
     await post({ kind: 'fail', reason: 'ready_timeout' });
@@ -373,8 +383,76 @@ describe('교사 지금 관람 수 GET /api/teacher/exhibitions/{id}/live', () =
       teachers: 1,
       light: 3,
       reasons: { ready_timeout: 2, webgl_none: 1 },
+      // 배치가 없는 전시(게시 작품 없음)는 전시실 칸이 비어 있다
+      rooms: [],
+      elsewhere: 0,
+      noPose: 0,
     });
     // 토큰·기기 정보는 응답에 없다
     expect(JSON.stringify(got.json)).not.toContain(teacherToken);
+  });
+
+  it('수업 지도(HT-16): 전시실별 학생 수(관 둘로 나뉜 전시실은 합침)·전시실 밖·위치 없음, 좌표·토큰은 응답에 없다', async () => {
+    overrideConfig({ ROOM_SPLIT_AT: 2 });
+    const [r1, r2] = [randomUUID(), randomUUID()];
+    createRoom(deps, exhibitionId, { id: r1, order: 0, title: '1 전시실' });
+    createRoom(deps, exhibitionId, { id: r2, order: 1, title: '2 전시실' });
+    for (const [roomId, title] of [
+      [r1, '가'],
+      [r2, '나'],
+      [r2, '다'],
+      [r2, '라'],
+    ] as const)
+      createTextArtwork(deps, exhibitionId, {
+        id: randomUUID(),
+        roomId,
+        order: 0,
+        title,
+        kind: 'TEXT',
+        textBody: '가상의 글',
+      });
+    const layout = recomputeLayout(deps, exhibitionId).data;
+    /** 관 바닥 다각형의 꼭짓점 평균(직사각형 관이라 안쪽) */
+    const center = (partId: string) => {
+      const ring = layout.map.parts.find(p => p.partId === partId)!.polygon;
+      return {
+        x: ring.reduce((n, v) => n + v[0], 0) / ring.length,
+        z: ring.reduce((n, v) => n + v[1], 0) / ring.length,
+      };
+    };
+    const partsOf = (roomId: string) => layout.parts.filter(p => p.roomId === roomId).map(p => p.partId);
+    const [p1] = partsOf(r1) as [string];
+    const [p2a, p2b] = partsOf(r2) as [string, string];
+    expect(partsOf(r2)).toHaveLength(2);
+    // 출발점(광장)은 어느 관에도 들지 않는다
+    const spawn = { x: layout.walk.spawn.pos[0], z: layout.walk.spawn.pos[2] };
+    expect(layout.map.parts.some(p => insidePolygon(spawn, p.polygon))).toBe(false);
+    const positions = [center(p1), center(p2a), center(p2b), spawn];
+    audience.set(exhibitionId, { visitors: 5, teachers: 1 });
+    floors.set(exhibitionId, { positions, noPose: 1 });
+
+    const got = await liveStats();
+    expect(okEnvelope(LiveStatsSchema).parse(got.json).data).toEqual({
+      visitors: 5,
+      teachers: 1,
+      light: 0,
+      reasons: {},
+      rooms: [
+        { roomId: r1, count: 1 },
+        { roomId: r2, count: 2 },
+      ],
+      elsewhere: 1,
+      noPose: 1,
+    });
+    // 응답 원문에 위치 칸·토큰이 없다(데이터 칸은 위에서 엄격 스키마 + 전체 비교로 확인)
+    const text = JSON.stringify(got.json);
+    expect(text).not.toContain(teacherToken);
+    expect(text).not.toMatch(/"(x|y|z|pose|poses|positions|sid|nickname)"/);
+
+    // 교사 권한이 없으면 지금처럼 막힌다
+    const res = await app.request(`/api/teacher/exhibitions/${exhibitionId}/live`, {
+      headers: { [config().CLIENT_IP_HEADER]: IP },
+    });
+    expect(await failure(res)).toMatchObject({ status: 401, code: 'E_AUTH' });
   });
 });

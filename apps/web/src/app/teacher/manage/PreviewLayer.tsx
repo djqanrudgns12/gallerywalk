@@ -13,6 +13,8 @@ export interface PreviewLayerProps {
   readonly revision: unknown;
   readonly onPick: (artworkId: string) => void;
   readonly onClose: () => void;
+  /** 이 작품 앞에서 시작(HT-06 — 관리 화면에서 고른 작품). 없으면 광장부터 */
+  readonly startArtworkId?: string | null | undefined;
 }
 
 type State =
@@ -32,7 +34,13 @@ type State =
  * 학생 입장과 같은 경로). 장면은 학생 관람 화면 그대로(`VisitScreen`), 작품을 누르면 크게 보기 대신 그 작품 패널.
  * 교사 묶음이 바뀌면 `AUTOSAVE_DELAY_MS` 뒤 다시 받아 고친 것이 보이게 한다(배치가 같으면 그림을 다시 받지 않는다).
  */
-export const PreviewLayer = ({ exhibitionId, revision, onPick, onClose }: PreviewLayerProps) => {
+export const PreviewLayer = ({
+  exhibitionId,
+  revision,
+  onPick,
+  onClose,
+  startArtworkId,
+}: PreviewLayerProps) => {
   const { api, device } = useServices();
   // 함께 관람(PRD 15.8): 이 기기의 교사 세션 토큰과 고른 선생님 캐릭터
   const teacherToken = useMemo(
@@ -114,6 +122,7 @@ export const PreviewLayer = ({ exhibitionId, revision, onPick, onClose }: Previe
         entered
         onHome={onClose}
         onPickArtwork={onPick}
+        startArtworkId={startArtworkId ?? undefined}
         onFallback2d={() => setState({ kind: 'no3d' })}
       />
       {hint ? (

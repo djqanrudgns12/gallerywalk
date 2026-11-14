@@ -1,0 +1,32 @@
+/* 주석 안의 linear-gradient( 와 black, #000 은 위반이 아니다 */
+.a {
+  background: linear-gradient(90deg, var(--x), var(--y));
+}
+
+.b {
+  background-image: repeating-radial-gradient(circle, var(--x) 0 2px, transparent 2px 4px);
+}
+
+.c {
+  background: -webkit-conic-gradient(var(--x), var(--y));
+}
+
+.d {
+  color: #000;
+}
+
+.e {
+  --ink-hard: #000000ff;
+}
+
+.f {
+  border: 1px solid black;
+}
+
+.g {
+  box-shadow: 0 1px 2px rgb(0, 0, 0);
+}
+
+.h {
+  outline-color: rgba(0 0 0 / 100%);
+}

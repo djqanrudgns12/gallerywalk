@@ -1,0 +1,770 @@
+/* 교사 작업 화면 v3 틀(G-32, FIELD_PLAN §5.4). 색·그림자·크기는 tokens.css [data-surface='manage']에서만 온다 */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background-color: var(--manage-ground);
+  color: var(--manage-ink);
+  font-family: var(--font-ui);
+}
+
+.previewing {
+  overflow: hidden;
+}
+
+.notice {
+  display: grid;
+  place-items: center;
+  gap: var(--space-4);
+  min-height: 60dvh;
+  padding: var(--space-8) var(--space-4);
+  background-color: var(--manage-ground);
+  color: var(--manage-ink-2);
+  text-align: center;
+}
+
+.noticeText {
+  margin: 0;
+}
+
+/* ── 위 줄 ≤ 68px ─────────────────────────────── */
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 68px;
+  padding: var(--space-2) var(--space-6) var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--manage-rule);
+  background-color: var(--manage-ground);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--manage-touch);
+  height: var(--manage-touch);
+  border: 0;
+  border-radius: var(--manage-r-control);
+  background: none;
+  color: var(--manage-ink-2);
+  cursor: pointer;
+}
+
+.exTitle {
+  min-width: 0;
+  max-width: 360px;
+}
+
+/* 전시 이름: 평소엔 글자(22px 명조), 손대거나 고칠 때만 칸 테두리 */
+.exTitle input {
+  min-height: var(--manage-touch);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--manage-r-control);
+  background: transparent;
+  color: var(--manage-ink);
+  font-family: var(--font-display);
+  font-size: var(--manage-fs-title);
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+
+.exTitle input:hover {
+  border-color: var(--manage-rule);
+}
+
+.exTitle input:focus {
+  border-color: var(--accent);
+  background-color: var(--manage-raised);
+  outline: none;
+}
+
+.tabs {
+  display: flex;
+  align-self: stretch;
+  gap: var(--space-2);
+  margin-inline: auto;
+}
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--manage-touch);
+  padding: 0 var(--space-4);
+  border: 0;
+  background: none;
+  color: var(--manage-ink-3);
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tabOn {
+  color: var(--manage-ink);
+}
+
+.tabOn::after {
+  position: absolute;
+  right: var(--space-3);
+  bottom: calc(-1 * var(--space-2));
+  left: var(--space-3);
+  height: 2px;
+  background-color: var(--manage-ink);
+  content: '';
+}
+
+.tabCount {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--manage-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.menuSlot {
+  display: inline-flex;
+}
+
+.primaryWrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+
+.hint {
+  font-size: var(--text-xs);
+  color: var(--manage-ink-3);
+}
+
+.primary,
+.quiet,
+.outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--manage-touch);
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--manage-r-control);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.primary {
+  background-color: var(--accent);
+  color: var(--manage-on-accent);
+  box-shadow: var(--manage-shadow-accent);
+}
+
+.primary:disabled {
+  background-color: var(--manage-switch-off);
+  color: var(--manage-ink-3);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.quiet {
+  padding: 0 var(--space-3);
+  background: none;
+  color: var(--manage-ink-2);
+  font-weight: 500;
+}
+
+.quietOn {
+  background-color: var(--manage-accent-soft);
+  color: var(--accent);
+}
+
+.outline {
+  border: 1px solid var(--manage-rule);
+  background-color: var(--manage-raised);
+  color: var(--manage-ink);
+  box-shadow: var(--manage-shadow-tile);
+}
+
+.primary svg,
+.quiet svg,
+.outline svg {
+  width: 18px;
+  height: 18px;
+}
+
+.back:focus-visible,
+.tab:focus-visible,
+.primary:focus-visible,
+.quiet:focus-visible,
+.outline:focus-visible,
+.checkChip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── 몸통: 보드 | 오른쪽 칸 420px ─────────────── */
+.body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  align-items: start;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-6) var(--space-6) var(--space-12);
+}
+
+.tabBody {
+  padding: var(--space-6);
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+}
+
+.divider {
+  width: 1px;
+  height: 36px;
+  background-color: var(--manage-rule);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.uploadMenu {
+  position: relative;
+  display: inline-flex;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: var(--space-2);
+  border: 1px solid var(--manage-rule);
+  border-radius: var(--manage-r-panel);
+  background-color: var(--manage-raised);
+  box-shadow: var(--elev-2);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--manage-touch);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--manage-r-control);
+  background: none;
+  color: var(--manage-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuItem:hover,
+.menuItem:focus-visible {
+  background-color: var(--manage-surface);
+  outline: none;
+}
+
+.menuItem svg {
+  width: 18px;
+  height: 18px;
+  color: var(--manage-ink-3);
+}
+
+.checkChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--manage-touch);
+  padding: var(--space-1) var(--space-4) var(--space-1) var(--space-2);
+  border: 1px solid var(--manage-warn-edge);
+  border-radius: var(--r-pill);
+  background-color: var(--manage-raised);
+  color: var(--manage-warn);
+  font: inherit;
+  font-weight: 600;
+  box-shadow: var(--manage-shadow-tile);
+  cursor: pointer;
+}
+
+.checkThumbs {
+  display: inline-flex;
+  --frame-h-small: 30px;
+}
+
+.checkThumbs > * + * {
+  margin-left: calc(-1 * var(--space-2));
+}
+
+.checkNo {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: 1;
+}
+
+.side {
+  position: sticky;
+  top: 68px;
+  align-self: stretch;
+  min-height: calc(100dvh - 68px);
+  padding: var(--space-5);
+  border-left: 1px solid var(--manage-rule);
+  background-color: var(--manage-surface);
+}
+
+.sideMap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sideTitle {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--manage-ink-2);
+}
+
+.sideHint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--manage-ink-3);
+}
+
+.scrim {
+  display: none;
+}
+
+.sheetClose {
+  display: none;
+}
+
+/* 태블릿 지도 띠(HT-10, 시안 03): 지도 | 큰 숫자 · 놓을 자리 · 확인할 것 */
+.strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+  padding: var(--space-3);
+  border-radius: var(--manage-r-panel);
+  background-color: var(--manage-surface);
+  box-shadow: var(--elev-1);
+}
+
+.stripInfo,
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+}
+
+.stripInfo {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  margin-left: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-6);
+  border-left: 1px solid var(--manage-rule-soft);
+}
+
+.dropAt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  color: var(--accent);
+  font-size: var(--text-lg);
+  line-height: var(--lh-tight);
+}
+
+.dropAt strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropAtLabel {
+  font-size: var(--text-sm);
+  color: var(--manage-ink-3);
+}
+
+/* ── 1280 아래(태블릿·휴대폰 공통): 오른쪽 칸은 고른 작품이 있을 때만 서랍으로 ── */
+@media (max-width: 1279px) {
+  /* 위 줄 한 줄: 뒤로 · 이름 · 상태 · 탭 · 주요 버튼 · ··· (미리 보기는 살펴보기 칸의 `3D에서 보기`로) */
+  .top {
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
+  }
+
+  .tabs {
+    flex: none;
+    gap: 0;
+  }
+
+  .tab {
+    padding: 0 var(--space-3);
+    white-space: nowrap;
+  }
+
+  .back {
+    flex: none;
+  }
+
+  .topActions {
+    gap: var(--space-2);
+  }
+
+  /* `미리 보기`는 모든 크기에서(PLAN §7.4) — 좁으면 글자를 감추고 눈 그림만(이름은 aria-label) */
+  .topActions > .quiet {
+    width: var(--manage-touch);
+    padding: 0;
+    font-size: 0;
+  }
+
+  /* `···` 단추: 테 없이 점 셋, 누름 영역 48px(시안 03·04) */
+  .menuSlot button[aria-haspopup='menu'] {
+    width: var(--manage-touch);
+    height: var(--manage-touch);
+    border-color: transparent;
+    background: none;
+    color: var(--manage-ink-2);
+  }
+
+  .main {
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-5) var(--space-12);
+  }
+
+  .tabBody {
+    padding: var(--space-4) var(--space-5) var(--space-10);
+  }
+
+  /* 태블릿 조절 줄: 크게/작게는 왼쪽, 여러 개 고르기·작품 올리기는 오른쪽(시안 03) */
+  .summary > .spacer {
+    order: 1;
+  }
+
+  .summary > .quiet,
+  .summary > .uploadMenu {
+    order: 2;
+  }
+
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .side {
+    display: none;
+  }
+
+  /* 살펴보기 서랍: 칸 자체는 고정, 안의 내용만 스크롤. 닫기 단추는 오른쪽 위에 머문다 */
+  .sideOpen {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    width: min(420px, 92vw);
+    min-height: 0;
+    padding: calc(var(--manage-touch) + var(--space-2)) 0 0;
+    overflow: hidden;
+    box-shadow: var(--elev-2);
+    animation: drawerIn var(--t-sheet) var(--ease-out);
+  }
+
+  .sideOpen > :not(.sheetClose) {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sheetClose {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-3);
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--manage-touch);
+    height: var(--manage-touch);
+    padding: 0;
+    border: 0;
+    border-radius: var(--manage-r-control);
+    background: none;
+    color: var(--manage-ink-2);
+    cursor: pointer;
+  }
+
+  .sheetClose svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .sheetClose:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* 전시실 고치기 칸은 제 머리에 닫기 단추가 있다 */
+  .sideOpen:has(> [data-room-id]) {
+    padding-top: 0;
+  }
+
+  .sideOpen:has(> [data-room-id]) > .sheetClose {
+    display: none;
+  }
+
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 19;
+    display: block;
+    background-color: var(--scrim);
+  }
+}
+
+@keyframes drawerIn {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+/* ── 휴대폰(767 아래, 시안 04·05) ─────────────────────────── */
+@media (max-width: 767px) {
+  /* 위 줄: 뒤로 · 이름 · (열림 알약 또는 주요 버튼) · ···, 그 아래 모드 탭 줄 */
+  .top {
+    flex-wrap: wrap;
+    row-gap: 0;
+    min-height: 0;
+    padding: var(--space-1) var(--space-2) var(--space-2);
+  }
+
+  .exTitle {
+    flex: 1 1 0;
+    max-width: none;
+  }
+
+  .tabs {
+    flex: 1 0 100%;
+    order: 10;
+    min-height: var(--manage-touch);
+    margin-inline: 0;
+  }
+
+  .tab {
+    padding: 0 var(--space-4);
+  }
+
+  .tab:first-child {
+    padding-left: var(--space-3);
+  }
+
+  /* 같은 시트를 여는 둘 중 하나만: 열린 전시는 상태 알약, 아니면 주요 버튼 */
+  .top > [data-status]:not([data-status='OPEN']) {
+    display: none;
+  }
+
+  .top:has(> [data-status='OPEN']) .primaryWrap {
+    display: none;
+  }
+
+  .primary,
+  .outline {
+    padding: 0 var(--space-4);
+  }
+
+  .main {
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-3) var(--space-10);
+  }
+
+  .tabBody {
+    padding: var(--space-3) var(--space-3) var(--space-10);
+  }
+
+  /* 요약: 큰 숫자 둘 + 확인 칩(오른쪽, 작게) / 그 아래 여러 개 고르기 · 작품 올리기. 크게/작게는 3열 격자라 감춘다 */
+  .summary {
+    --manage-fs-num-md: var(--fs-6);
+    row-gap: 0;
+    column-gap: var(--space-3);
+    padding-inline: var(--space-2);
+  }
+
+  .summary > .spacer {
+    flex: 1 0 100%;
+    order: 0;
+  }
+
+  .summary > .spacer + * {
+    display: none;
+  }
+
+  .summary > .quiet,
+  .summary > .uploadMenu {
+    order: 0;
+    margin-top: var(--space-2);
+  }
+
+  .summary > .quiet {
+    margin-left: calc(-1 * var(--space-3));
+  }
+
+  .summary > .uploadMenu {
+    margin-left: auto;
+  }
+
+  .divider {
+    height: var(--space-7);
+  }
+
+  .checkChip {
+    gap: var(--space-1);
+    margin-left: auto;
+    padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+    font-size: var(--text-sm);
+  }
+
+  .checkThumbs {
+    --frame-h-small: 26px;
+    margin-right: var(--space-1);
+  }
+
+  .checkThumbs > * + * {
+    margin-left: calc(-1 * var(--space-4));
+  }
+
+  .checkNo {
+    font-size: var(--text-lg);
+  }
+
+  /* 살펴보기: 아래 시트(덮개 없음 — 뒤 보드를 그대로 보고 누를 수 있다) */
+  .sideOpen {
+    top: auto;
+    left: 0;
+    width: auto;
+    max-height: 60dvh;
+    padding: var(--space-4) 0 0;
+    border-left: 0;
+    border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+    animation-name: sheetUp;
+  }
+
+  /* 손잡이 모양(장식) */
+  .sideOpen::before {
+    position: absolute;
+    top: var(--space-2);
+    left: 50%;
+    width: var(--space-8);
+    height: var(--space-1);
+    border-radius: var(--r-pill);
+    background-color: var(--manage-rule);
+    transform: translateX(-50%);
+    content: '';
+  }
+
+  .sideOpen:has(> [data-room-id]) {
+    padding-top: var(--space-4);
+  }
+
+  .sheetClose {
+    top: var(--space-5);
+    right: var(--space-2);
+  }
+
+  .scrim {
+    display: none;
+  }
+
+  /* 시트에 가려진 마지막 판까지 올려 볼 수 있게 */
+  .body:has(.sideOpen) .main {
+    padding-bottom: 60dvh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sideOpen {
+    animation: none;
+  }
+}
+
+/* ── 끄는 동안 손끝을 따라다니는 모양 ─────────── */
+.dragOverlay {
+  position: relative;
+  display: inline-flex;
+  box-shadow: var(--elev-2);
+  cursor: grabbing;
+}
+
+.dragCount {
+  position: absolute;
+  top: calc(-1 * var(--space-3));
+  right: calc(-1 * var(--space-3));
+  min-width: 28px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--r-pill);
+  background-color: var(--accent);
+  color: var(--manage-on-accent);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  text-align: center;
+}
+
+.boardOverlay {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--manage-r-panel);
+  background-color: var(--manage-surface);
+  box-shadow: var(--elev-2);
+  font-size: var(--manage-fs-room-name);
+  font-weight: 700;
+}
+
+.boardOverlayNo {
+  font-family: var(--font-display);
+  font-size: var(--manage-fs-room-no);
+  color: var(--manage-ink-quiet);
+}

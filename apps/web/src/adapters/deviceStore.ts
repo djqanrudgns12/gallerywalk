@@ -38,6 +38,7 @@ const KEY = {
   sound: 'gw:sound-on',
   startCode: 'gw:start-code-passed',
   teacherCharacter: 'gw:teacher-character',
+  manageFrameSize: 'gw:manage-frame-size',
   teacher: (exhibitionId: string) => `gw:teacher:${exhibitionId}`,
   visitor: (exhibitionId: string) => `gw:visitor:${exhibitionId}`,
 } as const;
@@ -201,5 +202,8 @@ export const createDeviceStore = (opts: DeviceStoreOptions = {}): DeviceStore =>
 
     teacherCharacter: () => readJson(KEY.teacherCharacter, z.enum(['teacher-m', 'teacher-f'])) ?? 'teacher-m',
     setTeacherCharacter: character => writeJson(KEY.teacherCharacter, character),
+
+    manageFrameSize: () => readJson(KEY.manageFrameSize, z.enum(['big', 'small'])) ?? 'big',
+    setManageFrameSize: size => writeJson(KEY.manageFrameSize, size),
   };
 };

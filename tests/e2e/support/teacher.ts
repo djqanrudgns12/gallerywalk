@@ -100,11 +100,11 @@ export async function uploadTeacherArtworks(page: Page): Promise<void> {
     await expect(row).toHaveAttribute('data-phase', 'done', { timeout: TEACHER_READY_MS });
     await expect(row).toContainText(copy.teacher.upload.done);
   }
-  const cards = page.getByTestId('artwork-board').locator('article');
+  // v3 보드(G-32): 모든 전시실 판의 액자. 게시되면 상태 글 없이 그림만 걸린다
+  const cards = page.getByTestId('room-boards').locator('[data-cell-id]');
   await expect(cards).toHaveCount(files.length);
   for (const card of await cards.all()) {
     await expect(card).toHaveAttribute('data-status', 'PUBLISHED', { timeout: TEACHER_READY_MS });
-    await expect(card.getByTestId('status-chip')).toHaveText(copy.teacher.status.PUBLISHED);
     await expect(card.locator('img')).toBeVisible();
   }
 }

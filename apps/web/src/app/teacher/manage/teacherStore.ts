@@ -27,7 +27,8 @@ export interface ManageToast {
   readonly ms: number;
 }
 
-export type ManageTab = 'artworks' | 'reactions';
+/** 모드 탭(G-32): 작품 · 수업 · 반응 */
+export type ManageTab = 'artworks' | 'class' | 'reactions';
 
 export interface TeacherState {
   readonly view: TeacherExhibitionView | null;
@@ -120,7 +121,8 @@ export const useTeacherStore = create<TeacherState>()(set => ({
       })),
     ),
   patchArtworks: patch => set(s => withView(s, v => ({ ...v, artworks: [...patch(v.artworks)] }))),
-  setRoom: roomId => set({ roomId, selected: [] }),
+  // 지금 전시실은 올릴 곳만 뜻한다(v3 보드는 모든 판을 그림) — 고른 것은 전시실에 묶이지 않는다(FIELD_PLAN HT-03a)
+  setRoom: roomId => set({ roomId }),
   toggleSelect: id =>
     set(s => ({
       selected: s.selected.includes(id) ? s.selected.filter(x => x !== id) : [...s.selected, id],

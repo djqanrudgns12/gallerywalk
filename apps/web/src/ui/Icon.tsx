@@ -3,6 +3,8 @@ import type { JSX } from 'react';
 export type IconName =
   | 'chevron-left'
   | 'chevron-right'
+  | 'chevron-up'
+  | 'chevron-down'
   | 'map'
   | 'sound-on'
   | 'sound-off'
@@ -25,7 +27,18 @@ export type IconName =
   | 'eye'
   | 'talk'
   | 'exit'
-  | 'rejoin';
+  | 'rejoin'
+  // 교사 작업 화면 v3(G-32)
+  | 'music'
+  | 'grip'
+  | 'pencil'
+  | 'undo'
+  | 'upload'
+  | 'trash'
+  | 'cube'
+  | 'route'
+  | 'signal'
+  | 'qr';
 
 export interface IconProps {
   name: IconName;
@@ -78,6 +91,10 @@ const renderPaths = (name: IconName): JSX.Element => {
       return <polyline points="15 5 8 12 15 19" />;
     case 'chevron-right':
       return <polyline points="9 5 16 12 9 19" />;
+    case 'chevron-up':
+      return <polyline points="5 15 12 8 19 15" />;
+    case 'chevron-down':
+      return <polyline points="5 9 12 16 19 9" />;
     case 'map':
       return (
         <>
@@ -198,6 +215,93 @@ const renderPaths = (name: IconName): JSX.Element => {
           <polyline points="7 10 12 5 17 10" />
           <line x1="12" y1="5" x2="12" y2="15" />
           <line x1="5" y1="19.5" x2="19" y2="19.5" />
+        </>
+      );
+    // 교사 작업 화면 v3(G-32): 배경음악 · 판 손잡이 · 고치기 · 되돌리기 · 올리기 · 삭제 · 3D 자리 · 투어 경로 · 학교망 · QR
+    case 'music':
+      return (
+        <>
+          <path d="M9 18V6l10-2v12" />
+          <circle cx="6.5" cy="18" r="2.5" />
+          <circle cx="16.5" cy="16" r="2.5" />
+        </>
+      );
+    case 'grip':
+      return (
+        <>
+          <circle cx="9" cy="6" r="1.2" fill="currentColor" />
+          <circle cx="15" cy="6" r="1.2" fill="currentColor" />
+          <circle cx="9" cy="12" r="1.2" fill="currentColor" />
+          <circle cx="15" cy="12" r="1.2" fill="currentColor" />
+          <circle cx="9" cy="18" r="1.2" fill="currentColor" />
+          <circle cx="15" cy="18" r="1.2" fill="currentColor" />
+        </>
+      );
+    case 'pencil':
+      return (
+        <>
+          <path d="M4 20l1-4L16 5l3 3L8 19l-4 1z" />
+          <line x1="14" y1="7" x2="17" y2="10" />
+        </>
+      );
+    case 'undo':
+      return (
+        <>
+          <polyline points="9 7 5 11 9 15" />
+          <path d="M5 11h9a5 5 0 0 1 0 10h-3" />
+        </>
+      );
+    case 'upload':
+      return (
+        <>
+          <polyline points="7 9 12 4 17 9" />
+          <line x1="12" y1="4" x2="12" y2="16" />
+          <path d="M4 16v3h16v-3" />
+        </>
+      );
+    case 'trash':
+      return (
+        <>
+          <line x1="4" y1="7" x2="20" y2="7" />
+          <path d="M9 7V4h6v3" />
+          <path d="M6 7l1 13h10l1-13" />
+        </>
+      );
+    case 'cube':
+      return (
+        <>
+          <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" />
+          <polyline points="4 7.5 12 12 20 7.5" />
+          <line x1="12" y1="12" x2="12" y2="21" />
+        </>
+      );
+    case 'route':
+      return (
+        <>
+          <circle cx="6" cy="18" r="2" />
+          <circle cx="18" cy="6" r="2" />
+          <path d="M8 18h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6" strokeDasharray="2 2.5" />
+        </>
+      );
+    case 'signal':
+      return (
+        <>
+          <path d="M3 9a13 13 0 0 1 18 0" />
+          <path d="M6.5 12.5a8 8 0 0 1 11 0" />
+          <path d="M10 16a3 3 0 0 1 4 0" />
+          <line x1="12" y1="19.5" x2="12" y2="19.51" />
+        </>
+      );
+    case 'qr':
+      return (
+        <>
+          <rect x="4" y="4" width="6" height="6" />
+          <rect x="14" y="4" width="6" height="6" />
+          <rect x="4" y="14" width="6" height="6" />
+          <line x1="14" y1="14" x2="14" y2="16" />
+          <line x1="17" y1="14" x2="20" y2="14" />
+          <line x1="17" y1="17" x2="17" y2="20" />
+          <line x1="20" y1="18" x2="20" y2="20" />
         </>
       );
   }

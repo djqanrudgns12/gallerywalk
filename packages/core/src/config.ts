@@ -26,6 +26,8 @@ export const configDefaults = {
   PIN_LOCK_MIN: 10,
   RECENT_EXHIBITIONS_MAX: 5,
   UNDO_DELETE_SEC: 10,
+  /** 교사 관리 화면 편집 되돌리기(HT-08): 기억하는 편집 수 */
+  UNDO_STACK_MAX: 20,
   /** "지금 삭제" 단추가 잠겨 있는 시간(PRD G-18) · 교사 화면 알림 띠가 떠 있는 시간 */
   DELETE_CONFIRM_SEC: 3,
   TOAST_SEC: 4,
@@ -33,6 +35,11 @@ export const configDefaults = {
   AUTOSAVE_DELAY_MS: 600,
   LONG_PRESS_MS: 500,
   DRAG_START_PX: 8,
+  /** 한 번에 놓기 `PUT …/arrangement`(ADR-074): 한쪽(`base`·`rooms`)의 전시실 판 수·작품 ID 수 상한 — 두 쪽을 합쳐도 `JSON_BODY_MAX_KB` 안 */
+  ARRANGEMENT_MAX_ROOMS: 50,
+  ARRANGEMENT_MAX_IDS: 600,
+  /** 수업 탭(HT-07): 지금 관람 수 `GET …/live`를 다시 부르는 간격(초). 탭이 보이고 화면이 앞에 있을 때만 */
+  LIVE_TEACHER_POLL_SEC: 10,
   /** 올리기(P5-3): 바쁨·속도 제한 다시 보내기 횟수·간격 · 사전 검사에서 머리만 읽는 바이트 · 소리 길이 읽기 상한 */
   UPLOAD_RETRY_MAX: 4,
   UPLOAD_RETRY_DELAY_MS: 2000,
@@ -1107,6 +1114,90 @@ export const configDefaults = {
   RETENTION_JOB_SEC: 60,
   PURGE_JOB_SEC: 3600,
   LAYOUT_KEEP_VERSIONS: 2,
+
+  // ── 교사 작업 화면 v3 축측 지도 (FIELD_PLAN §5.4 ③·HT-04, `apps/web/src/viewer/map/axo.ts`) ──
+  /**
+   * 투영: 방위 `azimuthDeg`(복도 z가 거의 가로로 눕게)·고도 `elevationDeg`의 정사영. 길이는 m, 화면 값은 px.
+   * 벽은 낮게 자른 두께 `wallThickM`·높이 `wallHeightM`. 문은 벽 방향이 같고(`doorAlignTol`) 벽선에서 `doorSnapM` 안인
+   * 문 폭만큼 벽을 끊는다. `minPieceM`보다 짧은 조각은 버린다. `dedupeM` 안에서 겹치는 벽(이웃 관이 같은 벽을 낼 때)은 한 번만.
+   */
+  AXO: {
+    azimuthDeg: 20,
+    elevationDeg: 35,
+    wallThickM: 0.3,
+    wallHeightM: 1.15,
+    doorAlignTol: 0.01,
+    /** 세운 면이 보는 쪽을 향하는지 가르는 문턱 */
+    faceTol: 0.01,
+    doorSnapM: 0.35,
+    minPieceM: 0.05,
+    dedupeM: 0.01,
+    /** 문 자리 바닥판: 벽 두께 양쪽으로 이만큼 */
+    doorFloorM: 0.32,
+    /** 작품 자리 막대: 벽에서 `frameSnapM` 안인 벽에 붙임, 폭 = 액자 폭 × `frameWidthRatio`, 두께 2×`frameHalfDepthM` */
+    frameSnapM: 0.2,
+    frameWidthRatio: 0.92,
+    frameHalfDepthM: 0.1,
+    frameInsetM: 0.06,
+    frameLiftM: 0.02,
+    easelHalfWidthM: 0.36,
+    easelHeightM: 0.95,
+    /** 이젤 윗변 폭 / 아랫변 폭 */
+    easelTopRatio: 0.8,
+    /** 입구 화살표(정면 `facadeZ` 기준 안쪽 끝·바깥 꼬리·반폭·오목)와 글자 자리 */
+    entryTipInM: 1.3,
+    entryTailOutM: 0.4,
+    entryHalfWidthM: 0.9,
+    entryNotchM: 0.6,
+    entryLabelOutM: 3.6,
+    /** 고른 작품 핀: 벽에서 앞으로 `pinOffsetM`, 바닥 고리 반지름, 세운 높이(m), 머리 반지름(px), 위 여백(px) */
+    pinOffsetM: 1.4,
+    pinRingM: 1.1,
+    pinRingSegments: 28,
+    pinHeightM: 4.6,
+    pinHeadPx: 7,
+    pinTopPx: 26,
+    padPx: 12,
+    /** 전시실 번호: 글자 크기 = max(`labelMinPx`, 축척 × `labelPerM`). 이젤이 있는 방은 번호를 −z로 `labelShiftM` 옮김 */
+    labelMinPx: 12,
+    labelPerM: 2.1,
+    labelShiftM: 3,
+    /** 수업 지도에서 번호 옆 학생 수 글자의 간격(번호 글자 크기 배) */
+    countGapRatio: 0.33,
+    /** 학생 점: 반지름 = max(`dotMinPx`, 축척 × `dotPerM`). 벽에서 `dotMarginM` 안쪽에, 점끼리 `dotGapM`(시도가 늘면 차례로 풂) */
+    dotMinPx: 3.2,
+    dotPerM: 0.36,
+    dotMarginM: 1.7,
+    dotGapM: [1.5, 1.1, 0.8],
+    dotRelaxEvery: 1500,
+    dotMaxTries: 6000,
+    /** 번호 둘레 비우기: 반폭 = 글자 × `labelHalfW`, 반높이 = 글자 × `labelHalfH`, 여유 px */
+    labelHalfW: 0.6,
+    labelHalfH: 0.55,
+    labelClearPx: 4,
+  },
+  /**
+   * 교사 작업 화면 v3 끌어 놓기(FIELD_PLAN §5.5): 액자 비율이 이 범위 밖이면 형태 갈래 비율로 · 키보드로 옮길 때 놓는 자리
+   * (액자 폭의 앞·뒤 이만큼) · 보드 위·아래 끝에서 저절로 스크롤되는 문턱(화면 높이 비율) · 끄는 액자 확대 ·
+   * 휴대폰 접힌 판 머리 위에 머물면 펼쳐지기까지
+   */
+  MANAGE_FRAME_RATIO_MIN: 0.45,
+  MANAGE_FRAME_RATIO_MAX: 2.4,
+  MANAGE_KEYBOARD_EDGE: 0.25,
+  MANAGE_AUTOSCROLL_THRESHOLD: 0.15,
+  MANAGE_DRAG_SCALE: 1.06,
+  MANAGE_DROP_EXPAND_MS: 600,
+  /**
+   * 교사 작업 화면 지도 그리기 크기(px, SVG는 칸 폭에 맞춰 줄어듦): 오른쪽 칸 전시 지도(칸 420 − 여백) · 태블릿 지도 띠 ·
+   * 살펴보기 칸 "걸린 자리". 작은 그림 겹침(확인할 것 칩·접힌 판 표지)에 보일 수. 빈 액자 비율(글 = 세로)
+   */
+  MANAGE_MAP: {
+    side: { width: 380, height: 260 },
+    strip: { width: 330, height: 190 },
+    hung: { width: 372, height: 176 },
+  },
+  MANAGE_THUMB_STACK: 3,
+  MANAGE_PORTRAIT_RATIO: 0.7,
 } as const;
 
 /** 숫자·참거짓은 넓은 타입으로(기본값의 리터럴 타입에 묶이면 시험·환경 변수로 값을 바꿀 수 없다). 문자열 합집합은 그대로. */

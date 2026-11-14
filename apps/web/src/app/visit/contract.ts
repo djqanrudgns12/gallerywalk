@@ -52,4 +52,9 @@ export interface VisitScreenProps {
    * 있으면 학생 일(반응 남기기·보내기 줄)을 하지 않는다.
    */
   readonly onPickArtwork?: ((artworkId: string) => void) | undefined;
+  /**
+   * 교사 3D 미리 보기(HT-06): 처음부터 이 작품의 정지 지점 앞에 서서 시작한다(광장부터가 아니라).
+   * 배치에 없는 작품이면 평소 처음 자리에서. 처음 한 번만 읽는다.
+   */
+  readonly startArtworkId?: string | undefined;
 }
