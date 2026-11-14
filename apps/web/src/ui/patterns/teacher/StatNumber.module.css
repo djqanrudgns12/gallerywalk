@@ -1,0 +1,52 @@
+/* 큰 명조 숫자 + 작은 이름. 색·글꼴은 tokens.css에서만 온다. */
+.stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  color: var(--manage-ink);
+  font-feature-settings: 'tnum' 1;
+}
+
+.stat + .stat {
+  padding-left: var(--s-7);
+  border-left: 1px solid var(--manage-rule);
+}
+
+.value {
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.label {
+  color: var(--manage-ink-2);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.md .value {
+  font-size: var(--manage-fs-num-md);
+}
+
+.md .label {
+  font-size: var(--fs-2);
+}
+
+.xl {
+  gap: var(--s-3);
+}
+
+.xl .value {
+  font-size: var(--manage-fs-num-xl);
+  line-height: 0.86;
+  letter-spacing: -0.04em;
+}
+
+.xl .label {
+  color: var(--manage-ink);
+  font-family: var(--font-display);
+  font-size: var(--fs-6);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}

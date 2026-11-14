@@ -1,0 +1,77 @@
+/* 상태 알약: 알약은 32px, 단추일 때 누름 영역은 --manage-touch(44px 이상). */
+.root {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-ui);
+}
+
+.button {
+  min-height: var(--manage-touch, var(--touch-min));
+  min-width: var(--manage-touch, var(--touch-min));
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.button:focus-visible {
+  outline: none;
+}
+
+.button:focus-visible .pill {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--manage-rule);
+  border-radius: var(--r-pill);
+  background-color: var(--manage-raised);
+  color: var(--manage-ink-2);
+  font-size: var(--fs-2);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.button .pill {
+  padding-right: 10px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--manage-idle);
+}
+
+.caret {
+  transform: rotate(90deg);
+  color: var(--manage-ink-3);
+}
+
+.open {
+  border-color: var(--manage-ok-edge);
+  background-color: var(--manage-ok-soft);
+  color: var(--status-ok);
+  font-weight: 600;
+}
+
+.open .dot {
+  background-color: var(--status-ok);
+  box-shadow: 0 0 0 3px var(--manage-ok-halo);
+}
+
+.closed {
+  color: var(--manage-ink-3);
+}
+
+.closed .dot {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--manage-ink-3);
+}
