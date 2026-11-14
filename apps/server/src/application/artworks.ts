@@ -1,13 +1,13 @@
 import { AppError } from '@gallery/core/errors';
 import { deletedArtworkPurgeAt } from '@gallery/core/retention';
-import type { ArtworkBatch, PatchArtwork } from '@gallery/core/types';
+import type { Arrangement, ArrangementResult, ArtworkBatch, PatchArtwork } from '@gallery/core/types';
 import type { ArtworkRecord, Deps, ExhibitionRecord } from '../ports/index.ts';
 import { assertRev, assertSameExhibition, bump, liveExhibition } from './common.ts';
 
 /**
- * 작품 고치기·순서·여러 개·지우기·되살리기(G-11, PLAN §9.2). 올리기(파일 받기·처리)는 P3-4.
+ * 작품 고치기·순서·한 번에 놓기·여러 개·지우기·되살리기(G-11·G-32, PLAN §9.2, ADR-074). 올리기(파일 받기·처리)는 P3-4.
  * 대표작 규칙(한 트랜잭션): 고르면 같은 전시실의 기존 대표작을 먼저 푼다 / 다른 전시실로 옮기면 풀린다 /
- * 되살릴 때 그 전시실에 이미 대표작이 있으면 표시 없이 되살린다.
+ * 되살릴 때(지운 작품 되살리기·놓기 되돌리기의 `restoreFeatured`) 그 전시실에 이미 대표작이 있으면 표시 없이 되살린다.
  */
 
 const live = (deps: Deps, ex: ExhibitionRecord, id: string): ArtworkRecord => {
@@ -27,11 +27,19 @@ const unsetFeaturedIn = (deps: Deps, exhibitionId: string, roomId: string, excep
       });
 };
 
-const nextOrder = (deps: Deps, exhibitionId: string, roomId: string): number =>
+/** 그 전시실 끝 순서(지운 작품의 옛 순서까지 넘어서 — 되살려도 겹치지 않게). 올리기·되살리기·옮기기가 쓴다 */
+export const nextOrder = (deps: Pick<Deps, 'store'>, exhibitionId: string, roomId: string): number =>
   deps.store.artworks
     .listByExhibition(exhibitionId, { includeDeleted: true })
     .filter(a => a.roomId === roomId)
     .reduce((m, a) => Math.max(m, a.order), -1) + 1;
+
+/** 판 안의 차례: `order`, 같으면 ID(서버의 "지금 배열") */
+const byOrder = (a: { order: number; id: string }, b: { order: number; id: string }): number =>
+  a.order - b.order || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+const sameOrder = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
 
 /** 배치에 영향을 주는 칸: 게시 집합·전시실·대표작·형태. 글 많음·쪽 방식은 기기의 쪽 계획만 바꾼다(배치 밖). */
 const LAYOUT_FIELDS: readonly (keyof PatchArtwork)[] = ['roomId', 'status', 'featured', 'formOverride'];
@@ -100,6 +108,68 @@ export const reorderArtworks = (
     bump(deps, ex, { content: true, layout: true });
   });
 
+/**
+ * `PUT /api/teacher/exhibitions/{id}/arrangement`(ADR-074): 같은 판 순서·다른 판 n번째·여러 개 옮기기·되돌리기를 한 번에.
+ *
+ * - 검사: 모든 전시실이 이 전시의 것(아니면 `E_NOT_FOUND`). 서버의 지금 배열(지우지 않은 작품, `order` 차례)에서
+ *   `base`에 없는 작품(그사이 올라온 것)을 뺀 것이 판마다 `base`와 같아야 한다 — 다르면 `E_CONFLICT`.
+ *   그래서 두 기기가 같은 판을 바꾸면 나중 것이 충돌로 멈추고, 올리는 중에 새 작품이 생긴 것은 충돌이 아니다.
+ * - 효과(한 트랜잭션): 판마다 `rooms`의 차례로 `roomId`·`order`(0부터), 그사이 올라온 작품은 그 판 끝에.
+ *   전시실이 바뀐 작품은 대표작이 풀린다 — `restoreFeatured`에 있고 그 판에 남은 대표작이 없으면 되살린다.
+ *   바뀐 작품만 rev+1. 바뀐 것이 있으면 내용 버전을 올리고 배치를 다시 계산하게 표시한다(라우트가 `settle`).
+ * - 돌려줌: 놓은 뒤 판들의 배열, 그 판들 작품의 rev, 전시 내용 판(`versions.contentVersion`과 같은 수).
+ */
+export const arrangeArtworks = (deps: Deps, exhibitionId: string, body: Arrangement): ArrangementResult =>
+  deps.store.transaction(() => {
+    const ex = liveExhibition(deps, exhibitionId);
+    for (const r of body.rooms) assertSameExhibition(deps.store.rooms.get(r.roomId), ex.id);
+    const seen = new Set(body.base.flatMap(r => r.ids));
+    const current = new Map<string, ArtworkRecord[]>(body.base.map(r => [r.roomId, []]));
+    for (const a of deps.store.artworks.listByExhibition(ex.id)) current.get(a.roomId)?.push(a);
+    for (const list of current.values()) list.sort(byOrder);
+    for (const r of body.base) {
+      const now = (current.get(r.roomId) ?? []).filter(a => seen.has(a.id)).map(a => a.id);
+      if (!sameOrder(now, r.ids)) throw new AppError('E_CONFLICT');
+    }
+
+    const byId = new Map([...current.values()].flat().map(a => [a.id, a]));
+    const finalRooms = body.rooms.map(r => ({
+      roomId: r.roomId,
+      ids: [...r.ids, ...(current.get(r.roomId) ?? []).filter(a => !seen.has(a.id)).map(a => a.id)],
+    }));
+    const restore = new Set(body.restoreFeatured ?? []);
+    const t = deps.clock.now();
+    const revs: Record<string, number> = {};
+    let changed = false;
+    for (const room of finalRooms) {
+      const arts = room.ids.map(id => byId.get(id)!);
+      // 그 판에 그대로 남는 대표작이 있으면 되살리지 않는다(전시실마다 대표작 하나)
+      let hasFeatured = arts.some(a => a.roomId === room.roomId && a.featured);
+      arts.forEach((a, order) => {
+        let featured = a.featured;
+        if (a.roomId !== room.roomId) {
+          featured = restore.has(a.id) && !hasFeatured && a.status !== 'PROCESSING' && a.status !== 'FAILED';
+          if (featured) hasFeatured = true;
+        }
+        if (a.roomId === room.roomId && a.order === order && a.featured === featured) {
+          revs[a.id] = a.rev;
+          return;
+        }
+        deps.store.artworks.update(a.id, {
+          roomId: room.roomId,
+          order,
+          featured,
+          rev: a.rev + 1,
+          updatedAt: t,
+        });
+        revs[a.id] = a.rev + 1;
+        changed = true;
+      });
+    }
+    const after = changed ? bump(deps, ex, { content: true, layout: true }) : ex;
+    return { rooms: finalRooms, revs, revision: after.contentVersion };
+  });
+
 /** `POST /api/teacher/artworks/batch` — 숨기기·게시·옮기기(처리 중·실패는 건너뜀) */
 export const batchArtworks = (deps: Deps, exhibitionId: string, batch: ArtworkBatch): number =>
   deps.store.transaction(() => {
@@ -150,7 +220,7 @@ export const deleteArtwork = (
     bump(deps, ex, { content: true, layout: true });
   });
 
-/** `POST …/{aid}/restore` — 정리되기 전까지. 그 전시실에 대표작이 이미 있으면 표시 없이 */
+/** `POST …/{aid}/restore` — 정리되기 전까지. 그 전시실 끝으로(ADR-074), 대표작이 이미 있으면 표시 없이 */
 export const restoreArtwork = (deps: Deps, exhibitionId: string, artworkId: string): ArtworkRecord =>
   deps.store.transaction(() => {
     const ex = liveExhibition(deps, exhibitionId);
@@ -165,6 +235,7 @@ export const restoreArtwork = (deps: Deps, exhibitionId: string, artworkId: stri
       .some(o => o.roomId === a!.roomId && o.featured && o.id !== a!.id);
     const restored = deps.store.artworks.update(a!.id, {
       deletedAt: null,
+      order: nextOrder(deps, ex.id, a!.roomId),
       featured: a!.featured && !roomHasFeatured,
       rev: a!.rev + 1,
       updatedAt: now,

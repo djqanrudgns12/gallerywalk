@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UuidSchema } from './common.ts';
 
 /**
  * 기기 보고(G-24·G-25, FIELD_PLAN HW-02·HR, ADR-070): `POST /api/e/{code}/diag`.
@@ -111,9 +112,15 @@ export const DiagBodySchema = z.discriminatedUnion('kind', [
 ]);
 export type DiagBody = z.infer<typeof DiagBodySchema>;
 
+/** 수업 지도(HT-16): 전시실 하나에 지금 있는 학생 수(관으로 나뉜 전시실은 합쳐서) */
+export const LiveRoomCountSchema = z.object({ roomId: UuidSchema, count: z.number().int().min(0) }).strict();
+export type LiveRoomCount = z.infer<typeof LiveRoomCountSchema>;
+
 /**
  * 교사 화면용 지금 관람 수(`GET /api/teacher/exhibitions/{id}/live`, FIELD_PLAN HT-07의 서버 쪽):
  * 함께 관람에 이어진 학생·교사 수와, 최근 `DIAG_COUNT_WINDOW_MIN`분 동안 가벼운 화면으로 들어온 수(까닭별).
+ * 수업 지도 칸(HT-16, ADR-074, 선택): 전시실별 학생 수 `rooms`, 전시실 밖(홀·광장·복도) `elsewhere`, 위치를 아직 보내지 않은
+ * 연결 `noPose`. 개인 위치·토큰·별명은 싣지 않는다. 학생 기기의 배치 판이 최신과 다를 수 있어 근사치다.
  */
 export const LiveStatsSchema = z
   .object({
@@ -121,6 +128,9 @@ export const LiveStatsSchema = z
     teachers: z.number().int().min(0),
     light: z.number().int().min(0),
     reasons: z.partialRecord(DiagReasonSchema, z.number().int().min(0)),
+    rooms: z.array(LiveRoomCountSchema).optional(),
+    elsewhere: z.number().int().min(0).optional(),
+    noPose: z.number().int().min(0).optional(),
   })
   .strict();
 export type LiveStats = z.infer<typeof LiveStatsSchema>;

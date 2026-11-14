@@ -41,5 +41,8 @@ export const PatchRoomSchema = z
   .partial()
   .refine(atLeastOne, { message: 'empty_patch' });
 
-/** `PUT …/{id}/rooms/order` */
-export const RoomOrderSchema = z.strictObject({ ids: UniqueIdsSchema });
+/**
+ * `PUT …/{id}/rooms/order`. `base`(선택, ADR-074): 클라이언트가 본 바꾸기 전 순서 — 서버의 지금 순서와 다르면 `E_CONFLICT`
+ * (두 기기가 같은 판 순서를 바꿀 때 나중 것이 말없이 덮지 않게, 되돌리기는 `base`와 `ids`를 맞바꿔 보낸다)
+ */
+export const RoomOrderSchema = z.strictObject({ ids: UniqueIdsSchema, base: UniqueIdsSchema.optional() });
