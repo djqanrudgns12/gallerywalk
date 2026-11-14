@@ -802,6 +802,19 @@ export const copy = {
       deleted: '삭제했어요',
       restore: '되살리기',
     },
+    /** 편집 되돌리기(HT-08). `{eul}` = 제목 뒤 '을/를'(`eulReul`), `{ro}` = 전시실 이름 뒤 '으로/로'(`roAfter`) */
+    undo: {
+      action: '되돌리기',
+      moved: '‘{title}’{eul} {n}번째로 옮겼어요',
+      movedRoom: '‘{title}’{eul} ‘{room}’{ro} 옮겼어요',
+      movedMany: '작품 {n}점을 ‘{room}’{ro} 옮겼어요',
+      hidden: '‘{title}’{eul} 숨겼어요',
+      published: '‘{title}’{eul} 게시했어요',
+      hiddenMany: '작품 {n}점을 숨겼어요',
+      publishedMany: '작품 {n}점을 게시했어요',
+      undone: '되돌렸어요',
+      nothing: '되돌릴 것이 없어요',
+    },
     /** 전시실 시트(P5-5, G-12) */
     roomSheet: {
       name: '이름판',
@@ -852,6 +865,15 @@ export const roAfter = (word: string): string => {
   if (code < 0 || code > 11171) return '(으)로';
   const jong = code % 28;
   return jong === 0 || jong === 8 ? '로' : '으로';
+};
+
+/** 낱말 뒤 목적격 조사 '을/를': 받침이 있으면 '을', 없으면 '를'. 한글이 아니면 '을(를)' */
+export const eulReul = (word: string): string => {
+  const last = [...word.trim()].pop();
+  if (!last) return '을(를)';
+  const code = last.charCodeAt(0) - 0xac00;
+  if (code < 0 || code > 11171) return '을(를)';
+  return code % 28 === 0 ? '를' : '을';
 };
 
 /** `{name}` 자리를 채운다. 없는 값은 그대로 둔다(문구 빠짐을 시험에서 잡기 위해). */

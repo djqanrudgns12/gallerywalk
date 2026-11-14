@@ -26,6 +26,7 @@ import { ChipFace, RoomChips } from './RoomChips.tsx';
 import { RoomSheet } from './RoomSheet.tsx';
 import { liveArtworks, roomArtworks, useTeacherStore } from './teacherStore.ts';
 import { ManageContext, toastMs, useCreateManageActions } from './useManage.ts';
+import { isUndoKey } from './undo.ts';
 import s from './manage.module.css';
 
 const MS_PER_SEC = 1000;
@@ -112,6 +113,12 @@ export const ManageExhibition = () => {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // 편집 되돌리기(HT-08): 미리 보기 중에는 걷기 키와 섞이지 않게 쓰지 않는다
+      if (!previewing && isUndoKey(e)) {
+        e.preventDefault();
+        void actions.undo();
+        return;
+      }
       if (e.key !== 'Escape') return;
       if (st().overlay !== null) st().setOverlay(null);
       // 미리 보기: 크게 보기·안내 걷기 중이면 그것부터 닫힌다(걷기 키), 그냥 걷는 중이면 미리 보기를 닫는다
@@ -119,7 +126,7 @@ export const ManageExhibition = () => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [st, previewing]);
+  }, [st, previewing, actions]);
 
   const live = useMemo(() => liveArtworks(view), [view]);
   const inRoom = useMemo(() => roomArtworks(view, roomId), [view, roomId]);
