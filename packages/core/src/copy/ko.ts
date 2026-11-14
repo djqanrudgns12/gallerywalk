@@ -827,6 +827,25 @@ export const copy = {
       delete: '삭제',
       deleted: '삭제했어요',
       restore: '되살리기',
+      /** 살펴보기 칸(G-32, HT-05). `{no}` = 전시실 번호 01~, `{n}` = 그 전시실 안 차례(1부터) */
+      inspectLabel: '작품 살펴보기',
+      prev: '이전 작품',
+      next: '다음 작품',
+      position: '{no} · {n}번째',
+      /** 전시실 번호 타일의 낭독 이름 */
+      roomTile: '{no} {name}, {n}점',
+      /** 순서 숫자의 낭독 글 */
+      orderValue: '{total}점 중 {n}번째',
+      formShort: '형태',
+      formOther: '다른 형태',
+      autoReset: '자동으로 되돌리기',
+      visible: '게시',
+      /** 걸린 자리: `{no} 전시실 {wall}`(배치의 논리 벽, 이젤이면 `easel`) */
+      hungAt: '걸린 자리',
+      hungPlace: '{no} 전시실 {wall}',
+      walls: { N: '입구 쪽 벽', F: '안쪽 벽', L: '옆벽', R: '옆벽', easel: '가운데 이젤' },
+      notHung: '지금은 걸려 있지 않아요',
+      previewHere: '3D에서 이 자리 보기',
     },
     /** 편집 되돌리기(HT-08). `{eul}` = 제목 뒤 '을/를'(`eulReul`), `{ro}` = 전시실 이름 뒤 '으로/로'(`roAfter`) */
     undo: {
