@@ -661,7 +661,7 @@ M6                                                          ██████�
 | M4-4 | 말풍선 서랍·키·문구. 교사 설정은 현장 H4의 수업 탭에(H4 뒤) | Cs-B | `ui/patterns/visitor/BubbleTray*`(새), `app/visit/**`(서랍 연결), `app/teacher/manage/ClassTab.tsx`(H4 뒤, 설정 칸만) |
 | M4-5a | 시안 → 사용자 고름 → 개념 그림 4방향: 학생 10 · 교사 2 · 도슨트 1, 쌤유니버스풍(§3.4) | 그림 세션(Codex 그림 생성) | `.local/art/m0/options/**` → `.local/art/m4/concept/**` |
 | M4-9 | 입장 화면 캐릭터 고르기 10종(학생) · 교사 화면 2종 · `Character.tsx` 캐릭터 ID 12종 · `character.mjs` ID 목록 · 실시간 VAT 12종 | C(엔진) · Cs-B(고르기 화면) · X(파이프라인) | `viewer/scene/Character.tsx`, `viewer/live/**`(H2 뒤), `ui/patterns/visitor/*Picker*`(새), `tools/assets/pipeline/character.mjs` |
-| M4-5 | Tripo: 15명(관람객 12 + 도슨트 3) 3D·리깅·`idle`·`walk`·`run`·`wave_goodbye_01`(점프는 엔진 연출), 시험 2~3명 → 검수 → 본 실행 | U 승인 → 그림 세션(Aside 조작) | `.local/art/m4/3d/**` |
+| M4-5 | Tripo: 15명(관람객 12 + 도슨트 3) 3D·리깅·`idle`·`walk`·`run`·`wave_goodbye_01`(점프는 엔진 연출), 시험 2~3명 → 검수 → 본 실행. **완료(2026-11-14)**: 시험 3명(승인 280크레딧) + 본 실행 12명(승인 「12명 해」, 900크레딧, 다시 만들기 0), 잔액 1720. 기록은 `.local/art/HANDOFF.md`·`.local/art/m4/3d/LOG.md` | U 승인 → 그림 세션(Aside 조작) | `.local/art/m4/3d/**` |
 | M4-6 | `character.mjs` NPC 모드·예산 검사 → `chr-npc-1/`(U-39이면 관람객 `chr-2/` + `CHARACTER_BASE` 판 올림) | X(standard) | `tools/assets/pipeline/character.mjs` |
 | M4-7 | 도슨트 행동(바라보기·손짓·말풍선 주기·말걸기 섞은 주머니·예절 알림 연결) | C | `viewer/npc/**`(새), `viewer/walk/manners.ts` |
 | M4-8 | 대사 카드(얼굴 그림)·대사 문구 | Cs-B | `ui/patterns/visitor/DocentCard*`(새), `copy/ko.ts`(더하기만) |
@@ -747,7 +747,7 @@ M6                                                          ██████�
 | U-31 | 말풍선 자유 글(20자) 허용 | 교사 설정으로만 켬, 기본 끔(스티커·정해진 말만) | M4-2·M4-4 |
 | U-32 | 스티커 그림체: 우리 캐릭터 얼굴형(쌤유니버스 2D 화풍, §3.4) / 전용 마스코트("유" 마크 응용 포함) | M0 시안에서 고름. 답이 없으면 우리 캐릭터 얼굴형(화풍 통일) | M4-1 |
 | U-33 | 외관 시간대: 늦은 오후 햇빛 / 맑은 낮 / 해 질 녘 | 늦은 오후 햇빛 | M3-1 |
-| U-34 | Tripo 크레딧 사용: 도슨트 3명(약 225) + 유기 장식 약 5개(약 275) ≈ 500 | 도슨트만(약 225), 장식은 Blender 절차적 | M4-5·M5-2 |
+| U-34 | Tripo 크레딧 사용: 도슨트 3명(약 225) + 유기 장식 약 5개(약 275) ≈ 500. 도슨트 3명은 M4-5에서 완료(2026-11-14). 유기 장식(M5-2)은 아직 정하지 않았다 | 도슨트만(약 225), 장식은 Blender 절차적 | M4-5·M5-2 |
 | U-35 | 무료(CC0) 3D 장식 내려받기 허용(Poly Haven 등) | 쓰지 않음 | M5 |
 | U-36 | `나가기` 도착 화면 | 학생 첫 화면 `/`(입장 코드) | M1-5 |
 | U-37 | `재접속하기` 뜻 | 같은 전시에 다시 들어가기(별명·캐릭터 유지, 대문 앞에서 시작) | M1-5 |
