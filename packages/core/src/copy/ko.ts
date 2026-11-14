@@ -470,6 +470,10 @@ export const copy = {
       cancelled: '옮기기를 그만뒀어요',
       roleCard: '옮길 수 있는 작품',
       roleRoom: '옮길 수 있는 전시실',
+      /** v3 판 사이 끌기(G-32): 놓일 판 머리 안내 · 화면 낭독기 자리 안내 · 여러 개 겹침 */
+      dropHint: '놓으면 {n}번째로 걸려요',
+      overSlot: '{room} {n}번째 자리',
+      group: '{n}점',
     },
     warnBlurry: '조금 흐려요',
     warnUntitled: '제목이 없어요',
@@ -813,6 +817,8 @@ export const copy = {
       moved: '‘{title}’{eul} {n}번째로 옮겼어요',
       movedRoom: '‘{title}’{eul} ‘{room}’{ro} 옮겼어요',
       movedMany: '작품 {n}점을 ‘{room}’{ro} 옮겼어요',
+      /** 다른 전시실 n번째로(G-32 끌어 놓기) */
+      movedTo: '‘{title}’{eul} ‘{room}’ {n}번째로 옮겼어요',
       hidden: '‘{title}’{eul} 숨겼어요',
       published: '‘{title}’{eul} 게시했어요',
       hiddenMany: '작품 {n}점을 숨겼어요',

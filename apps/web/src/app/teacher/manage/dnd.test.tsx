@@ -163,7 +163,7 @@ describe('관리 화면에서 실제로 끌기', () => {
   };
   const ids = (m: ReturnType<typeof mountManage>) => m.all('[data-cell-id]').map(c => c.dataset.cellId);
 
-  it('터치: 길게 누른 뒤 끌어 놓으면 순서를 보낸다(`reorderArtworks`)', async () => {
+  it('터치: 길게 누른 뒤 끌어 놓으면 순서를 보낸다(한 번에 놓기)', async () => {
     const { m, srv } = await open();
     const from = m.q('[data-testid="cell-0"]')!;
     touch(from, 'touchstart', centerOf(from));
@@ -174,7 +174,7 @@ describe('관리 화면에서 실제로 끌기', () => {
     expect(m.q('[data-testid="drag-overlay"]')).not.toBeNull();
     touch(from, 'touchend', to);
     await flush();
-    expect(srv.named('reorderArtworks').map(c => c.args.slice(1))).toEqual([[R(0), [A(1), A(2), A(0)]]]);
+    expect(srv.arranged()).toEqual([[{ roomId: R(0), ids: [A(1), A(2), A(0)] }]]);
     expect(ids(m)).toEqual([A(1), A(2), A(0)]);
   });
 
@@ -188,7 +188,7 @@ describe('관리 화면에서 실제로 끌기', () => {
     touch(from, 'touchmove', centerOf(m.q('[data-testid="cell-2"]')!));
     touch(from, 'touchend', centerOf(m.q('[data-testid="cell-2"]')!));
     await flush();
-    expect(srv.named('reorderArtworks')).toHaveLength(0);
+    expect(srv.named('putArrangement')).toHaveLength(0);
     expect(m.q('[data-testid="drag-overlay"]')).toBeNull();
   });
 
@@ -200,10 +200,10 @@ describe('관리 화면에서 실제로 끌기', () => {
     touch(from, 'touchend', centerOf(from));
     await flush();
     expect(useTeacherStore.getState().selected).toEqual([A(1)]);
-    expect(srv.named('reorderArtworks')).toHaveLength(0);
+    expect(srv.named('putArrangement')).toHaveLength(0);
   });
 
-  it('터치: 카드를 다른 전시실 칩 위에 놓으면 그 전시실로(`patchArtwork` roomId)', async () => {
+  it('터치: 카드를 다른 전시실 칩 위에 놓으면 그 전시실 끝으로(한 번에 놓기)', async () => {
     const { m, srv } = await open();
     const from = m.q('[data-testid="cell-2"]')!;
     touch(from, 'touchstart', centerOf(from));
@@ -214,7 +214,12 @@ describe('관리 화면에서 실제로 끌기', () => {
     expect(m.q('[data-testid="room-chip-1"]')?.className).toMatch(/chipDrop/);
     touch(from, 'touchend', chip);
     await flush();
-    expect(srv.named('patchArtwork').map(c => c.args.slice(1))).toEqual([[A(2), 1, { roomId: R(1) }]]);
+    expect(srv.arranged()).toEqual([
+      [
+        { roomId: R(0), ids: [A(0), A(1)] },
+        { roomId: R(1), ids: [testArtworkId(1, 0), A(2)] },
+      ],
+    ]);
     expect(srv.named('batchArtworks')).toHaveLength(0);
     expect(ids(m)).toEqual([A(0), A(1)]);
   });
@@ -229,7 +234,7 @@ describe('관리 화면에서 실제로 끌기', () => {
     await flush();
     press(cell, 'Space', ' ');
     await flush();
-    expect(srv.named('reorderArtworks').map(c => c.args.slice(1))).toEqual([[R(0), [A(1), A(0), A(2)]]]);
+    expect(srv.arranged()).toEqual([[{ roomId: R(0), ids: [A(1), A(0), A(2)] }]]);
     expect(useTeacherStore.getState().selected).toEqual([]);
     expect(m.q('[data-testid="artwork-panel"]')).toBeNull();
   });
@@ -250,7 +255,12 @@ describe('관리 화면에서 실제로 끌기', () => {
     expect(m.q('[data-testid="room-chip-1"]')?.className).toMatch(/chipDrop/);
     press(cell, 'Enter', 'Enter');
     await flush();
-    expect(srv.named('patchArtwork').map(c => c.args.slice(1))).toEqual([[A(0), 1, { roomId: R(1) }]]);
+    expect(srv.arranged()).toEqual([
+      [
+        { roomId: R(0), ids: [A(1), A(2)] },
+        { roomId: R(1), ids: [testArtworkId(1, 0), A(0)] },
+      ],
+    ]);
     expect(m.q('[data-testid="artwork-panel"]')).toBeNull();
   });
 

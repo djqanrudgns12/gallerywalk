@@ -106,9 +106,11 @@ describe('전시 관리 화면', () => {
     const loads = srv.named('exhibition').length;
     key(m.q('[data-testid="cell-0"]'), 'ArrowRight', { altKey: true });
     await flush();
-    expect(srv.named('reorderArtworks').map(c => c.args.slice(1))).toEqual([
-      [testRoomId(0), [A(1), A(0), A(2)]],
-    ]);
+    // 한 번에 놓기(ADR-074): 바뀐 판만, 바꾸기 전 배열과 함께
+    expect(srv.arranged()).toEqual([[{ roomId: testRoomId(0), ids: [A(1), A(0), A(2)] }]]);
+    expect(srv.named('putArrangement')[0]?.args[1]).toMatchObject({
+      base: [{ roomId: testRoomId(0), ids: [A(0), A(1), A(2)] }],
+    });
     expect(cellIds(m)).toEqual([A(1), A(0), A(2)]);
     expect(srv.named('exhibition')).toHaveLength(loads + 1);
 
@@ -127,13 +129,13 @@ describe('전시 관리 화면', () => {
 
     key(m.q('[data-testid="exhibition-title"]'), 'z', { ctrlKey: true });
     await flush();
-    expect(srv.named('reorderArtworks')).toHaveLength(1);
+    expect(srv.arranged()).toHaveLength(1);
 
     key(window.document.body, 'z', { ctrlKey: true });
     await flush();
-    expect(srv.named('reorderArtworks').map(c => c.args.slice(1))).toEqual([
-      [testRoomId(0), [A(1), A(0), A(2)]],
-      [testRoomId(0), [A(0), A(1), A(2)]],
+    expect(srv.arranged()).toEqual([
+      [{ roomId: testRoomId(0), ids: [A(1), A(0), A(2)] }],
+      [{ roomId: testRoomId(0), ids: [A(0), A(1), A(2)] }],
     ]);
     expect(cellIds(m)).toEqual([A(0), A(1), A(2)]);
     expect(useTeacherStore.getState().toast?.text).toBe(copy.teacher.undo.undone);
@@ -156,11 +158,13 @@ describe('전시 관리 화면', () => {
     click(buttonByText(m.q('[data-testid="batch-bar"]')!, copy.teacher.manage.batchMove));
     click(buttonByText(m.q('[data-testid="batch-rooms"]')!, T_ROOM_TITLES[1]));
     await flush();
-    expect(srv.named('batchArtworks')[1]?.args[1]).toEqual({
-      action: 'MOVE',
-      ids: [A(2)],
-      roomId: testRoomId(1),
-    });
+    // 여러 개 옮기기도 한 번에 놓기로: 옮긴 곳 끝에
+    expect(srv.arranged()).toEqual([
+      [
+        { roomId: testRoomId(0), ids: [A(0), A(1)] },
+        { roomId: testRoomId(1), ids: [testArtworkId(1, 0), A(2)] },
+      ],
+    ]);
     expect(cellIds(m)).toEqual([A(0), A(1)]);
   });
 

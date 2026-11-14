@@ -6,6 +6,14 @@ import { createContext, useContext, useMemo } from 'react';
 import type { PatchArtworkInput, PatchRoomInput, TeacherApi } from '../../../ports/index.ts';
 import { randomUuid } from '../../../adapters/tokens.ts';
 import { roomArtworks, useTeacherStore } from './teacherStore.ts';
+import {
+  columnsOf,
+  diffArrangement,
+  invertArrangement,
+  locate,
+  placeCards,
+  type Arrangement,
+} from './arrange.ts';
 import { createUndoStack, movedItem, type UndoEntry } from './undo.ts';
 
 /**
@@ -25,12 +33,18 @@ export interface ManageActions {
   fail(err: unknown): never;
   renameExhibition(title: string): Promise<void>;
   patchArtwork(id: string, patch: PatchArtworkInput): Promise<void>;
-  /** `movedId`: 옮긴 작품(이웃끼리 바꾸면 순서만으로는 알 수 없어 토스트 문장에 씀) */
+  /**
+   * 한 번에 놓기(ADR-074, G-32): 끌어 놓기·Alt+←→·살펴보기 타일·여러 개 옮기기·되돌리기가 모두 이 길로 간다.
+   * 화면을 먼저 바꾸고 `PUT …/arrangement`를 차례로 하나씩 보낸다. 성공하면 응답의 `revs`를 바로 반영한다(자동 저장 PATCH가
+   * 옛 rev로 스스로 충돌하지 않게). 실패·충돌이면 알리고 서버 상태로 되돌린 뒤 false.
+   */
+  arrange(a: Arrangement, opts?: ArrangeOptions): Promise<boolean>;
+  /** 한 판 안의 새 순서(`arrange`로 보냄). `movedId`: 옮긴 작품(이웃끼리 바꾸면 순서만으로는 알 수 없어 토스트 문장에 씀) */
   reorderArtworks(roomId: string, ids: readonly string[], movedId?: string): Promise<void>;
   /** 앞으로(-1)·뒤로(+1) 한 칸 */
   nudgeArtwork(id: string, delta: number): Promise<void>;
-  /** 끌어서 전시실 칩 위에 놓기: 한 장은 `patchArtwork({roomId})`, 여러 장은 `batchArtworks(MOVE)`. 옮긴 곳의 끝에 붙는다 */
-  moveArtworks(ids: readonly string[], roomId: string): Promise<void>;
+  /** 작품들을 그 전시실의 `index` 자리로(없으면 끝). 여러 개면 보드 차례대로. 살펴보기 타일·여러 개 막대가 쓴다 */
+  moveArtworks(ids: readonly string[], roomId: string, index?: number): Promise<void>;
   batch(batch: ArtworkBatch): Promise<void>;
   deleteArtwork(id: string): Promise<void>;
   createRoom(): Promise<string | null>;
@@ -40,6 +54,13 @@ export interface ManageActions {
   removeBgm(roomId: string): Promise<void>;
   /** 가장 최근 편집을 되돌린다(토스트 `되돌리기` · Ctrl/⌘+Z) */
   undo(): Promise<void>;
+}
+
+export interface ArrangeOptions {
+  /** 토스트 문장에 쓸 옮긴 작품(끈 작품·여러 개면 그 무리). 없으면 가장 많이 움직인 작품 */
+  readonly moved?: readonly string[];
+  /** 되돌리기만: 옮기며 풀린 대표작을 되살린다 */
+  readonly restoreFeatured?: readonly string[];
 }
 
 export const newId = (): string => randomUuid();
@@ -112,10 +133,49 @@ export const createManageActions = (api: TeacherApi, exhibitionId: string): Mana
     const room = roomTitle(roomId);
     return fill(template, { room, ro: roAfter(room), n });
   };
-  /** 한 작품을 원래 전시실·순서로 */
-  const putBack = async (id: string, roomId: string, order: readonly string[]) => {
-    if (artwork(id).roomId !== roomId) await actions.patchArtwork(id, { roomId });
-    await actions.reorderArtworks(roomId, order);
+  /** 한 작품을 원래 전시실·순서로(한 번에 놓기 하나 — 옛 PATCH+PUT 두 번 대신) */
+  const putBack = async (id: string, roomId: string, order: readonly string[], featured: boolean) => {
+    const columns = columnsOf(store().view);
+    const after = placeCards(columns, [id], { roomId, index: Math.max(0, order.indexOf(id)) });
+    const a = diffArrangement(columns, after);
+    if (a) await actions.arrange(a, { moved: [id], restoreFeatured: featured ? [id] : [] });
+  };
+
+  /** `arrangement` 요청은 차례로 하나씩(FIELD_PLAN §5.5 "연달아 놓기") */
+  let queue: Promise<unknown> = Promise.resolve();
+  let pending = 0;
+  const serial = <T>(task: () => Promise<T>): Promise<T> => {
+    pending += 1;
+    const run = queue.then(task, task).finally(() => {
+      pending -= 1;
+    });
+    queue = run.catch(() => undefined);
+    return run;
+  };
+
+  /** 놓기의 토스트 문장: 여러 개 · 다른 전시실 n번째 · 같은 판 n번째 */
+  const arrangeText = (
+    a: Arrangement,
+    before: ReadonlyMap<string, ArtworkTeacher>,
+    moved?: readonly string[],
+  ) => {
+    const after = a.rooms;
+    if (moved && moved.length > 1) {
+      const at = locate(after, moved[0] ?? '');
+      return at ? inRoom(copy.teacher.undo.movedMany, at.roomId, moved.length) : null;
+    }
+    const baseOf = (roomId: string): readonly string[] => a.base.find(b => b.roomId === roomId)?.ids ?? [];
+    // 정하지 않았으면: 다른 판에서 들어온 작품, 없으면 가장 많이 움직인 작품
+    const id =
+      moved?.[0] ??
+      after.flatMap(room => room.ids.filter(x => !baseOf(room.roomId).includes(x)))[0] ??
+      after.map(room => movedItem(baseOf(room.roomId), room.ids)?.id).find(x => x !== undefined);
+    if (id === undefined) return null;
+    const at = locate(after, id);
+    const art = before.get(id);
+    if (!at || !art) return null;
+    if (at.roomId === art.roomId) return titled(copy.teacher.undo.moved, art.title, { n: at.index + 1 });
+    return titled(copy.teacher.undo.movedTo, art.title, { room: roomTitle(at.roomId), n: at.index + 1 });
   };
 
   const actions: ManageActions = {
@@ -152,86 +212,105 @@ export const createManageActions = (api: TeacherApi, exhibitionId: string): Mana
       } else if (patch.roomId !== undefined && patch.roomId !== before.roomId) {
         const room = roomTitle(patch.roomId);
         record(titled(copy.teacher.undo.movedRoom, before.title, { room, ro: roAfter(room) }), () =>
-          putBack(id, before.roomId, fromOrder),
+          putBack(id, before.roomId, fromOrder, before.featured),
         );
       }
+    },
+
+    arrange(a, opts = {}) {
+      return serial(async () => {
+        const view = store().view;
+        if (!view) return false;
+        const before = new Map(view.artworks.map(x => [x.id, x] as const));
+        const restore = new Set(opts.restoreFeatured ?? []);
+        const target = new Map<string, { roomId: string; order: number }>();
+        for (const room of a.rooms)
+          room.ids.forEach((id, order) => target.set(id, { roomId: room.roomId, order }));
+        // 화면 먼저: 서버와 같은 규칙(다른 판으로 간 대표작은 풀고, 되돌리기면 되살림)
+        store().patchArtworks(arts =>
+          arts.map(x => {
+            const t = target.get(x.id);
+            if (!t) return x;
+            const featured = t.roomId === x.roomId ? x.featured : restore.has(x.id);
+            return { ...x, roomId: t.roomId, order: t.order, featured };
+          }),
+        );
+        let result;
+        try {
+          result = await api.putArrangement(exhibitionId, {
+            base: a.base.map(c => ({ roomId: c.roomId, ids: [...c.ids] })),
+            rooms: a.rooms.map(c => ({ roomId: c.roomId, ids: [...c.ids] })),
+            ...(restore.size > 0 ? { restoreFeatured: [...restore] } : {}),
+          });
+        } catch (err) {
+          await rollback(err);
+          return false;
+        }
+        // 서버 배열(그사이 올라온 작품은 끝에)과 새 rev를 바로
+        const placed = new Map<string, { roomId: string; order: number }>();
+        for (const room of result.rooms)
+          room.ids.forEach((id, order) => placed.set(id, { roomId: room.roomId, order }));
+        const revs = result.revs;
+        store().patchArtworks(arts =>
+          arts.map(x => {
+            const p = placed.get(x.id);
+            const rev = revs[x.id];
+            if (!p && rev === undefined) return x;
+            return { ...x, ...(p ?? {}), ...(rev === undefined ? {} : { rev }) };
+          }),
+        );
+        const unfeatured = [...before.values()]
+          .filter(x => x.featured && placed.has(x.id) && placed.get(x.id)?.roomId !== x.roomId)
+          .map(x => x.id);
+        const text = arrangeText(a, before, opts.moved);
+        if (text)
+          record(text, async () => {
+            await actions.arrange(invertArrangement(a), { restoreFeatured: unfeatured });
+          });
+        // 지도(배치)를 새로: 차례를 기다리는 놓기가 없을 때만(사이에 받은 옛 보기가 다음 놓기를 덮지 않게)
+        if (pending <= 1) void reload().catch(() => undefined);
+        return true;
+      });
     },
 
     async reorderArtworks(roomId, ids, movedId) {
-      const before = roomOrder(roomId);
-      const order = new Map(ids.map((id, i) => [id, i]));
-      store().patchArtworks(arts =>
-        arts.map(a => (a.roomId === roomId && order.has(a.id) ? { ...a, order: order.get(a.id)! } : a)),
-      );
-      try {
-        await api.reorderArtworks(exhibitionId, roomId, ids);
-        // 순서가 바뀐 작품의 rev가 올랐다 — 다음 고치기가 충돌하지 않게 새로
-        await reload();
-      } catch (err) {
-        await rollback(err);
-        return;
-      }
-      const hinted = movedId !== undefined && before.includes(movedId) ? movedId : undefined;
-      const moved =
-        hinted !== undefined ? { id: hinted, index: ids.indexOf(hinted) } : movedItem(before, ids);
-      if (moved) {
-        const title = store().view?.artworks.find(a => a.id === moved.id)?.title ?? '';
-        record(titled(copy.teacher.undo.moved, title, { n: moved.index + 1 }), () =>
-          actions.reorderArtworks(roomId, before),
-        );
-      }
+      const columns = columnsOf(store().view);
+      const after = columns.map(c => (c.roomId === roomId ? { ...c, ids } : c));
+      const a = diffArrangement(columns, after);
+      if (a) await actions.arrange(a, movedId === undefined ? {} : { moved: [movedId] });
     },
 
     async nudgeArtwork(id, delta) {
-      const art = artwork(id);
-      const ids = roomArtworks(store().view, art.roomId).map(a => a.id);
-      const from = ids.indexOf(id);
-      const to = from + delta;
-      if (from < 0 || to < 0 || to >= ids.length) return;
-      const next = [...ids];
-      next.splice(from, 1);
-      next.splice(to, 0, id);
-      await actions.reorderArtworks(art.roomId, next, id);
+      const columns = columnsOf(store().view);
+      const at = locate(columns, id);
+      const column = columns.find(c => c.roomId === at?.roomId);
+      if (!at || !column) return;
+      const to = at.index + delta;
+      if (to < 0 || to >= column.ids.length) return;
+      const a = diffArrangement(columns, placeCards(columns, [id], { roomId: at.roomId, index: to }));
+      if (a) await actions.arrange(a, { moved: [id] });
     },
 
-    async moveArtworks(ids, roomId) {
-      const [only] = ids;
-      if (ids.length !== 1 || only === undefined) {
-        if (ids.length > 0) await actions.batch({ action: 'MOVE', ids: [...ids], roomId });
-        return;
-      }
-      const art = artwork(only);
-      if (art.roomId === roomId) return;
-      const from = art.roomId;
-      const fromOrder = roomOrder(from);
-      const end = roomArtworks(store().view, roomId).reduce((m, a) => Math.max(m, a.order), -1) + 1;
-      store().patchArtworks(arts => arts.map(a => (a.id === only ? { ...a, roomId, order: end } : a)));
-      try {
-        store().upsertArtwork(await api.patchArtwork(exhibitionId, only, art.rev, { roomId }));
-        if (store().selected.includes(only)) store().clearSelection();
-      } catch (err) {
-        await rollback(err);
-        return;
-      }
-      record(
-        titled(copy.teacher.undo.movedRoom, art.title, {
-          room: roomTitle(roomId),
-          ro: roAfter(roomTitle(roomId)),
-        }),
-        () => putBack(only, from, fromOrder),
-      );
+    async moveArtworks(ids, roomId, index) {
+      const columns = columnsOf(store().view);
+      const ordered = columns.flatMap(c => c.ids.filter(id => ids.includes(id)));
+      if (ordered.length === 0) return;
+      const target = columns.find(c => c.roomId === roomId);
+      if (!target) return;
+      const rest = target.ids.filter(id => !ordered.includes(id)).length;
+      const a = diffArrangement(columns, placeCards(columns, ordered, { roomId, index: index ?? rest }));
+      if (a) await actions.arrange(a, { moved: ordered });
     },
 
     async batch(batch) {
+      if (batch.action === 'MOVE') {
+        // 여러 개 옮기기도 한 번에 놓기로(옮긴 곳 끝, 보드 차례대로)
+        await actions.moveArtworks(batch.ids, batch.roomId);
+        store().clearSelection();
+        return;
+      }
       const view = store().view;
       const prev = new Map((view?.artworks ?? []).filter(a => batch.ids.includes(a.id)).map(a => [a.id, a]));
-      const fromRooms = new Map<string, string[]>();
-      for (const a of prev.values())
-        if (!fromRooms.has(a.roomId)) fromRooms.set(a.roomId, roomOrder(a.roomId));
-      if (batch.action === 'MOVE') {
-        const ids = new Set(batch.ids);
-        store().patchArtworks(arts => arts.map(a => (ids.has(a.id) ? { ...a, roomId: batch.roomId } : a)));
-      }
       try {
         await api.batchArtworks(exhibitionId, batch);
         store().clearSelection();
@@ -241,18 +320,6 @@ export const createManageActions = (api: TeacherApi, exhibitionId: string): Mana
         return;
       }
       const arts = [...prev.values()];
-      if (batch.action === 'MOVE') {
-        const movedArts = arts.filter(a => a.roomId !== batch.roomId);
-        if (movedArts.length === 0) return;
-        record(inRoom(copy.teacher.undo.movedMany, batch.roomId, movedArts.length), async () => {
-          for (const [roomId, order] of fromRooms) {
-            const back = movedArts.filter(a => a.roomId === roomId).map(a => a.id);
-            if (back.length > 0) await actions.batch({ action: 'MOVE', ids: back, roomId });
-            await actions.reorderArtworks(roomId, order);
-          }
-        });
-        return;
-      }
       const target = batch.action === 'HIDE' ? 'HIDDEN' : 'PUBLISHED';
       const changed = arts.filter(a => a.status !== target);
       if (changed.length === 0) return;
@@ -330,14 +397,23 @@ export const createManageActions = (api: TeacherApi, exhibitionId: string): Mana
     async reorderRooms(ids) {
       const view = store().view;
       if (!view) return;
+      // 바꾸기 전 순서를 함께 보내 다른 기기가 먼저 바꿨으면 충돌로 멈춘다(ADR-074)
+      const base = view.rooms.map(r => r.id);
+      if (base.length === ids.length && base.every((id, i) => id === ids[i])) return;
       const order = new Map(ids.map((id, i) => [id, i]));
       store().setRooms(view.rooms.map(r => ({ ...r, order: order.get(r.id) ?? r.order })));
       try {
-        await api.reorderRooms(exhibitionId, ids);
+        await api.reorderRooms(exhibitionId, ids, base);
         await reload();
       } catch (err) {
         await rollback(err);
+        return;
       }
+      const moved = movedItem(base, ids);
+      if (moved)
+        record(titled(copy.teacher.undo.moved, roomTitle(moved.id), { n: moved.index + 1 }), () =>
+          actions.reorderRooms(base),
+        );
     },
 
     async deleteRoom(roomId) {
