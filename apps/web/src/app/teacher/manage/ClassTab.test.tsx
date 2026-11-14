@@ -232,6 +232,62 @@ describe('수업 탭(HT-07)', () => {
     expect(q('[data-tile="bubbles"]')?.textContent).toContain(copy.teacher.classTab.bubbles);
   });
 
+  it('말풍선 타일 스위치: 지금 설정을 보이고, 바꾸면 나머지 칸을 지킨 채 알린다 · 꺼지면 짧은 글 스위치를 막는다', async () => {
+    const onBubblesChange = vi.fn();
+    const base = teacherExhibition({ status: 'OPEN', openedAt: 1 });
+    const withBubbles = (enabled: boolean, text: boolean) =>
+      teacherExhibition({
+        status: 'OPEN',
+        openedAt: 1,
+        settings: { ...base.settings, bubbles: { enabled, text } },
+      });
+    const t = copy.teacher.classTab;
+    const switches = (): HTMLButtonElement[] =>
+      (mounted?.all('[data-tile="bubbles"] [role="switch"]') ?? []) as HTMLButtonElement[];
+
+    mount(
+      vi.fn(async () => stats()),
+      { showBubbles: true, onBubblesChange, exhibition: withBubbles(true, false) },
+    );
+    await advance(0);
+    const [on, text] = switches();
+    expect(on?.getAttribute('aria-label')).toBe(t.bubblesOn);
+    expect(on?.getAttribute('aria-checked')).toBe('true');
+    expect(text?.getAttribute('aria-label')).toBe(t.bubblesText);
+    expect(text?.getAttribute('aria-checked')).toBe('false');
+    expect(q('[data-testid="class-bubbles-hint"]')?.textContent).toBe(t.bubblesHint);
+    click(text ?? null);
+    expect(onBubblesChange).toHaveBeenLastCalledWith({ enabled: true, text: true });
+    click(on ?? null);
+    expect(onBubblesChange).toHaveBeenLastCalledWith({ enabled: false, text: false });
+
+    mounted?.unmount();
+    mount(
+      vi.fn(async () => stats()),
+      { showBubbles: true, onBubblesChange, exhibition: withBubbles(false, true) },
+    );
+    await advance(0);
+    expect(switches()[1]?.disabled).toBe(true);
+    expect(q('[data-testid="class-bubbles-hint"]')?.textContent).toBe(t.bubblesOffHint);
+
+    mounted?.unmount();
+    mount(
+      vi.fn(async () => stats()),
+      {
+        showBubbles: true,
+        onBubblesChange,
+        bubblesBusy: true,
+        exhibition: withBubbles(true, true),
+      },
+    );
+    await advance(0);
+    expect(q('[data-testid="class-bubbles-hint"]')?.textContent).toBe(t.bubblesTextHint);
+    expect(switches().every(sw => sw.disabled)).toBe(true);
+    const calls = onBubblesChange.mock.calls.length;
+    click(switches()[0] ?? null);
+    expect(onBubblesChange).toHaveBeenCalledTimes(calls);
+  });
+
   it('입장: QR은 학생 주소, 입장 코드는 세 자리씩, 짧은 주소 · 삭제일', async () => {
     mount(vi.fn(async () => stats()));
     await advance(0);

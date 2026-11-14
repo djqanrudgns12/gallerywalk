@@ -358,6 +358,18 @@
   background-color: var(--brass);
 }
 
+/* 말풍선 타일 스위치 두 줄(받기 · 짧은 글) — 수업 중 바로 끈다 */
+.switches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  margin-top: var(--s-2);
+}
+
+.switch {
+  width: 100%;
+}
+
 /* 말풍선 그림: 돋움 칸 말풍선 + 꼬리 */
 .bubble {
   position: relative;

@@ -267,6 +267,8 @@ export const ManageExhibition = () => {
   const tab = useTeacherStore(st => st.tab);
   const flashId = useTeacherStore(st => st.flashId);
   const st = useTeacherStore.getState;
+  /** 수업 탭 말풍선 스위치 저장 중(같은 rev로 두 번 보내지 않게) */
+  const [savingBubbles, setSavingBubbles] = useState(false);
   const [arrival, clearArrival] = useArrivalToast();
   const [previewing, setPreviewing] = useState(false);
   /** 미리 보기를 이 작품 앞에서 시작(HT-06) */
@@ -833,7 +835,18 @@ export const ManageExhibition = () => {
                 layout={view.layout}
                 roomOrder={roomOrder}
                 reactionCount={reactionCount}
-                showBubbles={false}
+                showBubbles
+                bubblesBusy={savingBubbles}
+                onBubblesChange={bubbles => {
+                  if (savingBubbles) return;
+                  setSavingBubbles(true);
+                  void api.teacher
+                    .patchExhibition(id, ex.rev, { settings: { ...ex.settings, bubbles } })
+                    .then(onChanged, (err: unknown) => actions.fail(err))
+                    .finally(() => setSavingBubbles(false))
+                    // `fail`은 알림을 띄우고 다시 던진다(충돌이면 새로 불러옴) — 여기서 삼킨다
+                    .catch(() => undefined);
+                }}
                 onShowQr={() => st().setOverlay({ kind: 'open' })}
                 onStartTour={() => void navigate(`/t/e/${id}/tour`)}
                 onOpenReactions={() => st().setTab('reactions')}
