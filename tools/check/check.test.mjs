@@ -8,6 +8,7 @@ import { checkForbidden } from './forbidden.mjs';
 import { checkAll } from './index.mjs';
 import { checkLayers } from './layers.mjs';
 import { checkNumbers } from './numbers.mjs';
+import { checkVisual, VISUAL_ALLOWLIST } from './visual.mjs';
 
 const CHECK_DIR = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = path.join(CHECK_DIR, 'fixtures');
@@ -126,6 +127,89 @@ describe('P1-2 정적 검사 도구 (PLAN §14.1)', () => {
       const { violations, warnings } = checkNumbers({ rootDir: goodRoot });
       assert.deepEqual(violations, []);
       assert.deepEqual(warnings, []);
+    });
+  });
+
+  describe('⑦ visual.mjs — UI 그라데이션·순검정 검사(HT-14)', () => {
+    const CSS_FILE = 'apps/web/src/ui/components/Panel.module.css';
+    const TSX_FILE = 'apps/web/src/app/teacher/Badge.tsx';
+
+    it('위반 견본(fixtures/visual/bad)에서 CSS·TSX의 그라데이션 4건과 순검정 10건을 줄마다 잡는다', () => {
+      const badRoot = path.join(FIXTURES_DIR, 'visual/bad');
+      const { violations, warnings } = checkVisual({ rootDir: badRoot });
+
+      assert.deepEqual(
+        violations.map(v => [v.file, v.line, v.rule]),
+        [
+          [TSX_FILE, 2, 'no-pure-black'], // color: 'black'
+          [TSX_FILE, 2, 'no-ui-gradient'], // style 객체의 radial-gradient(
+          [TSX_FILE, 4, 'no-pure-black'], // SVG fill="black"
+          [TSX_FILE, 4, 'no-pure-black'], // stroke="#000f"
+          [TSX_FILE, 11, 'no-pure-black'], // 템플릿 문자열 안 CSS 선언의 black
+          [TSX_FILE, 15, 'no-pure-black'], // 'rgba(0, 0, 0, 1)'
+          [CSS_FILE, 3, 'no-ui-gradient'], // linear-gradient(
+          [CSS_FILE, 7, 'no-ui-gradient'], // repeating-radial-gradient(
+          [CSS_FILE, 11, 'no-ui-gradient'], // -webkit-conic-gradient(
+          [CSS_FILE, 15, 'no-pure-black'], // #000
+          [CSS_FILE, 19, 'no-pure-black'], // #000000ff
+          [CSS_FILE, 23, 'no-pure-black'], // 1px solid black
+          [CSS_FILE, 27, 'no-pure-black'], // rgb(0, 0, 0)
+          [CSS_FILE, 31, 'no-pure-black'], // rgba(0 0 0 / 100%)
+        ],
+      );
+      assert.deepEqual(warnings, []);
+
+      for (const v of violations) {
+        assert.match(formatViolation(v), VIOLATION_LINE_RE);
+      }
+
+      const cli = runCli('visual.mjs', badRoot);
+      assert.equal(cli.code, 1);
+      assert.equal(cli.stdout.split('\n').length, violations.length);
+    });
+
+    it('허용 견본(fixtures/visual/good: 주석·투명 검정·완전 투명·변수 이름·글꼴 이름·url·글자 문구·캔버스 그라데이션·viewer·시험·dev·tests)에서 통과한다', () => {
+      const goodRoot = path.join(FIXTURES_DIR, 'visual/good');
+      const { violations, warnings } = checkVisual({ rootDir: goodRoot });
+      assert.deepEqual(violations, []);
+      assert.deepEqual(warnings, []);
+
+      const cli = runCli('visual.mjs', goodRoot);
+      assert.equal(cli.code, 0);
+    });
+
+    it('허용 목록은 파일·줄·규칙이 모두 맞는 위반만 빼고, 맞는 위반이 없는 항목은 경고로 알린다', () => {
+      const badRoot = path.join(FIXTURES_DIR, 'visual/bad');
+      const allowlist = [
+        { file: CSS_FILE, line: 3, rule: 'no-ui-gradient', reason: '시험: 허용 목록 동작 확인' },
+        { file: CSS_FILE, line: 3, rule: 'no-pure-black', reason: '시험: 규칙이 다르면 빼지 않음' },
+      ];
+      const { violations, warnings } = checkVisual({ rootDir: badRoot, allowlist });
+
+      assert.equal(violations.length, 13);
+      assert.ok(!violations.some(v => v.file === CSS_FILE && v.line === 3));
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.rule, 'stale-visual-allowlist');
+      assert.match(formatWarning(warnings[0]), WARNING_LINE_RE);
+    });
+
+    it('index.mjs(check:rules)에 등록되어 통합 실행에서도 잡힌다', () => {
+      const badRoot = path.join(FIXTURES_DIR, 'visual/bad');
+      const rules = new Set(checkAll({ rootDir: badRoot }).violations.map(v => v.rule));
+      assert.ok(rules.has('no-ui-gradient'));
+      assert.ok(rules.has('no-pure-black'));
+      assert.equal(runCli('index.mjs', badRoot).code, 1);
+    });
+
+    it('기본 허용 목록에는 항목마다 이유가 있다', () => {
+      for (const entry of VISUAL_ALLOWLIST) {
+        assert.ok(entry.reason && entry.reason.trim().length > 0, `${entry.file}:${entry.line}`);
+      }
+    });
+
+    it('지금 저장소에서 통과한다', () => {
+      const { violations } = checkVisual({ rootDir: REPO_ROOT });
+      assert.deepEqual(violations, []);
     });
   });
 
