@@ -18,7 +18,7 @@
     "format": "prettier --write .",
     "check": "prettier --check . && npm run typecheck && npm run check:rules && npm run test:checks",
     "check:rules": "node tools/check/index.mjs",
-    "test:checks": "node --conditions=@gallery/source --test tools/check/check.test.mjs tools/assets/pipeline/seamCheck.test.mjs tools/dev/seed-exhibition.test.mjs tools/load/admission.test.mjs tests/e2e/support/receivedBytes.test.mjs tools/assets/pipeline/decorationBounds.test.mjs tools/assets/pipeline/corridorDoor.test.mjs",
+    "test:checks": "node --conditions=@gallery/source --test tools/check/check.test.mjs tools/assets/pipeline/seamCheck.test.mjs tools/dev/seed-exhibition.test.mjs tools/load/admission.test.mjs tests/e2e/support/receivedBytes.test.mjs tools/assets/pipeline/decorationBounds.test.mjs tools/assets/pipeline/corridorDoor.test.mjs tools/assets/pipeline/normalFix.test.mjs",
     "test": "vitest run",
     "test:server": "vitest run --project server",
     "e2e": "playwright test",

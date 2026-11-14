@@ -1,3 +1,4 @@
+import type { BubbleContent } from '@gallery/core/live';
 import type { z } from 'zod';
 import type {
   ArtworkBatchSchema,
@@ -369,5 +370,10 @@ export interface LiveChannel {
   sendPose(pose: Pose): void;
   /** 내 점프가 뜨는 순간 한 번(PRD_V2 W-05, ADR-073). 판 2 연결이 이어져 있을 때만 보낸다 */
   sendJump(): void;
+  /**
+   * 말풍선 하나(PRD_V2 W-02). 판 2 연결이 이어져 있을 때만 보내고 true — 그 밖에는 버리고 false(부른 쪽이 제 머리 위에 띄울지
+   * 정한다). 속도 제한·설정·글 거름은 부른 쪽이 `domain/live/bubble.ts`로 먼저 본다(서버도 같은 규칙으로 다시 봄)
+   */
+  sendBubble(b: BubbleContent): boolean;
   leave(): void;
 }

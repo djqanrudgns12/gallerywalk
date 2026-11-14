@@ -126,3 +126,55 @@ describe.each([16 / 10, 390 / 844])('buildTourCamera (화면 비율 %f)', aspect
     }
   });
 });
+
+describe.each([16 / 10, 390 / 844])('buildTourCamera 동작 줄이기(PRD 8.4, 화면 비율 %f)', aspect => {
+  const moving = buildTourCamera(layout, plan, aspect);
+  const cam = buildTourCamera(layout, plan, aspect, true);
+  const step = 0.01;
+  const ts = Array.from({ length: Math.floor(cam.totalSec / step) + 1 }, (_, i) => i * step);
+  const dist = (a: ReturnType<typeof cam.at>['pose'], b: ReturnType<typeof cam.at>['pose']) =>
+    Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y, a.position.z - b.position.z) +
+    Math.hypot(a.target.x - b.target.x, a.target.y - b.target.y, a.target.z - b.target.z);
+
+  it('전체 길이(소리·진행 막대 시각)는 그대로', () => {
+    expect(cam.totalSec).toBe(moving.totalSec);
+  });
+
+  it('카메라를 흘리지 않는다: 자리는 몇 번만 바뀌고, 바뀌는 순간은 거의 검다', () => {
+    let changes = 0;
+    for (let i = 1; i < ts.length; i++) {
+      const a = cam.at(ts[i - 1]!);
+      const b = cam.at(ts[i]!);
+      if (dist(a.pose, b.pose) < 1e-6) continue;
+      changes += 1;
+      expect(Math.min(a.dim, b.dim), `t=${ts[i]!.toFixed(2)}`).toBeLessThan(0.1);
+    }
+    // 홀 → 이름판 → 작품들 → 문 → … 출구: 정지 자리 수만큼만 바뀐다(움직이는 판은 매 표본마다 바뀜)
+    const holds = plan.segments.filter(s => s.kind !== 'HALL' && s.kind !== 'EXIT').length + 1;
+    expect(changes).toBeGreaterThan(0);
+    expect(changes).toBeLessThanOrEqual(holds);
+  });
+
+  it('작품 구간에서는 내내 그 작품 정지 자세 하나(다가가기·흘러가기 없음)', () => {
+    for (const seg of plan.segments) {
+      if (seg.kind !== 'ARTWORK') continue;
+      const half = config().TOUR_REDUCED_CUT_SEC / 2;
+      const first = cam.at(seg.startSec + half + 1e-3).pose;
+      for (const u of [0.25, 0.5, 0.75, 0.99]) {
+        const t = seg.startSec + half + u * (seg.endSec - seg.startSec - half);
+        expect(dist(cam.at(t).pose, first)).toBeLessThan(1e-6);
+      }
+      // 움직이는 판의 다가가기 끝 자세와 같은 작품을 본다
+      const target = moving.at(seg.approachEndSec + 1e-3).pose.target;
+      expect(Math.hypot(first.target.x - target.x, first.target.z - target.z)).toBeLessThan(0.2);
+    }
+  });
+
+  it('문 구간: 가운데에서 다음 자리로 바뀌고 그때 화면이 검다', () => {
+    const door = plan.segments.find(s => s.kind === 'DOOR')!;
+    const mid = (door.startSec + door.endSec) / 2;
+    expect(dist(cam.at(mid - 0.02).pose, cam.at(mid + 0.02).pose)).toBeGreaterThan(0.1);
+    expect(cam.at(mid).dim).toBeLessThan(1e-6);
+    expect(cam.at(mid + config().TOUR_REDUCED_CUT_SEC).dim).toBeGreaterThan(0.8);
+  });
+});

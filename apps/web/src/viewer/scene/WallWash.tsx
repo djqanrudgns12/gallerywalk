@@ -2,6 +2,7 @@ import type { TemplateLook } from '@gallery/core/templates';
 import type { Layout } from '@gallery/core/types';
 import { useEffect, useMemo } from 'react';
 import { AdditiveBlending, BufferAttribute, BufferGeometry, DoubleSide, MeshBasicMaterial } from 'three';
+import type { Tier } from '../textures/residency.ts';
 import { withDim } from './materials.ts';
 import { washGeometryData, washStrips } from './wallWash.ts';
 
@@ -13,15 +14,18 @@ export const WallWash = ({
   layout,
   visibleParts,
   look,
+  tier,
 }: {
   layout: Layout;
   visibleParts: ReadonlySet<string>;
   look: TemplateLook['wash'];
+  /** 품질 단계: 낮음(LOW)도 그대로 그리고 세로 칸만 줄인다(`WALL_WASH.lowRows`) */
+  tier: Tier;
 }) => {
   const geometry = useMemo(() => {
     const strips = washStrips(layout, visibleParts, look);
     if (strips.length === 0) return null;
-    const data = washGeometryData(strips, look);
+    const data = washGeometryData(strips, look, tier);
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(data.positions, 3));
     // 꼭짓점 밝기를 회색 꼭짓점 색으로(재질 색 × 밝기 × 세기, 가산)
@@ -31,7 +35,7 @@ export const WallWash = ({
     g.setIndex(new BufferAttribute(data.index, 1));
     g.computeBoundingSphere();
     return g;
-  }, [layout, visibleParts, look]);
+  }, [layout, visibleParts, look, tier]);
   const material = useMemo(
     () =>
       withDim(

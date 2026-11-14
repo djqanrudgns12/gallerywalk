@@ -176,3 +176,10 @@ export const jumpBody = (s: JumpState, reduced = false): JumpBody => {
   }
   return reduced ? { sy: 1, sxz: 1, tuck } : { sy, sxz, tuck };
 };
+
+/**
+ * 캐릭터 몸의 부딪힘 연출 세기(W-07): 벽 부딪힘이 있으면 그것, 없으면 사람 부딪힘(약하게는 `bumpGain`이 맡음).
+ * 동작 줄이기(PRD 8.4)면 0 — 몸이 눌렸다 튀는 작은 움직임을 끈다(멈칫하는 걸음은 걷기 엔진이 그대로 한다).
+ */
+export const bumpBody = (bump: number, crowdBump: number, reduced: boolean): number =>
+  reduced ? 0 : bump > 0 ? bump : crowdBump;

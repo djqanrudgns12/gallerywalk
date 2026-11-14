@@ -91,4 +91,20 @@ describe('washStrips (전시실 벽 와시, W-12)', () => {
     expect(g.shade[base + rows * 2]).toBeCloseTo(1, 6);
     expect(Math.max(...g.shade)).toBeLessThanOrEqual(1);
   });
+
+  it('품질 낮음(LOW)은 칸 수 `WALL_WASH.lowRows`(띠·밝기 양 끝은 그대로)', () => {
+    const strips = washStrips(layout, all, style);
+    const w = config().WALL_WASH;
+    expect(w.lowRows).toBeLessThan(w.rows);
+    expect(washGeometryData(strips, style, 'HIGH')).toEqual(washGeometryData(strips, style));
+    expect(washGeometryData(strips, style, 'MEDIUM')).toEqual(washGeometryData(strips, style));
+    const g = washGeometryData(strips, style, 'LOW');
+    const rows = w.lowRows;
+    expect(g.positions.length / 3).toBe(strips.length * (rows + 1) * 2);
+    expect(g.index.length).toBe(strips.length * rows * 6);
+    const full = strips.findIndex(s => s.top - s.bottom > style.heightM - 1e-6);
+    const base = full * (rows + 1) * 2;
+    expect(g.shade[base]).toBeCloseTo(0, 6);
+    expect(g.shade[base + rows * 2]).toBeCloseTo(1, 6);
+  });
 });

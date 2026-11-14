@@ -15,7 +15,8 @@ import { create } from 'zustand';
 import '../src/ui/tokens.css';
 import '../src/ui/themes/gallery-dark.css';
 import { modulesFor, templateAssets } from '../src/viewer/scene/templateAssets.ts';
-import { PeerBuffer, visibleMaxFor } from '../src/viewer/live/peerBuffer.ts';
+import { deviceKindFor, PeerBuffer, visibleMaxFor } from '../src/viewer/live/peerBuffer.ts';
+import { BUBBLE_ME, BubbleBoard } from '../src/viewer/live/bubbleBoard.ts';
 import {
   dprCap,
   Gestures,
@@ -30,6 +31,7 @@ import type { DimHolder } from '../src/viewer/scene/materials.ts';
 import { VisitorScene } from '../src/viewer/VisitorScene.tsx';
 import { useWalkKeyboard } from '../src/viewer/walk/input.ts';
 import { useWalk } from '../src/viewer/walk/walkStore.ts';
+import { prefersReducedMotion } from '../src/app/student/motion.ts';
 import { STUDENT_THEME } from '../src/app/student/theme.ts';
 import { startFakePeers } from './fakePeers.ts';
 import { buildTestExhibition, type TestExhibition } from './testExhibition.ts';
@@ -39,6 +41,10 @@ import { buildTestExhibition, type TestExhibition } from './testExhibition.ts';
  * 확인할 것: 조이스틱·WASD·바닥 누르기로 걷기, 벽 통과 없음, 계단 높이, "다음 작품으로" 안내 걷기와 작품 앞 크게 보기,
  * 작품 누르면 크게 보기, 멈추면 다시 그리기 0(`?hud=1`), 휴대폰·태블릿·데스크톱 반응형.
  * `?rooms=n`(1~17), `?character=student-f` 등, `?stick=1`(데스크톱에서도 조이스틱), `?mood=a|b|c|d`(실내 분위기 시안).
+ * `?peerStill=1`: 가짜 관람객이 처음 자리에 서 있기만 함(그리기 수를 흔들림 없이 잴 때).
+ * `?bubbles=1`: 가짜 관람객이 가끔 말풍선을 띄움(스티커·정해진 말·짧은 글), `?bubbles=all`: 모두가 한꺼번에 띄우고 4초마다 다시
+ * (30명 그리기 +2 확인, PRD_V2 W-02), `?bubbles=manual`: 렌더러만 붙이고 판은 창의 `__bubbles`로 채움(e2e).
+ * 데스크톱 `1`~`8`은 내 머리 위에 스티커(서랍·통로 없이 렌더러만 확인).
  * 외관·설비·캐릭터는 R-3·R-4 결과가 오기 전까지 임시 모양이다.
  */
 
@@ -64,20 +70,70 @@ const peerBuffer = new PeerBuffer();
 const useLive = create<{ count: number }>(() => ({ count: 0 }));
 const FAKE_PEERS = Math.max(0, Math.min(80, Number.parseInt(params.get('peers') ?? '0', 10) || 0));
 
+/** 말풍선 확인(`?bubbles=1|all`): 가짜 관람객 sid(`fake0000`…)에 판으로 바로 올린다 — 서버 통로는 거치지 않음 */
+const bubbleBoard = new BubbleBoard();
+const BUBBLES = params.get('bubbles');
+// e2e: 판을 창에서 바로 채운다(`?bubbles=manual` — 가짜 말풍선 없이 렌더러만)
+if (BUBBLES !== null) Object.assign(window, { __bubbles: bubbleBoard });
+/** 결정적 순서(개발 화면 캡처가 같게): 스티커 · 정해진 말 · 짧은 글 돌려 가며 */
+const fakeBubble = (n: number): Parameters<BubbleBoard['put']>[1] =>
+  n % 3 === 0
+    ? { k: 's', i: n % config().BUBBLE_STICKERS }
+    : n % 3 === 1
+      ? { k: 'p', i: n % config().BUBBLE_PHRASES }
+      : { k: 'x', text: '이 그림 색이 좋아' };
+
 const LiveDriver = ({ layout }: { layout: Layout }) => {
   const invalidate = useThree(st => st.invalidate);
   useEffect(() => {
     if (FAKE_PEERS === 0) return;
-    const stop = startFakePeers(layout, FAKE_PEERS, (msg, at) => {
-      peerBuffer.apply(msg, at);
-      if (useLive.getState().count !== peerBuffer.size) useLive.setState({ count: peerBuffer.size });
-      invalidate();
-    });
+    const stop = startFakePeers(
+      layout,
+      FAKE_PEERS,
+      (msg, at) => {
+        peerBuffer.apply(msg, at);
+        if (useLive.getState().count !== peerBuffer.size) useLive.setState({ count: peerBuffer.size });
+        invalidate();
+      },
+      { still: params.has('peerStill') },
+    );
     return () => {
       stop();
       peerBuffer.clear();
     };
   }, [layout, invalidate]);
+  useEffect(() => {
+    if (FAKE_PEERS === 0 || (BUBBLES !== '1' && BUBBLES !== 'all')) return;
+    let n = 0;
+    const sid = (i: number): string => `fake${String(i).padStart(4, '0')}`;
+    const all = (): void => {
+      const now = Date.now();
+      for (let i = 0; i < FAKE_PEERS; i++) bubbleBoard.put(sid(i), fakeBubble(i), now);
+      invalidate();
+    };
+    const one = (): void => {
+      bubbleBoard.put(sid(n % FAKE_PEERS), fakeBubble(n), Date.now());
+      n += 1;
+      invalidate();
+    };
+    if (BUBBLES === 'all') all();
+    const id = window.setInterval(BUBBLES === 'all' ? all : one, BUBBLES === 'all' ? 4000 : 700);
+    return () => {
+      window.clearInterval(id);
+      bubbleBoard.clear();
+    };
+  }, [invalidate]);
+  useEffect(() => {
+    if (BUBBLES === null) return;
+    const onKey = (e: KeyboardEvent): void => {
+      const i = Number.parseInt(e.key, 10);
+      if (!(i >= 1 && i <= 8)) return;
+      bubbleBoard.put(BUBBLE_ME, { k: 's', i: i - 1 }, Date.now());
+      invalidate();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [invalidate]);
   return null;
 };
 
@@ -128,6 +184,17 @@ const Scene = ({
           },
     [invalidate, size.width, size.height],
   );
+  const bubbles = useMemo(
+    () =>
+      BUBBLES === null
+        ? null
+        : {
+            board: bubbleBoard,
+            device: deviceKindFor(Math.min(size.width, size.height), navigator.maxTouchPoints > 0),
+            invalidate,
+          },
+    [invalidate, size.width, size.height],
+  );
   return (
     <>
       <VisitorScene
@@ -140,8 +207,11 @@ const Scene = ({
         holders={holders}
         character={character}
         tier={TIER}
+        // 학생 화면과 같이 기기의 '동작 줄이기'를 3D에 넘긴다(PRD 8.4 — e2e `reducedMotion: 'reduce'`가 장면까지 닿게)
+        reducedMotion={prefersReducedMotion(window)}
         placeOf={placeOf}
         peers={peers}
+        bubbles={bubbles}
         signRooms={signRooms}
         signAreas={ASSETS.signAreas}
         extra={modules =>

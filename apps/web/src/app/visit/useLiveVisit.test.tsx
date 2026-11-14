@@ -12,6 +12,7 @@ import { type LiveVisit, type LiveVisitArgs, useLiveVisit } from './useLiveVisit
 const joins = vi.hoisted(() => [] as unknown[]);
 const handlers = vi.hoisted(() => [] as LiveHandlers[]);
 const jumpsSent = vi.hoisted(() => ({ n: 0 }));
+const bubblesSent = vi.hoisted(() => [] as unknown[]);
 vi.mock('../../adapters/live/socket.ts', () => ({
   browserLiveDeps: () => ({}),
   createLiveChannel: () => ({
@@ -22,6 +23,10 @@ vi.mock('../../adapters/live/socket.ts', () => ({
     leave: () => {},
     sendPose: () => {},
     sendJump: () => void (jumpsSent.n += 1),
+    sendBubble: (b: unknown) => {
+      bubblesSent.push(b);
+      return true;
+    },
   }),
 }));
 
@@ -32,6 +37,8 @@ afterEach(() => {
   joins.length = 0;
   handlers.length = 0;
   jumpsSent.n = 0;
+  bubblesSent.length = 0;
+  vi.useRealTimers();
 });
 
 const mount = (args: LiveVisitArgs): { current: LiveVisit | null } => {
@@ -107,5 +114,49 @@ describe('useLiveVisit', () => {
       as: 'teacher',
     });
     expect(joins).toHaveLength(0);
+  });
+
+  it('말풍선: 설정을 받은 뒤에만 보내고 내 머리 위에도 띄우며, 속도 제한·짧은 글 설정을 지킨다. 끄면 떠 있던 것도 거둔다(W-02)', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    const live = mount({
+      code: '123456',
+      token: 'v'.repeat(43),
+      character: 'student-f',
+      layout,
+      enabled: true,
+    });
+    // 판 1 서버(설정 없음)면 보내지 않는다
+    expect(live.current!.sendBubble({ k: 's', i: 0 })).toBe('off');
+    const h = handlers[0]!;
+    const welcome = { t: 'welcome' as const, you: 'aaaaaaaa', nickname: '하늘', peers: [], at: 1000, n: 1 };
+    act(() => h.onMessage({ ...welcome, bubbles: { enabled: true, text: false } }, 10_000));
+    expect(live.current!.bubbleSettings).toEqual({ enabled: true, text: false });
+    expect(live.current!.sendBubble({ k: 'x', text: '같이 보자' })).toBe('off');
+    expect(live.current!.sendBubble({ k: 's', i: 3 })).toBe('sent');
+    expect(bubblesSent).toEqual([{ k: 's', i: 3 }]);
+    expect(live.current!.bubbles.active(10_000).map(it => it.who)).toEqual(['me']);
+    // 1초 안 두 번째는 기다림
+    expect(live.current!.sendBubble({ k: 'p', i: 1 })).toBe('wait');
+    expect(live.current!.bubbleWaitMs()).toBe(1000);
+    vi.setSystemTime(11_000);
+    expect(live.current!.sendBubble({ k: 'p', i: 1 })).toBe('sent');
+    // 남의 말풍선은 판에, 떠나면 내린다
+    act(() => {
+      h.onMessage({ t: 'bubble', sid: 'bbbbbbbb', at: 1, b: { k: 'p', i: 2 } }, 11_000);
+      h.onMessage({ t: 'bubble', sid: 'cccccccc', at: 1, b: { k: 's', i: 2 } }, 11_000);
+      h.onMessage({ t: 'leave', sid: 'cccccccc' }, 11_000);
+    });
+    expect(
+      live
+        .current!.bubbles.active(11_000)
+        .map(it => it.who)
+        .sort(),
+    ).toEqual(['bbbbbbbb', 'me']);
+    // 교사가 끄면 떠 있던 것도 거두고 보내지 않는다
+    act(() => h.onMessage({ t: 'cfg', bubbles: { enabled: false, text: false } }, 11_000));
+    expect(live.current!.bubbles.size).toBe(0);
+    vi.setSystemTime(20_000);
+    expect(live.current!.sendBubble({ k: 's', i: 0 })).toBe('off');
   });
 });

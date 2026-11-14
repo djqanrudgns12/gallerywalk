@@ -192,3 +192,105 @@ for (const size of SIZES) {
     });
   });
 }
+
+/**
+ * 품질 낮음(`?tier=LOW`) + 동작 줄이기(`prefers-reduced-motion: reduce`) — PRD_V2 M6-1, PRD 8.4.
+ * 광장 → 홀 → 전시실을 걷고 자리마다 멈추면 다시 그리지 않는지(`settle`: 정지 표시 = 그린 프레임 수), 그리기·삼각형 예산 안인지
+ * 본다. 장면별 그리기 수는 `low-light.json`으로 남겨 높음 단계(`desktop-light.json`)와 비교한다.
+ */
+test.describe('공간 v4 · 품질 낮음 + 동작 줄이기 · desktop 1440×900', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, hasTouch: false, reducedMotion: 'reduce' });
+
+  test('광장 → 홀 → 전시실: 자리마다 멈추면 다시 그리지 않고 그리기·삼각형 예산 안', async ({ page }) => {
+    mkdirSync(SHOTS, { recursive: true });
+    await page.goto('/dev/walk?algo=4&rooms=2&tier=LOW');
+    expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
+    await expect.poll(async () => (await snap(page)).stopCount, { timeout: 30_000 }).toBeGreaterThan(4);
+    const plaza = await settle(page);
+    await page.screenshot({ path: `${SHOTS}/low-01-plaza.png` });
+    const hall = await arrive(page, 1);
+    await page.screenshot({ path: `${SHOTS}/low-02-hall.png` });
+    const room = await arrive(page, 2);
+    await page.screenshot({ path: `${SHOTS}/low-03-room.png` });
+    const shots = [plaza, hall, room];
+    writeFileSync(
+      `${SHOTS}/low-light.json`,
+      JSON.stringify({ calls: shots.map(s => s.calls), triangles: shots.map(s => s.triangles) }, null, 2),
+    );
+    for (const s of shots) {
+      // 멈춘 뒤에는 그린 프레임 수가 그대로(정지 상태에서 다시 그리지 않음)
+      expect(s.mark).toBe(s.frames);
+      expect(s.calls).toBeLessThanOrEqual(160);
+      expect(s.triangles).toBeLessThanOrEqual(300_000);
+    }
+    // 멈춘 뒤 잠시 기다려도 새 프레임이 없다
+    await page.waitForTimeout(1500);
+    expect((await snap(page)).frames).toBe(room.frames);
+  });
+});
+
+/**
+ * 머리 위 말풍선(PRD_V2 W-02 완료 기준 "관람객 30명이 동시에 보내도 그리기 증가 ≤ 2") — 휴대폰 390×844.
+ * 가짜 관람객 30명이 서 있는 광장(`?peerStill=1` — 걸어 다니면 사람 쪽 그리기 수가 1~3회씩 흔들려 +2를 가릴 수 없음,
+ * 2026-11-14 첫 실행 83 → 82)에서 말풍선 없이 잰 그리기 수와, 30명 모두 + 나에게 말풍선(스티커·말·짧은 글)을 띄운 뒤의 그리기
+ * 수를 비교한다. 1.5초 동안 여러 번 재어 흔들리지 않는지도 본다. 캡처는 `bubbles-phone.png`.
+ */
+test.describe('공간 v4 · 말풍선 30명 · phone 390×844', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  /** 1.5초 동안 잰 그리기 수의 가장 작은·큰 값 */
+  const callsOver = async (page: Page, ms: number): Promise<{ min: number; max: number }> => {
+    let min = Infinity;
+    let max = 0;
+    for (let t = 0; t < ms; t += 250) {
+      const c = (await snap(page)).calls;
+      min = Math.min(min, c);
+      max = Math.max(max, c);
+      await page.waitForTimeout(250);
+    }
+    return { min, max };
+  };
+
+  test('30명 + 나에게 한꺼번에 띄워도 그리기는 1~2회만 늘고, 화면 오류가 없다', async ({ page }) => {
+    mkdirSync(SHOTS, { recursive: true });
+    const errors: string[] = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto('/dev/walk?algo=4&rooms=2&peers=30&peerStill=1&bubbles=manual');
+    await expect.poll(async () => (await snap(page)).stopCount, { timeout: 30_000 }).toBeGreaterThan(4);
+    // 시작 자리(광장, 따라오는 카메라라 내 머리 위가 보임)에서 잰다 — 서 있는 사람들이 정지 지점 옆 자리를 차지해 안내 걷기로는
+    // 작품 자리에 닿지 못한다(2026-11-14 두 번째 실행). 조각·질감이 다 받아져 그리기 수가 멎을 때까지 기다린다
+    let before = await callsOver(page, 1500);
+    for (let i = 0; i < 20 && (before.min !== before.max || before.max === 0); i++)
+      before = await callsOver(page, 1500);
+    await page.evaluate(() => {
+      type B = { k: 's'; i: number } | { k: 'p'; i: number } | { k: 'x'; text: string };
+      const board = (window as unknown as { __bubbles: { put: (who: string, b: B, at: number) => void } })
+        .__bubbles;
+      const now = Date.now();
+      // 나는 스티커(늘 보임) · 다른 사람은 스티커·말·글을 돌려 가며 — 두 묶음(스티커·말 글자)이 모두 그려지게
+      board.put('me', { k: 's', i: 0 }, now);
+      for (let i = 0; i < 30; i++) {
+        const b: B =
+          i % 3 === 0
+            ? { k: 's', i: i % 12 }
+            : i % 3 === 1
+              ? { k: 'p', i: i % 12 }
+              : { k: 'x', text: '이 그림 색이 좋아' };
+        board.put(`fake${String(i).padStart(4, '0')}`, b, now);
+      }
+    });
+    // 튀어 오름이 끝난 뒤(0.22초)부터 머무는 동안 잰다
+    await page.waitForTimeout(400);
+    const during = await callsOver(page, 1500);
+    await page.screenshot({ path: `${SHOTS}/bubbles-phone.png` });
+    writeFileSync(`${SHOTS}/bubbles.json`, JSON.stringify({ before, during }, null, 2));
+    // 그린 것이 있어야 비교가 뜻이 있다(내 말풍선은 늘 보임)
+    // 서 있는 사람만이라 재는 동안 그리기 수가 흔들리지 않아야 비교가 뜻이 있다
+    expect(before.max).toBe(before.min);
+    expect(during.max).toBe(during.min);
+    expect(during.max - before.max).toBeGreaterThanOrEqual(1);
+    expect(during.max - before.max).toBeLessThanOrEqual(2);
+    expect(during.max).toBeLessThanOrEqual(120);
+    expect(errors).toEqual([]);
+  });
+});

@@ -12,6 +12,8 @@ import {
   normalizeCharacterId,
   studentNumber,
   toStudentCharacterId,
+  missingBones,
+  REQUIRED_BONE_SUFFIXES,
 } from './characters.ts';
 
 describe('캐릭터 목록(M4-9)', () => {
@@ -80,5 +82,19 @@ describe('캐릭터 목록(M4-9)', () => {
     expect(docentAtSpot('docent-hall')).toBe('docent-2');
     expect(docentAtSpot('docent-room')).toBe('docent-3');
     expect(docentAtSpot('docent-west')).toBeNull();
+  });
+});
+
+describe('missingBones (엔진 필수 뼈)', () => {
+  const mixamo = REQUIRED_BONE_SUFFIXES.map(s => `mixamorig:${s}`);
+
+  it('Mixamo 이름이 다 있으면 빈 목록, 앞말(mixamorig:)은 상관없다', () => {
+    expect(missingBones(mixamo)).toEqual([]);
+    expect(missingBones(REQUIRED_BONE_SUFFIXES)).toEqual([]);
+  });
+
+  it('빠진 뼈를 알려 주고, 비슷한 이름(ForeArm·UpLeg·HeadTop_End)으로 대신하지 않는다', () => {
+    const without = mixamo.filter(n => !/:(LeftArm|LeftLeg|Head)$/.test(n));
+    expect(missingBones([...without, 'mixamorig:HeadTop_End'])).toEqual(['Head', 'LeftArm', 'LeftLeg']);
   });
 });

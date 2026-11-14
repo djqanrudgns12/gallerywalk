@@ -1,6 +1,6 @@
 import { config } from '@gallery/core/config';
 import { describe, expect, it } from 'vitest';
-import { JUMP_IDLE, jumpBody, jumpBusy, type JumpState, jumpStart, stepJump } from './jumpPose.ts';
+import { bumpBody, JUMP_IDLE, jumpBody, jumpBusy, type JumpState, jumpStart, stepJump } from './jumpPose.ts';
 
 const q = () => config().CHAR_JUMP_SQUASH;
 
@@ -70,5 +70,18 @@ describe('점프 몸 상태 기계(W-05)', () => {
     expect(jumpBody({ phase: 'crouch', t: c.crouchSec }, true)).toEqual({ sy: 1, sxz: 1, tuck: 0 });
     expect(jumpBody({ phase: 'land', t: c.landSec / 2 }, true).sy).toBe(1);
     expect(jumpBody({ phase: 'air', t: 0 }, true).tuck).toBe(1);
+  });
+});
+
+describe('부딪힘 몸 연출 세기 bumpBody(W-07, PRD 8.4)', () => {
+  it('벽 부딪힘이 있으면 그것, 없으면 사람 부딪힘', () => {
+    expect(bumpBody(0.6, 0.3, false)).toBe(0.6);
+    expect(bumpBody(0, 0.3, false)).toBe(0.3);
+    expect(bumpBody(0, 0, false)).toBe(0);
+  });
+
+  it('동작 줄이기면 몸이 눌렸다 튀지 않는다(0)', () => {
+    expect(bumpBody(0.6, 0.3, true)).toBe(0);
+    expect(bumpBody(0, 0.3, true)).toBe(0);
   });
 });

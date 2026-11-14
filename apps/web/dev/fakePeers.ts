@@ -37,6 +37,8 @@ export const startFakePeers = (
   layout: Layout,
   n: number,
   emit: (msg: LiveServerMessage, receivedAt: number) => void,
+  /** 처음 자리에 서 있기만 함(`?peerStill=1` — 그리기 수를 흔들림 없이 잴 때) */
+  opts: { readonly still?: boolean } = {},
 ): (() => void) => {
   const map = buildGuideMap(layout);
   let seed = 12345;
@@ -101,6 +103,7 @@ export const startFakePeers = (
     // 서로 겹치지 않게: 각자 둘레 1.5m 안의 다른 가짜 관람객을 피한다(실제 관람객도 각자 기기에서 같은 일을 함)
     const at = peers.map(p => [p.walker.pose.x, p.walker.pose.z] as [number, number]);
     for (const [i, p] of peers.entries()) {
+      if (opts.still) continue;
       p.walker.setCrowd(at.filter((q, j) => j !== i && Math.hypot(q[0] - at[i]![0], q[1] - at[i]![1]) < 1.5));
       p.tick();
       // 방송 간격을 작은 걸음으로 나눠 걷는다(벽 미끄러짐이 한 번에 크게 튀지 않게)

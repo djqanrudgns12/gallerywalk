@@ -51,6 +51,7 @@ vi.mock('./scene/ScenePreparation.tsx', async () => {
 vi.mock('./scene/Sky.tsx', () => ({ Sky: () => null }));
 vi.mock('./scene/ExteriorContact.tsx', () => ({ ExteriorContact: () => null }));
 vi.mock('./scene/FixtureModels.tsx', () => ({ FixtureModels: () => null }));
+vi.mock('./scene/Decor.tsx', () => ({ Decor: () => null }));
 vi.mock('./scene/ArtworkLabels.tsx', () => ({ ArtworkLabels: () => null }));
 vi.mock('./scene/FacadeSign.tsx', () => ({ FacadeSign: () => null }));
 vi.mock('./scene/ArtworkFrame.tsx', () => ({ ArtworkFrame: () => null }));

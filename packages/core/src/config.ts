@@ -581,6 +581,43 @@ export const configDefaults = {
   PEER_JUMP_TAINT_MS: 600,
   PEER_JUMP_RUN_PHASE: 0.4,
   /**
+   * 머리 위 말풍선(W-02, M4): 스티커 `BUBBLE_STICKERS`종 · 정해진 말 `BUBBLE_PHRASES`개(번호로만 오간다 — 글은 `copy.bubble`) ·
+   * 짧은 글 `BUBBLE_TEXT_MAX`자(교사가 켤 때만, U-31). 저장하지 않는다.
+   * - 머묾: 스티커 `sticker`초, 정해진 말·짧은 글 `phrase`초. 새 말풍선은 같은 사람의 이전 것을 바꿔 친다.
+   * - 보이기: `BUBBLE_MAX_DIST_M` 밖이거나 다른 구역이면 숨김.
+   * - 화면 크기 고정: 스티커 높이를 기기 갈래마다 CSS px [min, max]로 자른다. 말 글자는 `BUBBLE_TEXT_MIN_PX` 이상.
+   * - 속도 제한(서버·기기 같은 규칙 `domain/live/bubble.ts`): 1초 창에 `perSec`개, 10초 창에 `per10Sec`개. 넘는 것은 서버가 조용히 버린다.
+   * - 모양(`BUBBLE_LOOK`): 머리 위 `headM`(+ 이름표를 비켜 `gapPx`), 튀어 오름 `popSec`(크기 `popFrom` → 1), 사라짐 `fadeSec`,
+   *   겹치면 가까운 것을 제자리에 두고 먼 것을 위로 비켜 `tiers`단까지(그래도 겹치면 숨김). 세계 크기(스티커 `stickerM`, 말 풍선 높이
+   *   `textM`)를 화면 px로 바꾼 뒤 범위로 자른다 — 말 풍선 최대는 스티커 최대 × `textMaxRatio`. 색은 상아 바탕·숯색 글자·테두리.
+   */
+  BUBBLE_STICKERS: 12,
+  BUBBLE_PHRASES: 12,
+  BUBBLE_SHOW_SEC: { sticker: 5, phrase: 6 },
+  BUBBLE_MAX_DIST_M: 18,
+  BUBBLE_STICKER_PX: {
+    phone: { min: 56, max: 88 },
+    tablet: { min: 64, max: 96 },
+    desktop: { min: 64, max: 104 },
+  },
+  BUBBLE_TEXT_MIN_PX: 15,
+  BUBBLE_RATE: { perSec: 1, per10Sec: 5 },
+  BUBBLE_TEXT_MAX: 20,
+  BUBBLE_LOOK: {
+    headM: 0.35,
+    gapPx: 6,
+    popSec: 0.22,
+    popFrom: 1.15,
+    fadeSec: 0.3,
+    tiers: 2,
+    stickerM: 0.55,
+    textM: 0.4,
+    textMaxRatio: 0.75,
+    paper: '#f6f1e7',
+    ink: '#2a2420',
+    edge: '#cfc4b0',
+  },
+  /**
    * 도슨트(W-10): `NPC_LOOK_RADIUS_M` 안의 학생 쪽으로 고개·몸을 돌린다(몸은 `NPC_LOOK_MAX_DEG`까지, 돌리는 빠르기 `NPC_TURN_RAD_PER_S`).
    * `NPC_TIP_RADIUS_M` 안에 학생이 있으면 `NPC_TIP_SEC`(무작위 간격) 마다 예절 한마디를 `NPC_TIP_SHOW_SEC` 동안 머리 위에.
    * `말걸기` 대사는 `NPC_TALK_SHOW_SEC` 동안(멀어지거나 걸으면 닫음).
@@ -752,6 +789,35 @@ export const configDefaults = {
     breath: { amp: 0.012, sec: 3.6 },
   },
   /**
+   * 공간 v4 장식(PRD_V2 M5-3, `decorSlots`)의 임시 모형 치수(m). 바닥 넓이는 배치 엔진과 같은 `LAYOUT_V4.decorFootprint`를
+   * 쓰고 여기는 높이·세부만. `fixtures.glb`에 종류 이름의 모델(M5-1)이 들어오면 임시 모형 대신 그것을 그린다.
+   * 펜던트: 갓 위 막대 길이(배치의 펜던트 자리 = 홀 천장 − 이 길이) · 갓 반지름·높이 · 빛 구 반지름.
+   * `segments`: 둥근 임시 모형의 둘레 칸 수(삼각형 수와 맞바꿈)
+   */
+  DECOR: {
+    fountain: {
+      basinH: 0.55,
+      rimW: 0.35,
+      waterDropM: 0.1,
+      columnR: 0.22,
+      columnH: 1.4,
+      bowlR: 1.0,
+      bowlH: 0.22,
+      topH: 0.55,
+    },
+    sculpture: { plinthH: 0.95, formH: 1.7 },
+    bust: { plinthH: 1.15, shoulderH: 0.24, headR: 0.16 },
+    planter: { potH: 0.75, leafR: 0.42 },
+    topiary: { potH: 0.6, ballR: 0.48 },
+    urn: { h: 1.1 },
+    desk: { h: 1.05, topT: 0.06, plinthH: 0.1 },
+    pendant: { rodM: 2.5, shadeR: 0.55, shadeH: 0.42, globeR: 0.2 },
+    segments: 16,
+    /** 품질 낮음(LOW)에서 그리는 종류(나머지 흉상·화분·토피어리·항아리는 빼서 그리기 호출·삼각형을 줄임) · 둥근 임시 모형 둘레 칸 수 */
+    lowTierKinds: ['fountain', 'sculpture', 'desk', 'pendant'] as readonly string[],
+    lowSegments: 10,
+  },
+  /**
    * 공간 v4(ADR-071, PRD_V2 §5): `algoVersion ≥ 4`일 때만 쓰는 치수. v3 배치·해시는 이 값을 읽지 않는다.
    * 모든 길이는 m. 조각 단위(2m) 배수여야 하는 값: 홀 폭·방 폭(4m 배수 — 가운데 포털 4m 양옆이 2m 배수)·방 깊이·방 사이 틈.
    */
@@ -766,6 +832,8 @@ export const configDefaults = {
     doorTopGapM: 0.15,
     doorSnapM: 0.6,
     rows: 5,
+    /** 품질 낮음(LOW)의 세로 칸 수 — 띠는 그대로(그리기 1회, 끄면 숯색 벽이 검게 보임), 밝기 곡선만 거칠게 */
+    lowRows: 3,
     falloff: 1.6,
   },
   LAYOUT_V4: {
@@ -915,6 +983,8 @@ export const configDefaults = {
   TOUR_FADE_OUT_SEC: 4,
   TOUR_SONG_OVERLAP_SEC: 1,
   TOUR_VISUAL_DIP: 0.15,
+  /** 동작 줄이기(PRD 8.4)일 때 자동 투어가 자리를 바꾸는 어두워짐 길이(s) — 바꾸는 순간 앞뒤로 반씩 */
+  TOUR_REDUCED_CUT_SEC: 0.3,
   TOUR_LINGER_PUSH: 0.03,
   TOUR_LINGER_CLOSEUP_AFTER_SEC: 30,
   TOUR_PAUSE_FADE_SEC: 0.4,

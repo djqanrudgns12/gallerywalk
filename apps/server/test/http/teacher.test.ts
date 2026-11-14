@@ -66,6 +66,8 @@ describe.each(STORES)('교사 경로 · $name', ({ make }) => {
   let device: string;
   let startCode: string;
   let closed: [string, string][];
+  /** 허브에 알린 설정 바뀜(전시 ID · 그때 저장소의 말풍선 설정 — 고친 뒤에 불렸는지) */
+  let changed: [string, unknown][];
   let slept: number[];
 
   beforeEach(async () => {
@@ -78,6 +80,7 @@ describe.each(STORES)('교사 경로 · $name', ({ make }) => {
     storeStartCode(made.db, t.env.secrets.startCodeHmac, startCode);
     log = createLogger({ dir: join(t.root, 'logs'), keepFiles: 1 });
     closed = [];
+    changed = [];
     slept = [];
     device = randomDeviceId();
     app = createApp({
@@ -90,7 +93,10 @@ describe.each(STORES)('교사 경로 · $name', ({ make }) => {
       useCases: deps,
       teacher: {
         security,
-        live: { closeExhibition: (id, code) => void closed.push([id, code]) },
+        live: {
+          closeExhibition: (id, code) => void closed.push([id, code]),
+          settingsChanged: id => void changed.push([id, s.store.exhibitions.get(id)?.settings.bubbles]),
+        },
         sleep: async ms => void slept.push(ms),
       },
     });
@@ -424,6 +430,29 @@ describe.each(STORES)('교사 경로 · $name', ({ make }) => {
       expect(await codeOf(await call('DELETE', roomPath, { token: a.token, ifMatch: '2' }))).toBe(
         'E_CONFLICT',
       );
+    });
+
+    it('설정을 고치면 고친 뒤에 함께 관람 허브에 알린다(W-02 말풍선), 설정이 없거나 고치기가 실패하면 알리지 않는다', async () => {
+      const a = await newExhibition();
+      const path = `/api/teacher/exhibitions/${a.id}`;
+      let rev = (await view(a)).exhibition.rev;
+      await data(
+        await call('PATCH', path, { token: a.token, body: { title: '바다거북 전시' }, ifMatch: String(rev) }),
+        ExhibitionTeacherSchema,
+      );
+      expect(changed).toEqual([]);
+      rev += 1;
+      const body = { settings: { bubbles: { enabled: false } } };
+      expect(
+        await codeOf(await call('PATCH', path, { token: a.token, body, ifMatch: String(rev + 5) })),
+      ).toBe('E_CONFLICT');
+      expect(changed).toEqual([]);
+      await data(
+        await call('PATCH', path, { token: a.token, body, ifMatch: String(rev) }),
+        ExhibitionTeacherSchema,
+      );
+      // 허브가 읽을 저장소 값이 이미 바뀐 뒤에 불렸다
+      expect(changed).toEqual([[a.id, { enabled: false, text: false }]]);
     });
 
     it('링크 새로 만들기: 옛 링크는 E_AUTH, 새 링크와 PIN 세션은 그대로', async () => {

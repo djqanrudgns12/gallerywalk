@@ -28,6 +28,7 @@ export const TourDriver = ({
   clock,
   onRegion,
   onTick,
+  reducedMotion = false,
 }: {
   layout: Layout;
   plan: TourPlan;
@@ -35,12 +36,17 @@ export const TourDriver = ({
   onRegion: (region: string) => void;
   /** 그린 프레임마다(소리 맞추기·진행 막대) */
   onTick: (t: number, playing: boolean) => void;
+  /** 동작 줄이기(PRD 8.4): 카메라를 흘리지 않고 구간마다 멈춘 자세로 바로 바꾼다(`buildTourCamera`) */
+  reducedMotion?: boolean;
 }) => {
   const camera = useThree(s => s.camera) as PerspectiveCamera;
   const size = useThree(s => s.size);
   const invalidate = useThree(s => s.invalidate);
   const aspect = size.width / Math.max(1, size.height);
-  const cam = useMemo(() => buildTourCamera(layout, plan, aspect), [layout, plan, aspect]);
+  const cam = useMemo(
+    () => buildTourCamera(layout, plan, aspect, reducedMotion),
+    [layout, plan, aspect, reducedMotion],
+  );
   const map = useMemo(() => buildGuideMap(layout), [layout]);
   const st = useRef({ region: '', cellX: Number.NaN, cellZ: Number.NaN, lastT: -1 }).current;
 

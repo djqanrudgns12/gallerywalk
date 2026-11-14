@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { ACCEPTED_CHARACTER_IDS } from '../domain/characters.ts';
+import { config } from '../config.ts';
+import { bubbleIndexOk } from '../domain/live/bubble.ts';
+import { charCount } from '../domain/text/normalize.ts';
+import { BubbleSettingsSchema } from './settings.ts';
 
 /**
  * 함께 관람(ADR-057): 전시마다 웹소켓 하나 `GET /api/e/{code}/live`. 서버는 위치를 저장하지 않는다(메모리에만).
@@ -69,10 +73,49 @@ export const LivePoseSchema = z.strictObject({
  */
 export const LiveJumpSchema = z.strictObject({ t: z.literal('jump') });
 
+/**
+ * 말풍선 내용(PRD_V2 W-02): 스티커 번호(`s`) · 정해진 말 번호(`p`) · 짧은 글(`x`). 번호의 그림·글은 기기가 가진다
+ * (`copy.bubble`). 글은 기기가 `prepareBubbleText`로 다듬어 보낸 것이라 여기서는 `BUBBLE_TEXT_MAX`자만 보고, 서버가 같은 함수로
+ * 다시 다듬고 거른다(정규화·욕설).
+ */
+export const BubbleContentSchema = z.discriminatedUnion('k', [
+  z.strictObject({
+    k: z.literal('s'),
+    i: z
+      .number()
+      .int()
+      .min(0)
+      .refine(i => bubbleIndexOk('s', i)),
+  }),
+  z.strictObject({
+    k: z.literal('p'),
+    i: z
+      .number()
+      .int()
+      .min(0)
+      .refine(i => bubbleIndexOk('p', i)),
+  }),
+  z.strictObject({
+    k: z.literal('x'),
+    text: z
+      .string()
+      .min(1)
+      .refine(t => charCount(t) <= config().BUBBLE_TEXT_MAX),
+  }),
+]);
+
+/**
+ * 말풍선 보내기(판 2 기기만). 서버는 교사 설정(`bubbles`) → 속도 제한(`BUBBLE_RATE`) → 글이면 `prepareBubbleText` 순으로 보고
+ * 같은 전시 다른 판 2 기기에 `bubble`로 넘긴다. 걸리면 조용히 버린다(보낸 기기는 같은 규칙으로 미리 막는다). 저장하지 않는다.
+ * 판 1 연결이 보내면 형식 틀림으로 닫는다.
+ */
+export const LiveBubbleSchema = z.strictObject({ t: z.literal('bubble'), b: BubbleContentSchema });
+
 export const LiveClientMessageSchema = z.discriminatedUnion('t', [
   LiveHelloSchema,
   LivePoseSchema,
   LiveJumpSchema,
+  LiveBubbleSchema,
 ]);
 export type LiveClientMessage = z.infer<typeof LiveClientMessageSchema>;
 
@@ -105,6 +148,8 @@ export const LiveServerMessageSchema = z.discriminatedUnion('t', [
     at: z.number().int().nonnegative(),
     /** 내 방 안 번호(판 2 기기에만 — `p`에서 자기 것을 건너뛸 때) */
     n: PeerNumberSchema.optional(),
+    /** 이 전시의 말풍선 설정(판 2 기기에만, W-02) — 서랍을 보일지·짧은 글 칸을 열지 */
+    bubbles: BubbleSettingsSchema.optional(),
   }),
   z.strictObject({
     t: z.literal('peers'),
@@ -127,6 +172,18 @@ export const LiveServerMessageSchema = z.discriminatedUnion('t', [
    * `LIVE_INTERP_DELAY_MS` 늦춰 그 순간부터 포물선을 그린다. 옛 앱은 모르는 종류라 조용히 버린다.
    */
   z.strictObject({ t: z.literal('jump'), sid: PeerIdSchema, at: z.number().int().nonnegative() }),
+  /**
+   * 다른 사람의 말풍선(판 2 기기에만, W-02). `at` = 서버가 받은 시각(ms). 글(`x`)은 서버가 다듬은 것. 받는 쪽은 그 사람 머리 위의
+   * 이전 말풍선을 바꿔 친다. 보낸 사람에게는 돌려보내지 않는다(기기가 보낼 때 바로 제 머리 위에 띄운다).
+   */
+  z.strictObject({
+    t: z.literal('bubble'),
+    sid: PeerIdSchema,
+    at: z.number().int().nonnegative(),
+    b: BubbleContentSchema,
+  }),
+  /** 교사가 말풍선 설정을 바꿈(판 2 기기에만, 수업 중 바로 끄기 — W-02). 꺼지면 기기는 띄운 말풍선을 거두고 서랍을 닫는다 */
+  z.strictObject({ t: z.literal('cfg'), bubbles: BubbleSettingsSchema }),
   z.strictObject({ t: z.literal('leave'), sid: PeerIdSchema }),
   /** 닫기 직전 이유(오류 코드는 errors.ts) */
   z.strictObject({ t: z.literal('bye'), code: z.string().regex(/^E_[A-Z_]+$/) }),

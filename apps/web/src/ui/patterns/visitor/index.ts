@@ -23,3 +23,4 @@ export {
 export { formatAverage, PublicReactions, type PublicReactionsProps } from './PublicReactions.tsx';
 export { ExitPanel, type ExitPanelProps } from './ExitPanel.tsx';
 export { LiveLostBanner, type LiveLostBannerProps } from './LiveLostBanner.tsx';
+export { BubbleTray, bubbleShortcut, type BubbleTrayProps } from './BubbleTray.tsx';

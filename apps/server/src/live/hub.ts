@@ -2,7 +2,13 @@ import { createHash } from 'node:crypto';
 import { config } from '@gallery/core/config';
 import { copy, fill } from '@gallery/core/copy';
 import type { ErrorCode } from '@gallery/core/errors';
-import { PEER_NUMBER_MAX, pushPose } from '@gallery/core/live';
+import {
+  PEER_NUMBER_MAX,
+  bubbleAllowed,
+  prepareBubbleText,
+  pushPose,
+  recordBubble,
+} from '@gallery/core/live';
 import { isGone } from '@gallery/core/retention';
 import {
   LiveClientMessageSchema,
@@ -10,6 +16,7 @@ import {
   bodyOf,
   isLegacyCharacterAlias,
   normalizeCharacterId,
+  type BubbleSettings,
   type CharacterId,
   type VisitorCharacterId,
   type LiveClientMessage,
@@ -47,6 +54,11 @@ import type { Deps } from '../ports/index.ts';
  * - 점프 시작(PRD_V2 W-05): 판 2 기기의 `jump`를 받은 즉시 같은 방 다른 판 2 기기에 `{t:'jump', sid, at}`로 넘긴다(꼭 가야
  *   하는 것이라 `send`). 한 연결은 `JUMP_RELAY_WINDOW_MS` 안에 `LIVE_JUMP_MAX_PER_SEC`번까지, 넘는 것은 조용히 버린다. 판 1 연결이
  *   보내면 형식 틀림으로 닫는다(판 1 기기는 이 종류를 모른다).
+ * - 말풍선(PRD_V2 W-02): 판 2 기기의 `bubble`을 그 전시의 **지금** 설정(`settings.bubbles`, 저장소에서 그때 읽음)이 켜져 있을 때만
+ *   같은 방 다른 판 2 기기에 `{t:'bubble', sid, at, b}`로 넘긴다(`send`). 한 사람은 `BUBBLE_RATE`까지, 짧은 글은 `text`가 켜졌을
+ *   때만 `prepareBubbleText`로 다듬고 거른 것을 넘긴다. 걸리는 것은 조용히 버리고, 저장하지 않으며 기록에 내용을 남기지 않는다.
+ *   판 2 기기의 `welcome`에 지금 설정을 붙이고, 교사가 설정을 바꾸면(`settingsChanged`) 판 2 기기 모두에게 `cfg`를 보낸다.
+ *   판 1 연결이 보내면 형식 틀림으로 닫는다.
  */
 
 /** 웹소켓 닫기 코드(RFC 6455 §7.4) */
@@ -136,6 +148,11 @@ export interface LiveHub {
   now(): number;
   /** 1분 이벤트 루프 지연 p99(ms)를 알린다 — `LIVE_DEGRADE_LOOP_MS` 넘으면 위치 빈도를 줄이고, 아래면 되돌린다(HS-10) */
   setLoad(loopP99Ms: number): void;
+  /**
+   * 교사가 전시 설정을 바꿨다(W-02, 수업 중 바로 끄기). 방이 있으면 저장소의 지금 말풍선 설정을 판 2 기기 모두에게 `cfg`로
+   * 보낸다(판 1 기기는 모르는 종류라 건너뜀). 방이 없거나 전시가 없으면 아무 일도 하지 않는다
+   */
+  settingsChanged(exhibitionId: string): void;
 }
 
 export interface LiveHubOptions {
@@ -183,6 +200,8 @@ interface Member {
   lastPoseAt: number;
   /** 최근 넘긴 점프 시각(ms, 오래된 것부터 — 속도 제한용, 길이 ≤ `LIVE_JUMP_MAX_PER_SEC`) */
   readonly jumps: number[];
+  /** 최근 속도 제한을 통과한 말풍선 시각(ms, 오래된 것부터 — `bubbleAllowed`·`recordBubble`, 길이 ≤ `BUBBLE_RATE.per10Sec`) */
+  readonly bubbles: number[];
 }
 
 interface Room {
@@ -206,13 +225,16 @@ interface Conn {
   needsFull: boolean;
 }
 
-/** 들여보낼 때 정한 것: 별명(서버 값)이 있거나, 익명 번호를 나눠 쓸 키가 있다 */
-type Admission = { readonly exhibitionId: string; readonly role: Role } & (
+/**
+ * 들여보낼 때 정한 것: 별명(서버 값)이 있거나, 익명 번호를 나눠 쓸 키가 있다. `bubbles` = 그때 읽은 말풍선 설정(판 2 `welcome`에)
+ */
+type Admission = { readonly exhibitionId: string; readonly role: Role; readonly bubbles: BubbleSettings } & (
   { readonly nickname: string } | { readonly anonKey: string }
 );
 
 type Hello = Extract<LiveClientMessage, { t: 'hello' }>;
 type PoseMessage = Extract<LiveClientMessage, { t: 'pose' }>;
+type BubbleContent = Extract<LiveClientMessage, { t: 'bubble' }>['b'];
 
 /** 토큰 해시 = 토큰 글의 UTF-8 SHA-256 소문자 16진(웹 `adapters/tokens.ts`와 같음) */
 const tokenHash = (token: string): string => createHash('sha256').update(token, 'utf8').digest('hex');
@@ -483,18 +505,19 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
     const ex = deps.store.exhibitions.getByEntryCode(entryCode);
     if (!ex || isGone(ex, now())) return 'E_NOT_FOUND';
     const hash = tokenHash(hello.token);
+    const bubbles = ex.settings.bubbles;
     if (role === 'teacher') {
       const session = deps.store.sessions.get(hash);
       if (!session || session.exhibitionId !== ex.id) return 'E_AUTH';
-      return { exhibitionId: ex.id, role, nickname: copy.live.teacher };
+      return { exhibitionId: ex.id, role, bubbles, nickname: copy.live.teacher };
     }
     if (ex.status === 'DRAFT') return 'E_EXHIBITION_DRAFT';
     if (ex.status === 'CLOSED') return 'E_EXHIBITION_CLOSED';
     const visitor = deps.store.visitors.get(hash, ex.id);
     const named = ex.settings.reactions.naming === 'NICKNAME' ? visitor?.nickname : null;
     return nicknameOk(named)
-      ? { exhibitionId: ex.id, role, nickname: named }
-      : { exhibitionId: ex.id, role, anonKey: hash };
+      ? { exhibitionId: ex.id, role, bubbles, nickname: named }
+      : { exhibitionId: ex.id, role, bubbles, anonKey: hash };
   };
 
   const hello = (conn: Conn, message: Hello): void => {
@@ -538,6 +561,7 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
       sentTick: -1,
       lastPoseAt: at,
       jumps: [],
+      bubbles: [],
     };
     if (conn.helloTimer !== undefined) clearTimeout(conn.helloTimer);
     conn.helloTimer = undefined;
@@ -554,7 +578,7 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
       nickname,
       peers: others,
       at: Math.max(0, Math.floor(at)),
-      ...(member.version === 2 ? { n: member.n } : {}),
+      ...(member.version === 2 ? { n: member.n, bubbles: admission.bubbles } : {}),
     });
     broadcast(room, to => ({ t: 'join', peer: toPeer(member, to) }), member.sid);
   };
@@ -575,6 +599,36 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
     member.jumps.push(at);
     const stamp = Math.max(0, Math.floor(at));
     broadcast(room, to => (to.version === 2 ? { t: 'jump', sid: member.sid, at: stamp } : null), member.sid);
+  };
+
+  /** 전시의 지금 말풍선 설정(교사가 수업 중 바꾼 것이 바로 먹게 그때마다 저장소에서 읽는다). 전시가 없으면 null */
+  const bubbleSettings = (exhibitionId: string): BubbleSettings | null =>
+    deps.store.exhibitions.get(exhibitionId)?.settings.bubbles ?? null;
+
+  /**
+   * 말풍선(W-02)을 같은 방 다른 판 2 기기에 넘긴다. 교사 설정 → 속도 제한 → 짧은 글이면 설정·다듬기·거름 순으로 보고,
+   * 걸리면 조용히 버린다(닫지 않음). 속도 칸은 글을 보기 전에 차므로 걸러질 글을 되풀이해 보내도 거름을 다시 돌리지 않는다.
+   * 저장하지 않고 기록에 번호·글을 남기지 않는다.
+   */
+  const bubble = (room: Room, member: Member, content: BubbleContent): void => {
+    const settings = bubbleSettings(room.exhibitionId);
+    if (!settings?.enabled) return;
+    const at = now();
+    if (!bubbleAllowed(member.bubbles, at)) return;
+    recordBubble(member.bubbles, at);
+    let b: BubbleContent = content;
+    if (content.k === 'x') {
+      if (!settings.text) return;
+      const prepared = prepareBubbleText(content.text);
+      if ('error' in prepared) return;
+      b = { k: 'x', text: prepared.text };
+    }
+    const stamp = Math.max(0, Math.floor(at));
+    broadcast(
+      room,
+      to => (to.version === 2 ? { t: 'bubble', sid: member.sid, at: stamp, b } : null),
+      member.sid,
+    );
   };
 
   const handle = (conn: Conn, text: string): void => {
@@ -604,6 +658,12 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
       // 판 1 기기는 이 종류를 보내지 않는다 — 보냈으면 약속을 어긴 것
       if (conn.member.version !== 2) reject(conn, 'E_VALIDATION');
       else jump(conn.room, conn.member);
+      return;
+    }
+    if (message.t === 'bubble') {
+      // 점프와 같음: 판 1 기기는 이 종류를 모른다
+      if (conn.member.version !== 2) reject(conn, 'E_VALIDATION');
+      else bubble(conn.room, conn.member, message.b);
       return;
     }
     pose(conn.member, message);
@@ -710,6 +770,14 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
       if (next === degraded) return;
       degraded = next;
       log.warn('live_degrade', { count: next ? 1 : 0 });
+    },
+    settingsChanged(exhibitionId) {
+      const room = rooms.get(exhibitionId);
+      if (!room) return;
+      const bubbles = bubbleSettings(exhibitionId);
+      if (!bubbles) return;
+      // 빼 둘 사람이 없다(sid는 8자라 빈 글과 겹치지 않음)
+      broadcast(room, to => (to.version === 2 ? { t: 'cfg', bubbles } : null), '');
     },
   };
 };

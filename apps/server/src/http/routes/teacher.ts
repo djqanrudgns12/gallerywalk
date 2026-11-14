@@ -80,10 +80,12 @@ export interface TeacherRouteOptions {
   /** PLAN §9.4에 단계만 있고 core 설정 키가 없어, 통합 담당이 정책을 정한 뒤 연결하는 속도 칸. */
   readonly uploadRateLimits?: { readonly device: number; readonly ip: number; readonly windowSec: number };
   /**
-   * 함께 관람 허브: 전시를 닫으면 방문자 연결을 끊는다(ADR-057), 지금 이어진 수를 읽는다(HT-07). 없으면 건너뜀·0.
-   * 가벼운 화면으로 들어온 수(HW-02)는 `deps.diag`에서 읽는다.
+   * 함께 관람 허브: 전시를 닫으면 방문자 연결을 끊는다(ADR-057), 지금 이어진 수를 읽는다(HT-07), 설정을 바꾸면 이어진 기기에
+   * 말풍선 설정을 알린다(W-02). 없으면 건너뜀·0. 가벼운 화면으로 들어온 수(HW-02)는 `deps.diag`에서 읽는다.
    */
-  readonly live?: (Pick<LiveHub, 'closeExhibition'> & Partial<Pick<LiveHub, 'exhibitionCounts'>>) | undefined;
+  readonly live?:
+    | (Pick<LiveHub, 'closeExhibition'> & Partial<Pick<LiveHub, 'exhibitionCounts' | 'settingsChanged'>>)
+    | undefined;
   /** PIN 응답 지연 기다리기(기본 `setTimeout`). 시험은 가짜로 */
   readonly sleep?: ((ms: number) => Promise<void>) | undefined;
 }
@@ -303,6 +305,8 @@ export const teacherRoutes = ({
     const id = ownExhibition(c);
     const patch = await readJson(c, PatchExhibitionSchema);
     patchExhibition(deps, id, patch, ifMatchOf(c));
+    // 수업 중 말풍선 끄기·켜기가 이어진 기기에 바로 먹게(W-02) — 고친 뒤에 알린다(허브는 저장소의 지금 값을 읽는다)
+    if (patch.settings !== undefined) live?.settingsChanged?.(id);
     return ok(c, teacherView(deps, id).exhibition);
   });
 

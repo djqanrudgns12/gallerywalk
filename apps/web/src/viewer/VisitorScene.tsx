@@ -4,6 +4,8 @@ import type { P2 } from '@gallery/core/layout';
 import type { CharacterId, Layout, Pose } from '@gallery/core/types';
 import { useThree } from '@react-three/fiber';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { BubbleBoard } from './live/bubbleBoard.ts';
+import { type BubbleDevice, Bubbles } from './live/Bubbles.tsx';
 import { type PeerView } from './live/peerBuffer.ts';
 import { Peers } from './live/Peers.tsx';
 import { useArtworkHover } from './scene/useArtworkHover.ts';
@@ -17,6 +19,7 @@ import { SignsV4 } from './signs/SignsV4.tsx';
 import { withoutLegacySigns } from './signs/signAtlasV4.ts';
 import { BlockoutModules } from './scene/BlockoutModules.tsx';
 import { WallWash } from './scene/WallWash.tsx';
+import { Decor } from './scene/Decor.tsx';
 import { FixtureModels } from './scene/FixtureModels.tsx';
 import type { DimHolder } from './scene/materials.ts';
 import { MicroMotion } from './scene/MicroMotion.tsx';
@@ -33,6 +36,7 @@ import { useCardTextures } from './textures/useCardTextures.ts';
 import { type ArtworkTextureSource, useResidentTextures } from './textures/useResidentTextures.ts';
 import { type SignRoom, signItems, type SignKind, type TextArea, visibleSigns } from './signs/signs.ts';
 import { SignTexts } from './signs/SignTexts.tsx';
+import { buildGuideMap } from './walk/guide.ts';
 import { visibleParts } from './walk/visibleParts.ts';
 import { type WalkStart, WalkView } from './walk/WalkView.tsx';
 import { useWalk } from './walk/walkStore.ts';
@@ -53,6 +57,13 @@ export interface VisitorPeers {
   readonly invalidate: () => void;
 }
 
+/** 머리 위 말풍선(PRD_V2 W-02) — 판과 화면 크기 갈래. 다른 사람 자리는 `peers.sample`을 같이 쓴다 */
+export interface VisitorBubbles {
+  readonly board: BubbleBoard;
+  readonly device: BubbleDevice;
+  readonly invalidate: () => void;
+}
+
 export interface VisitorSceneProps {
   readonly layout: Layout;
   readonly look: TemplateLook;
@@ -69,6 +80,7 @@ export interface VisitorSceneProps {
   /** 구역(외관·회랑·관 ID) → 위 줄 이름 */
   readonly placeOf: (region: string) => string;
   readonly peers?: VisitorPeers | null;
+  readonly bubbles?: VisitorBubbles | null | undefined;
   /** 그림 파일 없는 작품(글·소리)의 카드 글 — 그리는 관의 것만 캔버스로 조판해 건다(§5.7) */
   readonly cards?: ReadonlyMap<string, CardText> | null | undefined;
   /** 작품 그림 상주 관리(§6.5) 입력. 없으면 작품의 `texture`를 그대로(개발 화면의 합성 그림) */
@@ -106,6 +118,8 @@ export interface VisitorSceneProps {
   readonly extra?: (modules: ReadonlyMap<string, unknown> | null) => ReactNode;
 }
 
+const noPeers = (): readonly PeerView[] => [];
+
 export const placementsOf = (layout: Layout): ModulePlacement[] =>
   layout.modules.map(m => ({ module: m.type, x: m.pos[0], y: m.pos[1], z: m.pos[2], rotY: m.rotY }));
 
@@ -121,6 +135,7 @@ export const VisitorScene = ({
   tier,
   placeOf,
   peers,
+  bubbles,
   textures,
   cards,
   paused,
@@ -162,6 +177,11 @@ export const VisitorScene = ({
     [layout, region, cellX, cellZ, tier],
   );
   const partOf = useMemo(() => new Map(layout.frames.map(f => [f.artworkId, f.partId])), [layout]);
+  // 말풍선 보이기: 다른 사람 자리 → 구역(걷기와 같은 지도)
+  const regionOf = useMemo(() => {
+    const map = buildGuideMap(layout);
+    return (x: number, z: number): string => map.regionOf([x, z]);
+  }, [layout]);
   // 상주 관리 초점: 지금 관에서 가장 가까운 작품(1m 칸) · 안내 목적지
   const stopIndex = useWalk(st => st.stopIndex);
   const guided = useWalk(st => st.mode !== 'free');
@@ -266,9 +286,13 @@ export const VisitorScene = ({
         <BlockoutModules modules={modules} placements={placements} look={look} />
       )}
       {/* 공간 v4 전시실 벽 와시(W-12 ①, 그리기 1회) — 스키마 2면 그리지 않음 */}
-      <WallWash layout={layout} visibleParts={visible} look={look.wash} />
+      <WallWash layout={layout} visibleParts={visible} look={look.wash} tier={tier} />
       {extra?.(modules)}
       <FixtureModels fixtures={fixtures} models={fixtureModels} />
+      {/* 공간 v4 장식(분수·조형·흉상·펜던트·안내 데스크 등, M5-3) — 보이는 구역의 것만, 종류마다 그리기 1회 */}
+      {v4 && (
+        <Decor layout={layout} region={region} visibleParts={visible} tier={tier} models={fixtureModels} />
+      )}
       <ArtworkLabels items={labels} />
       {v4 ? (
         signRooms && (
@@ -354,6 +378,21 @@ export const VisitorScene = ({
           labelOf={peers.labelOf}
           invalidate={peers.invalidate}
           reducedMotion={reducedMotion ?? false}
+        />
+      )}
+      {bubbles && !controller && (
+        <Bubbles
+          board={bubbles.board}
+          sample={peers ? peers.sample : noPeers}
+          me={() => useWalk.getState().me}
+          myCharacter={character}
+          mineVisible={() => useWalk.getState().mode !== 'zoom'}
+          region={region}
+          regionOf={regionOf}
+          visibleParts={visible}
+          device={bubbles.device}
+          reducedMotion={reducedMotion ?? false}
+          invalidate={bubbles.invalidate}
         />
       )}
       <ScenePreparation ready={ready} revision={preparation} paused={paused ?? false} onReady={onReady} />

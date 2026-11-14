@@ -1,5 +1,6 @@
 import { config } from '@gallery/core/config';
 import type { Layout } from '@gallery/core/types';
+import type { Tier } from '../textures/residency.ts';
 
 /**
  * 전시실 벽 와시(PRD_V2 W-12 ① 코브 조명 → 벽 위쪽 그라데이션, M3-4) — 순수 계산. 그리기는 `WallWash.tsx`.
@@ -81,9 +82,11 @@ export const washStrips = (layout: Layout, visible: ReadonlySet<string>, style: 
 export const washGeometryData = (
   strips: readonly WashStrip[],
   style: WashStyle,
+  tier: Tier = 'HIGH',
 ): { positions: Float32Array; shade: Float32Array; index: Uint32Array } => {
   const w = config().WALL_WASH;
-  const rows = Math.max(1, w.rows);
+  // 품질 낮음은 세로 칸만 줄인다(띠·그리기 1회·양 끝 밝기는 그대로)
+  const rows = Math.max(1, tier === 'LOW' ? w.lowRows : w.rows);
   const positions: number[] = [];
   const shade: number[] = [];
   const index: number[] = [];

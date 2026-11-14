@@ -831,3 +831,33 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/*
+ * 말풍선 단추·서랍(PRD_V2 W-02) — 오른쪽 아래. 터치 기기는 이동 단추 묶음(뛰기·행동, 58px 둘) 위, 키보드 기기는 오른쪽 아래 모서리
+ * (데스크톱은 이동 안내가 아래 가운데로 옮겨 모서리가 빈다). 휴대폰 서랍은 화면 아래 시트라 이 자리와 상관없다.
+ */
+.bubble {
+  position: absolute;
+  right: calc(var(--s-3) + env(safe-area-inset-right));
+  bottom: calc(var(--s-3) + env(safe-area-inset-bottom));
+}
+
+.bubble[data-touch] {
+  bottom: calc(
+    var(--s-3) + 50px + var(--touch-min) + var(--s-2) + var(--s-4) + 2 * 58px + var(--s-2) + var(--s-3) +
+      env(safe-area-inset-bottom)
+  );
+}
+
+/* 화면 읽기 알림만(보이지 않음) */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

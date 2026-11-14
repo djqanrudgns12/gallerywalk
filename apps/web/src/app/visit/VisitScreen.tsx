@@ -1,5 +1,6 @@
 import { config } from '@gallery/core/config';
-import { copy } from '@gallery/core/copy';
+import { copy, fill } from '@gallery/core/copy';
+import type { BubbleContent } from '@gallery/core/live';
 import type { CharacterId } from '@gallery/core/types';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
@@ -16,7 +17,7 @@ import type { WebGLRenderer } from 'three';
 import '../../ui/tokens.css';
 import '../../ui/themes/modern-history.css';
 import '../../ui/themes/gallery-dark.css';
-import { visibleMaxFor } from '../../viewer/live/peerBuffer.ts';
+import { deviceKindFor, visibleMaxFor } from '../../viewer/live/peerBuffer.ts';
 import {
   deviceKindOf,
   type DeviceKind,
@@ -31,7 +32,7 @@ import { VisitorScene } from '../../viewer/VisitorScene.tsx';
 import { useWalkKeyboard } from '../../viewer/walk/input.ts';
 import type { WalkStart } from '../../viewer/walk/WalkView.tsx';
 import { useWalk } from '../../viewer/walk/walkStore.ts';
-import { LoadingMuseum } from '../../ui/patterns/visitor/index.ts';
+import { BubbleTray, bubbleShortcut, LoadingMuseum } from '../../ui/patterns/visitor/index.ts';
 import type { Fallback2dReason, VisitScreenProps } from './contract.ts';
 import { type LiveVisit, useLiveVisit } from './useLiveVisit.ts';
 import { activeProbe } from '../perf/visitProbe.ts';
@@ -77,6 +78,8 @@ import {
 /** 준비 막대: 첫 조각을 받는 동안 이 값까지 천천히 오른다(끝은 준비 끝에서만) */
 const PROGRESS_CAP = 0.9;
 const PROGRESS_TICK_MS = 300;
+/** 말풍선 서랍: 속도 제한이 풀리는 시각보다 조금 뒤에 다시 그린다(같은 시각이면 아직 막혀 보일 수 있음) */
+const BUBBLE_WAIT_SLACK_MS = 30;
 /** 한 번에 오를 몫(남은 거리의 비율) */
 const PROGRESS_EASE = 0.12;
 
@@ -220,7 +223,9 @@ export const VisitScreen = ({
       alive = false;
     };
   }, [exitOpen, services, view, code]);
-  useWalkKeyboard(entered && reactingId === null && !collectionOpen && !exitOpen);
+  // 말풍선 서랍(PRD_V2 W-02): 창은 한 번에 하나 — 열 때 다른 덮개를 닫고, 다른 것이 열리면 닫는다. 열린 동안 걷기 키를 끈다
+  const [bubbleOpen, setBubbleOpen] = useState(false);
+  useWalkKeyboard(entered && reactingId === null && !collectionOpen && !exitOpen && !bubbleOpen);
   // 동작 줄이기(PRD 8.4): 기기 설정을 따르고 바뀌면 따라간다
   const [reducedMotion, setReducedMotion] = useState(() => prefersReducedMotion(window));
   useEffect(() => {
@@ -244,6 +249,65 @@ export const VisitScreen = ({
     enabled: entered,
     as: liveAs,
   });
+  const mapOpen = useMapOpen(st => st.open);
+  const zoomed = useWalk(st => st.mode === 'zoom');
+  const bubbleOn = entered && live.bubbleSettings?.enabled === true;
+  useEffect(() => {
+    if (!bubbleOn || collectionOpen || exitOpen || reactingId !== null || mapOpen || zoomed)
+      setBubbleOpen(false);
+  }, [bubbleOn, collectionOpen, exitOpen, reactingId, mapOpen, zoomed]);
+  const openBubbles = useCallback((open: boolean) => {
+    if (open) {
+      setCollectionOpen(false);
+      setReactingId(null);
+      useMapOpen.setState({ open: false });
+      useWalk.getState().closeExit();
+    }
+    setBubbleOpen(open);
+  }, []);
+  // 내가 보낸 것은 화면 읽기로 알린다
+  const [bubbleSaid, setBubbleSaid] = useState<{ n: number; text: string }>({ n: 0, text: '' });
+  const sendBubble = live.sendBubble;
+  const onSendBubble = useCallback(
+    (b: BubbleContent) => {
+      if (sendBubble(b) !== 'sent') return;
+      const what =
+        b.k === 's'
+          ? (copy.bubble.stickers[b.i] ?? '')
+          : b.k === 'p'
+            ? (copy.bubble.phrases[b.i] ?? '')
+            : b.text;
+      setBubbleSaid(prev => ({ n: prev.n + 1, text: fill(copy.bubble.sent, { what }) }));
+    },
+    [sendBubble],
+  );
+  // 속도 제한으로 막힌 서랍은 풀릴 때 다시 그린다
+  const [, setBubbleTick] = useState(0);
+  const bubbleWait = bubbleOpen ? live.bubbleWaitMs() : 0;
+  useEffect(() => {
+    if (bubbleWait <= 0) return;
+    const t = window.setTimeout(() => setBubbleTick(n => n + 1), bubbleWait + BUBBLE_WAIT_SLACK_MS);
+    return () => window.clearTimeout(t);
+  }, [bubbleWait]);
+  // 키보드: `T` 열기, `1`~`8` 자주 쓰는 스티커 바로 보내기(입력 칸·다른 창·크게 보기 중에는 아님)
+  useEffect(() => {
+    if (!bubbleOn) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))
+        return;
+      if (collectionOpen || exitOpen || reactingId !== null || useMapOpen.getState().open) return;
+      if (useWalk.getState().mode === 'zoom') return;
+      const hit = bubbleShortcut(e.key);
+      if (hit === null) return;
+      e.preventDefault();
+      if (hit === 'open') openBubbles(true);
+      else onSendBubble(hit);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [bubbleOn, collectionOpen, exitOpen, reactingId, openBubbles, onSendBubble]);
   // 끊김 띠(W-08): 이어져 있던 함께 관람이 `LIVE_LOST_BANNER_SEC` 넘게 다시 잇는 중이면 위 줄 아래 작은 띠 + `재접속하기`
   const [liveLost, setLiveLost] = useState(false);
   const wasLive = useRef(false);
@@ -432,6 +496,24 @@ export const VisitScreen = ({
           reducedMotion={reducedMotion}
         />
       )}
+      {bubbleOn && !lost && !zoomed && (
+        <div className={s.bubble} data-touch={touch ? '' : undefined}>
+          <BubbleTray
+            open={bubbleOpen}
+            onOpenChange={openBubbles}
+            onSend={onSendBubble}
+            allowText={live.bubbleSettings?.text === true}
+            waitMs={bubbleWait}
+            device={deviceKindFor(Math.min(window.innerWidth, window.innerHeight), touch)}
+          />
+        </div>
+      )}
+      {entered && (
+        // 알림 칸은 늘 두고 글만 바꾼다(새로 붙인 칸은 읽히지 않을 수 있음). 같은 말을 다시 보내면 끝 공백을 바꿔 다시 읽힌다
+        <p className={s.srOnly} role="status" aria-live="polite" data-testid="bubble-said">
+          {bubbleSaid.n % 2 === 1 ? `${bubbleSaid.text}\u00a0` : bubbleSaid.text}
+        </p>
+      )}
       {entered && collectionOpen && (
         <CollectionSheet
           rooms={collection}
@@ -553,6 +635,18 @@ const VisitContent = ({
         : null,
     [live, invalidate, size.width, size.height],
   );
+  // 머리 위 말풍선(PRD_V2 W-02): 판 2 서버가 설정을 알렸을 때만(꺼져 있어도 떠 있던 것은 판이 이미 거뒀다)
+  const bubbles = useMemo(
+    () =>
+      live?.bubbleSettings
+        ? {
+            board: live.bubbles,
+            device: deviceKindFor(Math.min(size.width, size.height), navigator.maxTouchPoints > 0),
+            invalidate,
+          }
+        : null,
+    [live, invalidate, size.width, size.height],
+  );
   const assets = templateAssets[model.layout.templateId];
   return (
     <VisitorScene
@@ -567,6 +661,7 @@ const VisitContent = ({
       tier={tier}
       placeOf={model.placeOf}
       peers={peers}
+      bubbles={bubbles}
       textures={model.textures}
       cards={model.cards}
       paused={!entered}

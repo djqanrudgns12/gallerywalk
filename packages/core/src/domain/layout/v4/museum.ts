@@ -331,7 +331,7 @@ export const computeLayoutV4 = (input: LayoutInput): Layout => {
   }
   decor.push({ kind: 'sculpture', pos: [0, 0, L - v.hall.back / 2], rotY: facing([0, -1]), zone: 'hall' });
   for (let z = v.hall.front + v.bay; z < L - v.hall.back / 2 - 1e-6; z += 2 * v.bay)
-    decor.push({ kind: 'pendant', pos: [0, v.hall.h - 2.5, z], rotY: 0, zone: 'hall' });
+    decor.push({ kind: 'pendant', pos: [0, v.hall.h - c.DECOR.pendant.rodM, z], rotY: 0, zone: 'hall' });
   // 정문 안: 안내 데스크(+ 홀 도슨트) · 안내 토템 · 출구 레터링
   const deskP: P3 = [-(hw - 5), 0, v.hall.front / 2 + 1];
   decor.push({ kind: 'desk', pos: deskP, rotY: facing([1, 0]), zone: 'hall' });

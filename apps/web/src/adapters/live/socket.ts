@@ -20,6 +20,8 @@ import type { LiveChannel, LiveHandlers, LiveJoin } from '../../ports/index.ts';
  *   `decodePoses`로 손으로 본다. 나머지(`welcome`·`join`·`leave`·`bye`·`jump`)는 스키마로.
  * - 점프 시작(PRD_V2 W-05): `sendJump()`가 `{t:'jump'}`를 한 번 보낸다. 판 2 서버(welcome에 방 안 번호가 온 연결)에만 —
  *   그 전·끊긴 동안·판 1 서버에는 보내지 않고 버린다(지난 점프를 다시 이은 뒤 보내지 않음). 받은 `jump`는 스키마 갈래로 넘긴다.
+ * - 말풍선(PRD_V2 W-02): `sendBubble(b)`도 같은 조건(판 2 연결이 열려 있을 때만, 보냈으면 true). 받은 `bubble`·`cfg`와 welcome의
+ *   `bubbles`(교사 설정)는 스키마 갈래로 넘긴다.
  */
 
 export interface SocketLike {
@@ -264,6 +266,12 @@ export const createLiveChannel = (deps: LiveSocketDeps): LiveJumpChannel => {
     sendJump() {
       // 판 2 서버의 welcome을 받은 연결만(옛 서버는 모르는 종류를 받으면 닫는다)
       if (!stopped && myNumber !== null) send({ t: 'jump' });
+    },
+    sendBubble(b) {
+      // 점프와 같이 판 2 서버의 welcome을 받은 연결만. 끊긴 동안은 버린다(다시 이은 뒤 지난 말풍선을 보내지 않음)
+      if (stopped || myNumber === null || !socket || socket.readyState !== OPEN) return false;
+      send({ t: 'bubble', b });
+      return true;
     },
     leave() {
       stopped = true;

@@ -8,6 +8,8 @@ import {
   EntryCodeSchema,
   ExhibitionSettingsSchema,
   LayoutSchema,
+  LiveClientMessageSchema,
+  LiveServerMessageSchema,
   PatchArtworkSchema,
   PinSchema,
   ReactionBodySchema,
@@ -267,5 +269,44 @@ describe('배치와 봉투', () => {
     const err = { error: { code: 'E_CONFLICT', message: 'rev mismatch', retryable: true } };
     expect(ApiErrorSchema.safeParse(err).success).toBe(true);
     expect(ApiErrorSchema.safeParse({ error: { ...err.error, code: 'E_MADE_UP' } }).success).toBe(false);
+  });
+});
+
+describe('말풍선 통로(PRD_V2 W-02)', () => {
+  const sid = 'abcd1234';
+  it('보내기: 스티커·정해진 말 번호는 범위 안, 글은 BUBBLE_TEXT_MAX자까지', () => {
+    const ok = (b: unknown) => LiveClientMessageSchema.safeParse({ t: 'bubble', b }).success;
+    expect(ok({ k: 's', i: 0 })).toBe(true);
+    expect(ok({ k: 's', i: 11 })).toBe(true);
+    expect(ok({ k: 's', i: 12 })).toBe(false);
+    expect(ok({ k: 'p', i: -1 })).toBe(false);
+    expect(ok({ k: 'p', i: 2.5 })).toBe(false);
+    expect(ok({ k: 'x', text: '같이 보자' })).toBe(true);
+    expect(ok({ k: 'x', text: '' })).toBe(false);
+    expect(ok({ k: 'x', text: '가'.repeat(21) })).toBe(false);
+    expect(ok({ k: 's', i: 0, text: '덤' })).toBe(false);
+    expect(ok({ k: 'q', i: 0 })).toBe(false);
+  });
+
+  it('받기: 말풍선·설정 알림, welcome의 설정은 판 2에만이라 없어도 된다', () => {
+    expect(LiveServerMessageSchema.safeParse({ t: 'bubble', sid, at: 1, b: { k: 'p', i: 3 } }).success).toBe(
+      true,
+    );
+    expect(
+      LiveServerMessageSchema.safeParse({ t: 'cfg', bubbles: { enabled: false, text: false } }).success,
+    ).toBe(true);
+    const welcome = { t: 'welcome', you: sid, nickname: '관람객 1', peers: [], at: 0 };
+    expect(LiveServerMessageSchema.safeParse(welcome).success).toBe(true);
+    expect(
+      LiveServerMessageSchema.safeParse({ ...welcome, n: 1, bubbles: { enabled: true, text: true } }).success,
+    ).toBe(true);
+  });
+
+  it('전시 설정 기본: 말풍선 켬 · 짧은 글 끔(U-31), 예전 저장 값에도 채워진다', () => {
+    expect(ExhibitionSettingsSchema.parse({}).bubbles).toEqual({ enabled: true, text: false });
+    expect(ExhibitionSettingsSchema.parse({ reactions: {}, tour: {} }).bubbles).toEqual({
+      enabled: true,
+      text: false,
+    });
   });
 });

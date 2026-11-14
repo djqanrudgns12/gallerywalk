@@ -48,6 +48,8 @@ export interface PeerView {
 /** 사람마다 적어 두는 점프 수(체공 중 다시 못 뛰므로 넉넉함) */
 const JUMP_KEEP = 4;
 const MS_PER_SEC = 1000;
+/** 이보다 짧은 변(CSS px)의 터치 기기는 휴대폰 */
+const PHONE_SHORT_SIDE_PX = 600;
 
 export interface PeerJump {
   /** 바닥 위 높이(m) */
@@ -325,8 +327,11 @@ export const splitVisible = (
 };
 
 /** 화면 크기 → 온몸으로 그릴 수(휴대폰·태블릿·데스크톱) */
-export const visibleMaxFor = (shortSidePx: number, touch: boolean): number => {
-  const c = config().LIVE_VISIBLE_MAX;
-  if (!touch) return c.desktop;
-  return shortSidePx < 600 ? c.phone : c.tablet;
+/** 기기 갈래: 터치가 없으면 데스크톱, 있으면 짧은 변으로 휴대폰·태블릿(보이는 사람 수·말풍선 화면 크기가 같이 씀) */
+export const deviceKindFor = (shortSidePx: number, touch: boolean): 'phone' | 'tablet' | 'desktop' => {
+  if (!touch) return 'desktop';
+  return shortSidePx < PHONE_SHORT_SIDE_PX ? 'phone' : 'tablet';
 };
+
+export const visibleMaxFor = (shortSidePx: number, touch: boolean): number =>
+  config().LIVE_VISIBLE_MAX[deviceKindFor(shortSidePx, touch)];

@@ -55,6 +55,33 @@ export type AcceptedCharacterId = (typeof ACCEPTED_CHARACTER_IDS)[number];
 export const DOCENT_IDS = ['docent-1', 'docent-2', 'docent-3'] as const;
 export type DocentId = (typeof DOCENT_IDS)[number];
 
+/**
+ * 엔진이 이름 끝으로 찾는 뼈(Tripo Mixamo 규칙 `mixamorig:*`): 제자리 동작의 엉덩이, 점프 몸 연출의 다리·팔
+ * (`Character.tsx`), 손 흔들기·안내 손짓의 오른팔·손, 도슨트 고개 돌림의 목·머리(`Docents.tsx`). 새 캐릭터 glb는 모두 있어야
+ * 한다 — 최적화 도구(`tools/assets/pipeline/character.mjs`)가 검사한다.
+ */
+export const REQUIRED_BONE_SUFFIXES = [
+  'Hips',
+  'Neck',
+  'Head',
+  'LeftArm',
+  'LeftForeArm',
+  'LeftHand',
+  'RightArm',
+  'RightForeArm',
+  'RightHand',
+  'LeftUpLeg',
+  'LeftLeg',
+  'LeftFoot',
+  'RightUpLeg',
+  'RightLeg',
+  'RightFoot',
+] as const;
+
+/** `joints`(뼈 이름들)에 없는 필수 뼈 이름 끝 — 비었으면 통과 */
+export const missingBones = (joints: readonly string[]): string[] =>
+  REQUIRED_BONE_SUFFIXES.filter(suffix => !joints.some(name => name.endsWith(suffix)));
+
 /** 도슨트 → 기본 자리(배치 `npcSpots`의 id) */
 export const DOCENT_HOME_SPOTS = {
   'docent-1': 'docent-plaza',

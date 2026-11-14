@@ -15,6 +15,7 @@ import type { Tier } from '../../../viewer/textures/residency.ts';
 import { tourInputOf } from '../../../viewer/tour/tourCamera.ts';
 import { type TourClock, TourDriver } from '../../../viewer/tour/TourDriver.tsx';
 import { VisitorScene } from '../../../viewer/VisitorScene.tsx';
+import { prefersReducedMotion } from '../../student/motion.ts';
 import { useServices } from '../../services.ts';
 import { dprCap } from '../../visit/walkUi.tsx';
 import { visitModelOf } from '../../visit/visitModel.ts';
@@ -103,6 +104,8 @@ const TourPlayer = ({
   const stops = useMemo(() => tourStops(plan), [plan]);
   const range = useRef<HTMLInputElement>(null);
   const clock = useRef<TourClock>({ t: 0, playing: false, updatedAt: null }).current;
+  /** 동작 줄이기(PRD 8.4): 카메라를 흘리지 않고 구간마다 멈춘 자세로 바로 바꾼다 */
+  const reducedMotion = useMemo(() => prefersReducedMotion(window), []);
   const [started, setStarted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [now, setNow] = useState(0);
@@ -281,7 +284,14 @@ const TourPlayer = ({
               signRooms={model.signRooms}
               signAreas={assets.signAreas}
               controller={onRegion => (
-                <TourDriver layout={layout} plan={plan} clock={clock} onRegion={onRegion} onTick={onTick} />
+                <TourDriver
+                  layout={layout}
+                  plan={plan}
+                  clock={clock}
+                  onRegion={onRegion}
+                  onTick={onTick}
+                  reducedMotion={reducedMotion}
+                />
               )}
             />
           )}

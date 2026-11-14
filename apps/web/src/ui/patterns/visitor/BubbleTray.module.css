@@ -1,0 +1,299 @@
+/*
+ * 말풍선 서랍(PRD_V2 W-02, M4-4) — 반응·나가기 시트와 같은 안내판 체계: 숯색 판 · 1px 테 · 놋쇠는 보내기 단추 하나.
+ * 휴대폰: 화면 아래 3분의 1 시트(스티커 4×3 + 짧은 말 칩 가로 넘김). 태블릿·데스크톱: `말풍선` 단추 위 팝오버.
+ * 뒤 3D를 덮는 덮개 없음. 누름 영역은 `--touch-min` 이상. 색·간격·모서리·글꼴은 토큰·테마 변수만.
+ */
+.root {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: var(--font-ui);
+}
+
+.trigger {
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  padding: 0 var(--s-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.trigger[aria-expanded='true'] {
+  border-color: var(--accent);
+}
+
+/* ── 판(시트·팝오버 공통) ───────────────────────────────── */
+.sheet,
+.popover {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background-color: var(--plate-bg);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  box-shadow: var(--shadow-plate);
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  max-height: 34vh;
+  max-height: 34dvh;
+  padding: var(--s-3) calc(var(--s-3) + env(safe-area-inset-right))
+    calc(var(--s-3) + env(safe-area-inset-bottom)) calc(var(--s-3) + env(safe-area-inset-left));
+  border-bottom: 0;
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  animation: sheetUp var(--t-sheet) var(--ease-out) both;
+}
+
+/* 휴대폰 시트는 화면 3분의 1에 스티커·짧은 말 줄이 함께 들도록 사이를 좁힌다(닫기 단추는 머리 줄 높이를 늘리지 않게 바깥으로) */
+.sheet {
+  gap: var(--s-1);
+  padding-top: var(--s-2);
+}
+
+.sheet .head {
+  margin: calc(-1 * var(--s-1)) calc(-1 * var(--s-2)) calc(-1 * var(--s-2)) 0;
+}
+
+.popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--s-2));
+  z-index: 20;
+  width: 360px;
+  max-width: calc(100vw - 2 * var(--s-4));
+  max-height: 60vh;
+  max-height: 60dvh;
+  padding: var(--s-3);
+  border-radius: var(--r-sheet);
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-4);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+}
+
+.close {
+  flex: none;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  border-radius: var(--r-plate);
+  color: var(--plate-ink);
+  cursor: pointer;
+}
+
+.group {
+  display: block;
+  margin: 0 0 var(--s-1);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  color: var(--plate-ink-sub);
+}
+
+.wait {
+  margin: 0;
+  font-size: var(--fs-2);
+  color: var(--plate-ink-sub);
+}
+
+/* ── 스티커 4×3 ───────────────────────────────────────── */
+.stickers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-1);
+}
+
+.sticker {
+  min-width: 0;
+  min-height: var(--touch-min);
+  aspect-ratio: 1;
+  padding: var(--s-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--plate-bg-elevated);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  cursor: pointer;
+}
+
+/* 그림이 오기 전(M4-1): 이름 글자 칩 — 정사각을 고집하지 않아 시트 높이를 아낀다 */
+.stickerText {
+  aspect-ratio: auto;
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  text-align: center;
+  word-break: keep-all;
+}
+
+.stickerImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* ── 짧은 말 칩: 가로 넘김 ─────────────────────────────── */
+.phrases {
+  display: flex;
+  gap: var(--s-1);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  padding-bottom: var(--s-1);
+}
+
+.phrase {
+  flex: none;
+  min-height: var(--touch-min);
+  padding: 0 var(--s-3);
+  background-color: transparent;
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* 데스크톱·태블릿 팝오버에서는 칩을 접어 내려 다 보이게 */
+.popover .phrases {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+/* ── 짧은 글 ─────────────────────────────────────────── */
+.write {
+  display: flex;
+  flex-direction: column;
+}
+
+.writeRow {
+  display: flex;
+  gap: var(--s-1);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--touch-min);
+  padding: 0 var(--s-2);
+  background-color: var(--plate-bg-elevated);
+  color: var(--plate-ink);
+  border: 1px solid var(--plate-edge);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-3);
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.send {
+  flex: none;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  padding: 0 var(--s-3);
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-plate);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.error {
+  margin: var(--s-1) 0 0;
+  font-size: var(--fs-2);
+  color: var(--danger);
+}
+
+.sticker:disabled,
+.phrase:disabled,
+.send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  .sticker:not(:disabled):hover,
+  .phrase:not(:disabled):hover,
+  .trigger:hover {
+    border-color: var(--plate-ink-sub);
+  }
+}
+
+.trigger:focus-visible,
+.close:focus-visible,
+.sticker:focus-visible,
+.phrase:focus-visible,
+.send:focus-visible,
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 낮은 가로 화면(휴대폰 눕힘): 스티커를 한 줄 여섯 칸으로 */
+@media (max-height: 480px) and (min-width: 560px) {
+  .sheet .stickers {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    animation: none;
+  }
+}

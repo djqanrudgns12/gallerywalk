@@ -178,6 +178,67 @@ describe('createLiveChannel', () => {
     expect(jumps(again)).toEqual([]);
   });
 
+  it('말풍선: 판 2 welcome 뒤 열린 연결에만 {t:bubble,b}를 보내고 true, 그 밖에는 false(W-02)', () => {
+    const h = harness();
+    const ch = createLiveChannel(h.deps);
+    ch.join(
+      { code: '482910', token: TOKEN, as: 'visitor', character: 'student-m', pose: pose(0) },
+      { onMessage: () => {}, onStatus: () => {} },
+    );
+    const bubbles = (s: FakeSocket) => s.sent.filter(m => (m as { t: string }).t === 'bubble');
+    const s = h.sockets[0]!;
+    expect(ch.sendBubble({ k: 's', i: 0 })).toBe(false); // 아직 열리지 않음
+    s.open();
+    expect(ch.sendBubble({ k: 's', i: 0 })).toBe(false); // welcome 전
+    s.receive({ ...welcome, n: 1, bubbles: { enabled: true, text: false } });
+    expect(ch.sendBubble({ k: 'p', i: 3 })).toBe(true);
+    expect(ch.sendBubble({ k: 'x', text: '같이 보자' })).toBe(true);
+    expect(bubbles(s)).toEqual([
+      { t: 'bubble', b: { k: 'p', i: 3 } },
+      { t: 'bubble', b: { k: 'x', text: '같이 보자' } },
+    ]);
+    // 다시 잇는 동안·판 1 서버는 버린다
+    s.drop();
+    expect(ch.sendBubble({ k: 's', i: 1 })).toBe(false);
+    h.advance(config().LIVE_RETRY_MAX_MS * 2);
+    const again = h.sockets[1]!;
+    again.open();
+    again.receive(welcome);
+    expect(ch.sendBubble({ k: 's', i: 1 })).toBe(false);
+    expect(bubbles(again)).toEqual([]);
+    ch.leave();
+    expect(ch.sendBubble({ k: 's', i: 1 })).toBe(false);
+  });
+
+  it('받은 bubble·cfg는 스키마 갈래로 넘기고, 범위 밖 번호·모양 틀림은 버린다', () => {
+    const h = harness();
+    const got: unknown[] = [];
+    const ch = createLiveChannel(h.deps);
+    ch.join(
+      { code: '482910', token: TOKEN, as: 'visitor', character: 'student-m', pose: pose(0) },
+      { onMessage: msg => got.push(msg), onStatus: () => {} },
+    );
+    const s = h.sockets[0]!;
+    s.open();
+    s.receive({ ...welcome, n: 1 });
+    got.length = 0;
+    s.receive({ t: 'bubble', sid: 'bbbbbbbb', at: 10, b: { k: 's', i: 4 } });
+    s.receive({ t: 'cfg', bubbles: { enabled: false, text: false } });
+    expect(got).toEqual([
+      { t: 'bubble', sid: 'bbbbbbbb', at: 10, b: { k: 's', i: 4 } },
+      { t: 'cfg', bubbles: { enabled: false, text: false } },
+    ]);
+    got.length = 0;
+    for (const bad of [
+      { t: 'bubble', sid: 'bbbbbbbb', at: 10, b: { k: 's', i: 12 } },
+      { t: 'bubble', sid: 'bbbbbbbb', at: 10, b: { k: 'x', text: '가'.repeat(21) } },
+      { t: 'bubble', sid: 'bbbbbbbb', b: { k: 'p', i: 0 } },
+      { t: 'cfg', bubbles: { enabled: 'yes' } },
+    ])
+      s.receive(bad);
+    expect(got).toEqual([]);
+  });
+
   it('받은 jump(sid·서버 시각)는 스키마 갈래로 그대로 넘기고, 모양이 틀리면 버린다', () => {
     const h = harness();
     const got: { msg: unknown; at: number }[] = [];

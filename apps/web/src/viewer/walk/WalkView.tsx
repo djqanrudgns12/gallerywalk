@@ -19,7 +19,7 @@ import {
 import { buildGuideMap, pathBetween, standSpot, stepTarget } from './guide.ts';
 import { applyAmbience } from '../scene/ambience.ts';
 import { gateOf } from './action.ts';
-import { characterFx, jumpBody } from './jumpPose.ts';
+import { bumpBody, characterFx, jumpBody } from './jumpPose.ts';
 import { MannerWatch } from './manners.ts';
 import { combinedInput, useWalk } from './walkStore.ts';
 import { Walker } from './walker.ts';
@@ -541,8 +541,8 @@ export const WalkView = ({
       fig.yaw = pose.yaw;
       fig.speed = pose.speed;
       fig.air = pose.air;
-      // 사람과 부딪힘은 벽 부딪힘 몸 연출을 약하게(W-07)
-      fig.bump = pose.bump > 0 ? pose.bump : pose.crowdBump;
+      // 사람과 부딪힘은 벽 부딪힘 몸 연출을 약하게(W-07). 동작 줄이기면 몸 연출 없음
+      fig.bump = bumpBody(pose.bump, pose.crowdBump, reducedMotion ?? false);
       fig.wave = w.count;
       fig.opacity = mode === 'zoom' ? 0 : Math.max(0, Math.min(1, (followDistance - 0.5) / 0.6));
     }

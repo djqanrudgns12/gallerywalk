@@ -6,9 +6,9 @@
 // 결과: <출력 폴더>/<캐릭터 ID>.glb + <캐릭터 ID>-lod1.glb. 출력 폴더 기본은 판 2 ID면 apps/web/public/assets/g/chr-2,
 //   판 1 몸 틀이면 chr-1. 폴더 판 번호는 웹 `viewer/scene/characterFiles.ts`의 `CHARACTER_BASE`·`CHARACTER_BASE_2`와 같아야 한다 —
 //   파일을 바꾸면 둘 다 올린다(영구 캐시, PLAN §9.6). 판 2 파일을 넣으면 그 ID를 `CHARACTER_FILES`에 더한다.
-//   끝에 예산 검사를 하고 넘으면 종료 코드 1.
+//   끝에 예산 검사(면·크기·재질·뼈대·키·발밑·클립·엔진 필수 뼈 이름 `REQUIRED_BONE_SUFFIXES`)를 하고 넘으면 종료 코드 1.
 //
-// 순서: 준비(키 맞춤·재질·클립 이름·제자리) → dedup → prune → weld → simplify(목표 삼각형) → resample
+// 순서: 준비(사람별 법선 고치기 `normalFix.mjs`·키 맞춤·재질·클립 이름·제자리) → dedup → prune → weld → simplify(목표 삼각형) → resample
 //       → 기본색 1024 ETC1S·법선 512 UASTC → meshopt.
 //       LOD: 같은 준비본에서 idle(첫 키)·walk·run만 남기고 3천 삼각형·기본색 512·법선 맵 없음.
 import { NodeIO } from '@gltf-transform/core';
@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { MeshoptDecoder } from 'meshoptimizer';
 import { Matrix4, Quaternion, Vector3 } from 'three';
+import { applyRule, NORMAL_FIXES } from './normalFix.mjs';
 
 // `--tris=<n>`: 줄이는 목표만 바꿔 보는 실험(예산 검사는 규격 그대로 — 넘으면 종료 코드 1)
 const flags = process.argv.slice(2).filter(a => a.startsWith('--'));
@@ -113,6 +114,31 @@ const prepare = async (src, dst) => {
   const doc = await io.read(src);
   const r = doc.getRoot();
   const scene = r.getDefaultScene() ?? r.listScenes()[0];
+  // 사람별 법선 고치기(원본 좌표에서, 키 맞춤 전): 규칙에 맞는 꼭짓점이 없으면 원본이 바뀐 것이라 멈춘다
+  const fixed = [];
+  for (const rule of NORMAL_FIXES[id] ?? []) {
+    let n = 0;
+    const seen = new Set();
+    for (const mesh of r.listMeshes())
+      for (const p of mesh.listPrimitives()) {
+        const pos = p.getAttribute('POSITION');
+        const uv = p.getAttribute('TEXCOORD_0');
+        const nor = p.getAttribute('NORMAL');
+        if (!pos || !uv || !nor || seen.has(nor)) continue;
+        seen.add(nor);
+        n += applyRule(
+          i => pos.getElement(i, []),
+          i => uv.getElement(i, []),
+          i => nor.getElement(i, []),
+          (i, v) => nor.setElement(i, v),
+          pos.getCount(),
+          rule,
+        );
+      }
+    if (n === 0) throw new Error(`[char] ${id}: 법선 고치기 규칙에 맞는 꼭짓점 없음 — ${rule.what}`);
+    fixed.push({ what: rule.what, vertices: n });
+  }
+
   const before = getBounds(scene);
   const height = before.max[1] - before.min[1];
   const k = HEIGHT_M / height;
@@ -159,7 +185,7 @@ const prepare = async (src, dst) => {
   );
   scene.setExtras({ ...scene.getExtras(), groundMps });
   await io.write(dst, doc);
-  return { height, k, tris: triangles(doc), groundMps };
+  return { height, k, tris: triangles(doc), groundMps, fixed };
 };
 
 /** 선형 보간한 표본(회전은 구면 보간) */
@@ -269,6 +295,13 @@ const finish = async (src, { name, tris, clips, basePx, normalPx }) => {
     materials: r.listMaterials().length,
     skins: r.listSkins().length,
     joints: r.listSkins()[0]?.listJoints().length ?? 0,
+    // 엔진이 이름 끝으로 찾는 뼈(`characters.ts` `REQUIRED_BONE_SUFFIXES`) 가운데 없는 것
+    missingBones: chars.missingBones(
+      r
+        .listSkins()[0]
+        ?.listJoints()
+        .map(n => n.getName()) ?? [],
+    ),
     height: +(b.max[1] - b.min[1]).toFixed(3),
     minY: +b.min[1].toFixed(3),
     clips: r.listAnimations().map(a => a.getName()),
@@ -280,6 +313,7 @@ const finish = async (src, { name, tris, clips, basePx, normalPx }) => {
   if (report.bytes > BUDGET.bytes) fail.push(`크기 ${report.bytes} > ${BUDGET.bytes}`);
   if (report.materials > BUDGET.materials) fail.push(`재질 ${report.materials}`);
   if (report.skins !== BUDGET.skins) fail.push(`뼈대 ${report.skins}`);
+  if (report.missingBones.length) fail.push(`필수 뼈 없음 ${report.missingBones.join('·')}`);
   if (Math.abs(report.height - HEIGHT_M) > 0.02) fail.push(`키 ${report.height} ≠ ${HEIGHT_M}`);
   if (Math.abs(report.minY) > 0.02) fail.push(`발밑 ${report.minY} ≠ 0`);
   for (const c of clips) if (!report.clips.includes(c)) fail.push(`클립 ${c} 없음`);
@@ -328,6 +362,7 @@ try {
   console.log(
     `[char] ${id}: 키 ${prep.height.toFixed(3)}m → ${HEIGHT_M}m (×${prep.k.toFixed(3)}), 삼각형 ${prep.tris}, 동작 땅 빠르기 ${JSON.stringify(prep.groundMps)}`,
   );
+  for (const f of prep.fixed) console.log(`[char] ${id}: 법선 고침 ${f.vertices}개 — ${f.what}`);
   current = run(current, 'dedup');
   current = run(current, 'prune', '--keep-attributes', 'false', '--keep-leaves', 'false');
   current = run(current, 'weld');

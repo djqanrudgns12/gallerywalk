@@ -97,7 +97,16 @@ const along = (w: Walk, s: number): { p: P2; dir: P2 } => {
   return { p: [lerp(a[0], b[0], u), lerp(a[1], b[1], u)], dir: unit2(b[0] - a[0], b[1] - a[1]) };
 };
 
-export const buildTourCamera = (layout: Layout, plan: TourPlan, aspect: number): TourCamera => {
+/**
+ * `reduced`(동작 줄이기, PRD 8.4): 걷기 화면처럼 카메라를 흘리지 않고 구간마다 멈춘 자세를 보인다 — 홀·이름판·작품 앞·출구.
+ * 문 구간은 지나는 동안의 어두워짐을 그대로 두고, 가장 어두운 순간(구간 가운데)에 다음 자리로 바로 바꾼다.
+ */
+export const buildTourCamera = (
+  layout: Layout,
+  plan: TourPlan,
+  aspect: number,
+  reduced = false,
+): TourCamera => {
   const c = config();
   const [x1, y1, x2, y2] = c.MOVE_EASE;
   const ease = cubicBezier(x1, y1, x2, y2);
@@ -177,7 +186,7 @@ export const buildTourCamera = (layout: Layout, plan: TourPlan, aspect: number):
   };
 
   type Piece = (t: number) => TourFrame;
-  const pieces: { seg: TourSegment; at: Piece }[] = []; // `at`은 문 구간이 앞 작품의 떠나기 구간을 덮어쓸 때 바뀐다
+  const pieces: { seg: TourSegment; at: Piece; still: Piece }[] = []; // `at`은 문 구간이 앞 작품의 떠나기 구간을 덮어쓸 때 바뀐다
   let last: CameraPose = poses.get(hall.id)!;
   const hold =
     (pose: CameraPose): Piece =>
@@ -201,20 +210,22 @@ export const buildTourCamera = (layout: Layout, plan: TourPlan, aspect: number):
           Math.max(c.TOUR_TRANSITION_SEC, hallWalk.length / c.TOUR_WALK_SPEED_MPS),
         );
         const hallPose = poses.get(hall.id)!;
+        const hallDim = (t: number) =>
+          smooth((t - seg.startSec) / Math.max(1e-6, seg.fadeInEndSec - seg.startSec));
         pieces.push({
           seg,
           at: t => {
-            const dim = smooth((t - seg.startSec) / Math.max(1e-6, seg.fadeInEndSec - seg.startSec));
             const u = (t - (seg.endSec - moveSec)) / moveSec;
-            return { pose: u <= 0 ? hallPose : go(walkEase(u)), dim };
+            return { pose: u <= 0 ? hallPose : go(walkEase(u)), dim: hallDim(t) };
           },
+          still: t => ({ pose: hallPose, dim: hallDim(t) }),
         });
         last = poses.get(nextId)!;
         break;
       }
       case 'NAMEPLATE': {
         const pose = poses.get(`intro:${partIdOf(seg.roomIndex, seg.partIndex)}`) ?? last;
-        pieces.push({ seg, at: hold(pose) });
+        pieces.push({ seg, at: hold(pose), still: hold(pose) });
         last = pose;
         break;
       }
@@ -272,6 +283,7 @@ export const buildTourCamera = (layout: Layout, plan: TourPlan, aspect: number):
               dim: 1,
             };
           },
+          still: hold(pose),
         });
         // 다음 구간은 머무르기 끝 자세에서 이어받는다
         last = pieces[pieces.length - 1]!.at(seg.endSec).pose;
@@ -320,31 +332,59 @@ export const buildTourCamera = (layout: Layout, plan: TourPlan, aspect: number):
           };
         };
         if (prev && ws < seg.startSec) prev.at = t => (t >= ws ? doorAt(t) : lingerAt(t));
-        pieces.push({ seg, at: doorAt });
+        const fromPose = prev?.still(seg.startSec).pose ?? last;
+        const toPose = poses.get(nextId)!;
+        pieces.push({
+          seg,
+          at: doorAt,
+          still: t => ({
+            pose: t < (seg.startSec + seg.endSec) / 2 ? fromPose : toPose,
+            dim: doorAt(t).dim,
+          }),
+        });
         last = poses.get(nextId)!;
         break;
       }
       case 'EXIT': {
         const pose = poses.get(exit.id)!;
-        pieces.push({
-          seg,
-          at: t => ({
-            pose,
-            dim: 1 - smooth((t - seg.fadeOutStartSec) / Math.max(1e-6, seg.endSec - seg.fadeOutStartSec)),
-          }),
+        const exitAt: Piece = t => ({
+          pose,
+          dim: 1 - smooth((t - seg.fadeOutStartSec) / Math.max(1e-6, seg.endSec - seg.fadeOutStartSec)),
         });
+        pieces.push({ seg, at: exitAt, still: exitAt });
         last = pose;
         break;
       }
     }
   }
 
+  // 동작 줄이기: 멈춘 자세가 바뀌는 순간(구간 경계·문 가운데)마다 짧게 어두워졌다 밝아진다
+  const cuts: number[] = [];
+  if (reduced) {
+    const eps = 1e-6;
+    const moved = (a: CameraPose, b: CameraPose) =>
+      Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y, a.position.z - b.position.z) >
+        eps || Math.hypot(a.target.x - b.target.x, a.target.y - b.target.y, a.target.z - b.target.z) > eps;
+    const stillAt = (t: number) =>
+      (pieces.find(p => t < p.seg.endSec) ?? pieces[pieces.length - 1]!).still(t).pose;
+    for (const p of pieces) {
+      const marks =
+        p.seg.kind === 'DOOR' ? [p.seg.startSec, (p.seg.startSec + p.seg.endSec) / 2] : [p.seg.startSec];
+      for (const m of marks) if (m > 0 && moved(stillAt(m - eps), stillAt(m))) cuts.push(m);
+    }
+  }
+  const cutHalf = Math.max(1e-6, c.TOUR_REDUCED_CUT_SEC / 2);
+  const cutDim = (t: number): number =>
+    cuts.reduce((k, m) => Math.min(k, smooth(Math.abs(t - m) / cutHalf)), 1);
+
   return {
     totalSec: plan.totalSec,
     at: (t: number) => {
       const tt = Math.min(plan.totalSec, Math.max(0, t));
       const piece = pieces.find(p => tt < p.seg.endSec) ?? pieces[pieces.length - 1]!;
-      return piece.at(tt);
+      if (!reduced) return piece.at(tt);
+      const f = piece.still(tt);
+      return { pose: f.pose, dim: f.dim * cutDim(tt) };
     },
   };
 };
