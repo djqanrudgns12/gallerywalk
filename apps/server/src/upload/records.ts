@@ -2,6 +2,7 @@ import { classifyForm, guessTextHeavy } from '@gallery/core/classify';
 import { AppError, errorCatalog } from '@gallery/core/errors';
 import type { CreateFileArtworkMetaSchema, CreatePdfArtworkSchema } from '@gallery/core/types';
 import type { z } from 'zod';
+import { nextOrder } from '../application/artworks.ts';
 import { assertSameExhibition, bump, createHashOf, liveExhibition } from '../application/common.ts';
 import type { ArtworkRecord, AssetRecord, Deps, UploadTarget } from '../ports/index.ts';
 
@@ -53,7 +54,8 @@ export const newArtwork = (
     id: meta.id,
     exhibitionId,
     roomId: meta.roomId,
-    order: meta.order,
+    // 순서는 서버가 그 전시실 끝에 붙인다(ADR-074) — 기기가 보낸 `order`는 무시(멱등 해시에는 남음)
+    order: nextOrder(deps, exhibitionId, meta.roomId),
     title: meta.title,
     author: null,
     captionShort: null,

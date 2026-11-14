@@ -35,6 +35,9 @@ export const configDefaults = {
   AUTOSAVE_DELAY_MS: 600,
   LONG_PRESS_MS: 500,
   DRAG_START_PX: 8,
+  /** 한 번에 놓기 `PUT …/arrangement`(ADR-074): 한쪽(`base`·`rooms`)의 전시실 판 수·작품 ID 수 상한 — 두 쪽을 합쳐도 `JSON_BODY_MAX_KB` 안 */
+  ARRANGEMENT_MAX_ROOMS: 50,
+  ARRANGEMENT_MAX_IDS: 600,
   /** 올리기(P5-3): 바쁨·속도 제한 다시 보내기 횟수·간격 · 사전 검사에서 머리만 읽는 바이트 · 소리 길이 읽기 상한 */
   UPLOAD_RETRY_MAX: 4,
   UPLOAD_RETRY_DELAY_MS: 2000,

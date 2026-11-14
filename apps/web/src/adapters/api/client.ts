@@ -1,9 +1,11 @@
 import { AppError } from '@gallery/core/errors';
 import {
+  ArrangementResultSchema,
   ArtworkTeacherSchema,
   CreateExhibitionResultSchema,
   ExhibitionTeacherSchema,
   ExhibitionViewSchema,
+  LiveStatsSchema,
   normalizeLine,
   PinLoginResultSchema,
   ReactionViewSchema,
@@ -40,6 +42,7 @@ import type { Http, UploadRequest } from './http.ts';
  *   반응 PUT → `ReactionView` · `GET /e/{code}/me` → `ReactionView[]` · 전시 PATCH·열기/닫기/다시 열기 → `ExhibitionTeacher`
  *   · 전시실 POST·PATCH → `RoomTeacher` · 작품 POST(JSON)·PATCH·complete·restore → `ArtworkTeacher`
  *   · 교사 반응 목록 → `TeacherReaction[]` · 반응 PATCH → `TeacherReaction`.
+ *   한 번에 놓기 → `ArrangementResult` · 지금 관람 수 → `LiveStats`는 core에 응답 스키마가 있다.
  *   돌려받을 값이 없는 경로(방문자 등록·별명·지우기·순서·여러 개·링크 새로 만들기·포스터/배경음악 빼기)는 204나
  *   `data`가 무엇이든 성공 봉투면 받는다.
  */
@@ -343,11 +346,11 @@ export const createApiClient = ({ http, device, tokens }: ApiClientDeps): ApiCli
     deleteRoom: async (exhibitionId, roomId, rev) =>
       http.send({ method: 'DELETE', path: roomPath(roomId), ifMatch: rev, token: asTeacher(exhibitionId) }),
 
-    reorderRooms: async (exhibitionId, ids) =>
+    reorderRooms: async (exhibitionId, ids, base) =>
       http.send({
         method: 'PUT',
         path: exhibitionPath(exhibitionId, '/rooms/order'),
-        body: { ids },
+        body: base === undefined ? { ids } : { ids, base },
         token: asTeacher(exhibitionId),
       }),
 
@@ -391,6 +394,17 @@ export const createApiClient = ({ http, device, tokens }: ApiClientDeps): ApiCli
         token: asTeacher(exhibitionId),
       }),
 
+    putArrangement: async (exhibitionId, body) =>
+      http.json(
+        {
+          method: 'PUT',
+          path: exhibitionPath(exhibitionId, '/arrangement'),
+          body,
+          token: asTeacher(exhibitionId),
+        },
+        ArrangementResultSchema,
+      ),
+
     batchArtworks: async (exhibitionId, batch) =>
       http.send({
         method: 'POST',
@@ -411,6 +425,17 @@ export const createApiClient = ({ http, device, tokens }: ApiClientDeps): ApiCli
       http.json(
         { method: 'POST', path: artworkPath(artworkId, '/restore'), token: asTeacher(exhibitionId) },
         ArtworkTeacherSchema,
+      ),
+
+    getLive: async (exhibitionId, opts) =>
+      http.json(
+        {
+          method: 'GET',
+          path: exhibitionPath(exhibitionId, '/live'),
+          token: asTeacher(exhibitionId),
+          signal: opts?.signal,
+        },
+        LiveStatsSchema,
       ),
 
     reactions: async (exhibitionId, opts) =>

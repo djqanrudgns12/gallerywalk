@@ -103,13 +103,25 @@ export const deleteRoom = (deps: Deps, exhibitionId: string, roomId: string, ifM
     bump(deps, ex, { content: true, layout: true });
   });
 
-/** `PUT …/{id}/rooms/order` — 받은 ID 집합이 지금 집합과 다르면 충돌 */
-export const reorderRooms = (deps: Deps, exhibitionId: string, ids: readonly string[]): void =>
+/**
+ * `PUT …/{id}/rooms/order` — 받은 ID 집합이 지금 집합과 다르면 충돌. `base`(ADR-074)가 오면 클라이언트가 본 바꾸기 전 순서가
+ * 서버의 지금 순서와 같아야 한다(다르면 충돌 — 다른 기기가 먼저 판 순서를 바꿈).
+ */
+export const reorderRooms = (
+  deps: Deps,
+  exhibitionId: string,
+  ids: readonly string[],
+  base?: readonly string[],
+): void =>
   deps.store.transaction(() => {
     const ex = liveExhibition(deps, exhibitionId);
     const rooms = deps.store.rooms.listByExhibition(ex.id);
     const current = new Set(rooms.map(r => r.id));
     if (ids.length !== current.size || ids.some(id => !current.has(id))) throw new AppError('E_CONFLICT');
+    if (base !== undefined) {
+      const now = [...rooms].sort((a, b) => a.order - b.order || (a.id < b.id ? -1 : 1)).map(r => r.id);
+      if (base.length !== now.length || base.some((id, i) => id !== now[i])) throw new AppError('E_CONFLICT');
+    }
     const now = deps.clock.now();
     ids.forEach((id, order) => {
       const r = rooms.find(x => x.id === id)!;

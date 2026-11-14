@@ -2,6 +2,7 @@ import { config } from '@gallery/core/config';
 import { AppError } from '@gallery/core/errors';
 import { isGone } from '@gallery/core/retention';
 import {
+  ArrangementSchema,
   ArtworkBatchSchema,
   ArtworkOrderSchema,
   CreateExhibitionSchema,
@@ -23,6 +24,7 @@ import {
 import type { Context } from 'hono';
 import { Hono } from 'hono';
 import {
+  arrangeArtworks,
   batchArtworks,
   deleteArtwork,
   patchArtwork,
@@ -346,9 +348,18 @@ export const teacherRoutes = ({
   r.put('/api/teacher/exhibitions/:id/rooms/order', auth, async c => {
     const id = ownExhibition(c);
     const body = await readJson(c, RoomOrderSchema);
-    reorderRooms(deps, id, body.ids);
+    reorderRooms(deps, id, body.ids, body.base);
     settle(id);
     return noContent(c);
+  });
+
+  // 한 번에 놓기(ADR-074): 같은 판·다른 판 n번째·여러 개·되돌리기. `base`가 서버의 지금 배열과 다르면 `E_CONFLICT`
+  r.put('/api/teacher/exhibitions/:id/arrangement', auth, async c => {
+    const id = ownExhibition(c);
+    const body = await readJson(c, ArrangementSchema);
+    const result = arrangeArtworks(deps, id, body);
+    settle(id);
+    return ok(c, result);
   });
 
   r.patch('/api/teacher/rooms/:roomId', auth, async c => {
