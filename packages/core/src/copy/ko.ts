@@ -705,6 +705,11 @@ export const copy = {
       tourStartLabel: '자동 투어 시작',
       bubbles: '말풍선',
       bubblesHint: '스티커와 정해진 말만',
+      /** 말풍선 타일 스위치(PRD_V2 W-02·U-31): 받기 켬/끔 · 짧은 글까지 */
+      bubblesOn: '말풍선 받기',
+      bubblesText: '짧은 글도 받기',
+      bubblesTextHint: '스티커·정해진 말·짧은 글',
+      bubblesOffHint: '지금은 꺼 두었어요',
       reactions: '반응',
       reactionsHint: '지금까지 들어온 반응',
       network: '학교망 점검',

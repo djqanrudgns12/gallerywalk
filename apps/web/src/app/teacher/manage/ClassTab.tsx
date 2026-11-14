@@ -1,10 +1,10 @@
 import { config } from '@gallery/core/config';
 import { copy, fill } from '@gallery/core/copy';
-import type { ExhibitionTeacher, Layout, LiveStats } from '@gallery/core/types';
+import type { BubbleSettings, ExhibitionTeacher, Layout, LiveStats } from '@gallery/core/types';
 import { useId, useLayoutEffect, useMemo, useRef, useState, type ReactElement, type RefObject } from 'react';
 import { encode } from 'uqr';
 import { Icon } from '../../../ui/Icon.tsx';
-import { StackBar, StatNumber, type StackBarPart } from '../../../ui/patterns/teacher/index.ts';
+import { StackBar, StatNumber, ToggleTile, type StackBarPart } from '../../../ui/patterns/teacher/index.ts';
 import { formatDay } from '../../student/posterView.ts';
 import { shortStudentUrl, studentUrl } from '../shared/links.ts';
 import { FloorPlan } from './FloorPlan.tsx';
@@ -18,6 +18,13 @@ export interface ClassTabProps {
   readonly roomOrder: readonly string[];
   readonly reactionCount: number;
   readonly showBubbles: boolean;
+  /**
+   * 말풍선 설정 바꾸기(PRD_V2 W-02 '함께 관람', 수업 중 바로 끄기). 저장은 부르는 쪽(`patchExhibition`).
+   * 없으면 타일은 지금 값만 보여 주고 스위치를 막는다.
+   */
+  readonly onBubblesChange?: ((next: BubbleSettings) => void) | undefined;
+  /** 저장 중(같은 rev로 두 번 보내지 않게 스위치를 막는다) */
+  readonly bubblesBusy?: boolean | undefined;
   readonly onShowQr: () => void;
   readonly onStartTour: () => void;
   readonly onOpenReactions: () => void;
@@ -147,6 +154,8 @@ export const ClassTab = ({
   roomOrder,
   reactionCount,
   showBubbles,
+  onBubblesChange,
+  bubblesBusy = false,
   onShowQr,
   onStartTour,
   onOpenReactions,
@@ -156,6 +165,7 @@ export const ClassTab = ({
   onCloseExhibition,
 }: ClassTabProps): ReactElement => {
   const t = copy.teacher.classTab;
+  const bubbles = exhibition.settings.bubbles;
   const opened = exhibition.status === 'OPEN';
   const stats = useLiveStats(exhibition.id, opened);
   const split = useMemo(() => (stats ? liveSplit(stats) : null), [stats]);
@@ -277,7 +287,25 @@ export const ClassTab = ({
         {showBubbles ? (
           <li className={s.tile} data-tile="bubbles">
             <span className={s.tileName}>{t.bubbles}</span>
-            <span className={s.tileHint}>{t.bubblesHint}</span>
+            <span className={s.tileHint} data-testid="class-bubbles-hint">
+              {!bubbles.enabled ? t.bubblesOffHint : bubbles.text ? t.bubblesTextHint : t.bubblesHint}
+            </span>
+            <span className={s.switches}>
+              <ToggleTile
+                label={t.bubblesOn}
+                checked={bubbles.enabled}
+                disabled={!onBubblesChange || bubblesBusy}
+                onChange={enabled => onBubblesChange?.({ ...bubbles, enabled })}
+                className={s.switch}
+              />
+              <ToggleTile
+                label={t.bubblesText}
+                checked={bubbles.text}
+                disabled={!onBubblesChange || bubblesBusy || !bubbles.enabled}
+                onChange={text => onBubblesChange?.({ ...bubbles, text })}
+                className={s.switch}
+              />
+            </span>
             <span className={s.bubble} aria-hidden="true">
               <i className={s.sticker} data-sticker="star">
                 <Icon name="star" size={14} />
