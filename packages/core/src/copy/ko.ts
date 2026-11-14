@@ -678,6 +678,38 @@ export const copy = {
       /** 자동 투어 시작 덮개의 한 줄(PLAN §6.13) */
       tourHint: '수업 전 미리 불러오기를 먼저 하면 끊김이 없어요',
     },
+    /**
+     * 수업 탭(HT-07, G-26·G-32): 큰 숫자·쌓은 막대·지도 위 학생 점·그림 타일. 수만 보이고 개인 위치·별명은 없다.
+     * `{n}` = 수, `{sec}` = `LIVE_TEACHER_POLL_SEC`
+     */
+    classTab: {
+      /** 큰 숫자 옆 이름표 */
+      watching: '명이 관람 중',
+      /** 쌓은 막대 묶음 이름(화면 낭독기) · 세 칸 · 막대 밖 선생님 수 */
+      split: '관람 중인 학생 나눔',
+      inRooms: '전시실 안',
+      elsewhere: '홀·광장·복도',
+      noPose: '위치 없음',
+      teachers: '선생님',
+      light: '오늘 가벼운 화면으로 들어온 학생 {n}명',
+      mapTitle: '지금 어디에 있나',
+      mapHint: '{sec}초마다 새로 봐요',
+      /** 열기 전·닫힌 뒤: 큰 숫자 대신 */
+      draftNotice: '전시를 열면 학생이 들어올 수 있어요',
+      closedNotice: '닫힌 전시예요. 학생은 새로 들어올 수 없어요',
+      entryLabel: '입장',
+      toolsLabel: '수업 도구',
+      tour: '자동 투어',
+      tourHint: '전시실 순서대로 함께',
+      tourStart: '시작',
+      tourStartLabel: '자동 투어 시작',
+      bubbles: '말풍선',
+      bubblesHint: '스티커와 정해진 말만',
+      reactions: '반응',
+      reactionsHint: '지금까지 들어온 반응',
+      network: '학교망 점검',
+      networkHint: '수업 전에 한 번 재 봐요',
+    },
     /** 반응 탭(P5-8, G-15) */
     reactionsTab: {
       title: '반응',
