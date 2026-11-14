@@ -158,6 +158,19 @@
   --manage-tick: #d6cfc3; /* 순서 눈금 */
   --manage-bar-soft: #8fa1bb; /* 쌓은 막대 옅은 남색 칸 */
 
+  /* 축측 지도(HT-04, FIELD_PLAN §5.4 ③): 바닥 두 밝기 · 고른/놓일 전시실 · 벽 윗면·두 옆면 · 작품 자리 · 핀 고리 */
+  --axo-corridor: #e2dacd;
+  --axo-floor: #ece5d9;
+  --axo-floor-selected: #d3dae4;
+  --axo-wall-top: #fbf8f2;
+  --axo-wall-edge: #c4baab;
+  --axo-wall-a: #d8cec0;
+  --axo-wall-b: #c4b8a6;
+  --axo-art: #6a6157;
+  --axo-easel: #a39a8d;
+  --axo-ring: rgba(29, 53, 87, 0.16);
+  --axo-model-shadow: 0 7px 7px rgba(31, 28, 25, 0.16);
+
   /* 그림자 3단 + 작은 그림자 */
   --elev-1:
     0 0 0 1px rgba(31, 28, 25, 0.055), 0 1px 2px rgba(31, 28, 25, 0.06),
