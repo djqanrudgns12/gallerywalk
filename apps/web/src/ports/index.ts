@@ -1,5 +1,7 @@
 import type { z } from 'zod';
 import type {
+  ArrangementResult,
+  ArrangementSchema,
   ArtworkBatchSchema,
   ArtworkTeacher,
   CharacterId,
@@ -13,6 +15,7 @@ import type {
   ExhibitionTeacher,
   ExhibitionView,
   LiveServerMessage,
+  LiveStats,
   PatchArtworkSchema,
   PatchExhibitionSchema,
   PatchRoomSchema,
@@ -62,6 +65,8 @@ export type CreateFileArtworkMetaInput = In<typeof CreateFileArtworkMetaSchema>;
 export type CreatePdfArtworkInput = Omit<In<typeof CreatePdfArtworkSchema>, 'kind' | 'pageCount'>;
 export type PatchArtworkInput = In<typeof PatchArtworkSchema>;
 export type ArtworkBatchInput = In<typeof ArtworkBatchSchema>;
+/** 한 번에 놓기(ADR-074): 바꾸기 전 배열 `base`·바꾼 뒤 배열 `rooms`(바뀐 판들만, 빈 판 허용)·되돌리기의 `restoreFeatured` */
+export type ArrangementInput = In<typeof ArrangementSchema>;
 export type ReactionPatchInput = In<typeof ReactionPatchSchema>;
 export type ReactionBodyInput = In<typeof ReactionBodySchema>;
 /** 방문자 등록 본문에서 토큰 해시를 뺀 것(해시는 어댑터가 이 기기의 방문자 토큰으로 만든다) */
@@ -172,8 +177,11 @@ export interface TeacherApi {
   patchRoom(exhibitionId: string, roomId: string, rev: number, patch: PatchRoomInput): Promise<RoomTeacher>;
   /** `DELETE /api/teacher/rooms/{roomId}` */
   deleteRoom(exhibitionId: string, roomId: string, rev: number): Promise<void>;
-  /** `PUT …/{id}/rooms/order` — 전체 순서(집합이 다르면 `E_CONFLICT`) */
-  reorderRooms(exhibitionId: string, ids: readonly string[]): Promise<void>;
+  /**
+   * `PUT …/{id}/rooms/order` — 전체 순서(집합이 다르면 `E_CONFLICT`). `base`(바꾸기 전 순서, ADR-074)를 주면 서버의 지금
+   * 순서와 다를 때도 `E_CONFLICT`(다른 기기가 먼저 바꿈). 되돌리기는 `ids`와 `base`를 맞바꿔 부른다.
+   */
+  reorderRooms(exhibitionId: string, ids: readonly string[], base?: readonly string[]): Promise<void>;
   /** `DELETE /api/teacher/rooms/{roomId}/bgm` */
   removeBgm(exhibitionId: string, roomId: string): Promise<void>;
   /** `POST …/{id}/artworks` JSON — 글 작품, PDF 1단계(`PROCESSING` 작품) */
@@ -189,12 +197,23 @@ export interface TeacherApi {
   ): Promise<ArtworkTeacher>;
   /** `PUT /api/teacher/rooms/{roomId}/artwork-order` — 전체 순서(집합이 다르면 `E_CONFLICT`) */
   reorderArtworks(exhibitionId: string, roomId: string, ids: readonly string[]): Promise<void>;
+  /**
+   * `PUT …/{id}/arrangement` — 한 번에 놓기(ADR-074): 같은 판 순서·다른 판 n번째·여러 개·되돌리기(`base`↔`rooms` 맞바꿈).
+   * `base`의 판마다 그 전시실의 지우지 않은 작품 전부(숨김·처리 중·실패 포함)를 보드 차례대로 담는다. 서버의 지금 배열에서
+   * 그사이 올라온 작품을 뺀 것이 `base`와 다르면 `E_CONFLICT`. 돌려받은 `revs`는 바로 반영한다(다음 PATCH의 `If-Match`).
+   */
+  putArrangement(exhibitionId: string, body: ArrangementInput): Promise<ArrangementResult>;
   /** `POST /api/teacher/artworks/batch` */
   batchArtworks(exhibitionId: string, batch: ArtworkBatchInput): Promise<void>;
   /** `DELETE /api/teacher/artworks/{aid}` — 표시만(되살리기 가능) */
   deleteArtwork(exhibitionId: string, artworkId: string, rev: number): Promise<void>;
   /** `POST /api/teacher/artworks/{aid}/restore` */
   restoreArtwork(exhibitionId: string, artworkId: string): Promise<ArtworkTeacher>;
+  /**
+   * `GET …/{id}/live` — 지금 관람 수(HT-07): 함께 관람 학생·교사 수, 가벼운 화면 수(까닭별), 수업 지도 칸(HT-16, 선택:
+   * 전시실별 `rooms`·전시실 밖 `elsewhere`·위치 없음 `noPose`). 수업 탭이 `LIVE_TEACHER_POLL_SEC`마다 부른다.
+   */
+  getLive(exhibitionId: string, opts?: CallOptions): Promise<LiveStats>;
   /** `GET …/{id}/reactions` */
   reactions(exhibitionId: string, opts?: CallOptions): Promise<readonly TeacherReaction[]>;
   /** `PATCH /api/teacher/reactions/{rid}` — 숨기기·공개로 고르기 */
@@ -323,7 +342,13 @@ export interface DeviceStore {
   /** 이 기기 선생님의 캐릭터(PRD 15.8 "선생님은 교사 화면에서 고름") — 투어·3D 미리 보기·함께 관람에 쓴다. 기본 `teacher-m` */
   teacherCharacter(): TeacherCharacter;
   setTeacherCharacter(character: TeacherCharacter): void;
+
+  /** 교사 작업 화면 액자 크기(G-32 "크게/작게", 기기에 기억). 기본 크게 */
+  manageFrameSize(): ManageFrameSize;
+  setManageFrameSize(size: ManageFrameSize): void;
 }
+
+export type ManageFrameSize = 'big' | 'small';
 
 export type TeacherCharacter = Extract<CharacterId, `teacher-${string}`>;
 

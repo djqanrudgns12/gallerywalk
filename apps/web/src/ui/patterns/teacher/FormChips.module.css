@@ -1,0 +1,81 @@
+/* 형태 그림 칩: 돋움 칸 위 선 그림 + 작은 글, 고른 것은 남색 테. */
+.root {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-ui);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  min-height: 20px;
+}
+
+.heading {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--manage-ink-3);
+}
+
+.auto {
+  padding: 1px 7px;
+  border: 1px solid var(--manage-rule);
+  border-radius: var(--r-pill);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--manage-ink-3);
+  white-space: nowrap;
+}
+
+.chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: max(52px, var(--manage-touch, var(--touch-min)));
+  min-width: var(--manage-touch, var(--touch-min));
+  padding: 0;
+  border: 1px solid var(--manage-rule-soft);
+  border-radius: var(--manage-r-tile);
+  background-color: var(--manage-raised);
+  color: var(--manage-ink-3);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.glyph {
+  width: 30px;
+  height: 26px;
+  fill: none;
+  stroke: var(--manage-ink-2);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.on {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.on .glyph {
+  stroke: var(--accent);
+}

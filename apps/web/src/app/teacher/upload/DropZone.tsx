@@ -69,7 +69,7 @@ const phoneNow = (): boolean => {
 };
 
 /** 지금 휴대폰 기준인가(화면을 돌리거나 창 크기를 바꾸면 다시) */
-const usePhoneUpload = (): boolean => {
+export const usePhoneUpload = (): boolean => {
   const [phone, setPhone] = useState(phoneNow);
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return;

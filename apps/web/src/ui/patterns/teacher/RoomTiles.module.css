@@ -1,0 +1,56 @@
+/* 전시실 번호 타일: 돋움 칸 위 명조 번호, 고른 것은 남색 면. */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: var(--s-2);
+  font-family: var(--font-ui);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: var(--manage-touch, var(--touch-min));
+  min-height: max(48px, var(--manage-touch, var(--touch-min)));
+  padding: 0;
+  border: 1px solid var(--manage-rule-soft);
+  border-radius: var(--manage-r-tile);
+  background-color: var(--manage-raised);
+  box-shadow: var(--manage-shadow-tile);
+  color: var(--manage-ink-2);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.no {
+  font-family: var(--font-display);
+  font-size: var(--manage-fs-num-tile);
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.caption {
+  font-size: 11px;
+  color: var(--manage-ink-3);
+}
+
+.on {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  box-shadow: var(--manage-shadow-accent);
+}
+
+.on .no {
+  color: var(--manage-on-accent);
+}
+
+.on .caption {
+  color: var(--manage-on-accent-2);
+}

@@ -111,6 +111,20 @@ export interface LiveAudience {
   readonly teachers: number;
 }
 
+/**
+ * 전시 하나의 학생 바닥 위치(교사 수업 지도, HT-16·ADR-074). 누구인지(sid·별명·토큰·캐릭터)는 싣지 않고, 차례에도 뜻이 없다.
+ * 세기(관 → 전시실)는 `application/liveRooms.ts`가 한다. 교사 연결은 빠진다(교사 수는 `exhibitionCounts`).
+ */
+export interface LiveFloor {
+  /** 위치를 보낸 학생마다 마지막으로 받은 바닥 위치(m, 세계 x·z) */
+  readonly positions: readonly { readonly x: number; readonly z: number }[];
+  /**
+   * 들어온 뒤 위치를 한 번도 보내지 않은 학생 연결. 기기는 3D 걷기 화면이 돌 때만 위치를 보내므로(`hello`의 위치는 출발점일 뿐)
+   * 3D가 아직 뜨지 않았거나 가벼운 화면인 연결이다.
+   */
+  readonly noPose: number;
+}
+
 export interface LiveHub {
   /** 새 연결(경로의 입장 코드). `hello`를 `LIVE_HELLO_TIMEOUT_MS`까지 기다린다 */
   open(socket: LiveSocket, entryCode: string): LiveConnection;
@@ -124,6 +138,8 @@ export interface LiveHub {
   size(): LiveSize;
   /** 그 전시 방에 든 학생·교사 수(방이 없으면 0) */
   exhibitionCounts(exhibitionId: string): LiveAudience;
+  /** 그 전시 방 학생들의 바닥 위치와 위치 없는 학생 수(읽기만, 방이 없으면 비어 있음) */
+  exhibitionFloor(exhibitionId: string): LiveFloor;
   /** 연결 앞단(attach)의 거절·시간 초과도 같은 칸에서 센다 */
   countReject(code: ErrorCode): void;
   countTimeout(): void;
@@ -674,6 +690,16 @@ export const createLiveHub = (options: LiveHubOptions): LiveHub => {
         else visitors += 1;
       }
       return { visitors, teachers };
+    },
+    exhibitionFloor(exhibitionId) {
+      const positions: { x: number; z: number }[] = [];
+      let noPose = 0;
+      for (const m of rooms.get(exhibitionId)?.members.values() ?? []) {
+        if (m.role === 'teacher') continue;
+        if (m.seq < 0) noPose += 1;
+        else positions.push({ x: m.pose.x, z: m.pose.z });
+      }
+      return { positions, noPose };
     },
     countReject,
     countTimeout: () => void (stats.timeouts += 1),

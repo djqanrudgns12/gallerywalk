@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { config, overrideConfig, resetConfig } from '@gallery/core/config';
 import {
   ApiErrorSchema,
+  ArrangementResultSchema,
   ArtworkTeacherSchema,
   CreateExhibitionResultSchema,
   ExhibitionTeacherSchema,
@@ -647,6 +648,365 @@ describe.each(STORES)('교사 경로 · $name', ({ make }) => {
           .map(x => x.id)
           .sort(),
       ).toEqual([two, three].sort());
+    });
+  });
+
+  describe('한 번에 놓기 PUT …/arrangement(ADR-074)', () => {
+    type View = z.infer<typeof TeacherExhibitionViewSchema>;
+    const arrange = (ex: Made, body: unknown, token = ex.token) =>
+      call('PUT', `/api/teacher/exhibitions/${ex.id}/arrangement`, { token, body });
+    const arranged = async (ex: Made, body: unknown) =>
+      data(await arrange(ex, body), ArrangementResultSchema);
+    /** 보드에 보이는 차례(지운 것 제외, `order` 차례) */
+    const board = (v: View, roomId: string) =>
+      v.artworks
+        .filter(x => x.roomId === roomId && x.deletedAt === null)
+        .sort((p, q) => p.order - q.order)
+        .map(x => x.id);
+    const art = (v: View, artId: string) => v.artworks.find(x => x.id === artId)!;
+
+    /** 1 전시실 [가, 나, 다], 2 전시실 [라, 마] */
+    const setup = async () => {
+      const ex = await newExhibition();
+      const r1 = (await newRoom(ex, 0, '1 전시실')).id;
+      const r2 = (await newRoom(ex, 1, '2 전시실')).id;
+      const ids: string[] = [];
+      // 기기가 계획한 차례(그 전시실 끝부터)로 만든다 — 올리기 순서는 기기가 정한다(검토 H4)
+      for (const [room, order, title] of [
+        [r1, 0, '가'],
+        [r1, 1, '나'],
+        [r1, 2, '다'],
+        [r2, 0, '라'],
+        [r2, 1, '마'],
+      ] as const)
+        ids.push((await newText(ex, room, order, title)).id);
+      const [ga, na, da, ra, ma] = ids as [string, string, string, string, string];
+      return { ex, r1, r2, ga, na, da, ra, ma };
+    };
+
+    it('같은 판 순서: 그 차례로 order 0부터, 바뀐 작품만 rev+1, 내용 판·배치 판이 오른다', async () => {
+      const { ex, r1, ga, na, da } = await setup();
+      const before = await view(ex);
+      const res = await arranged(ex, {
+        base: [{ roomId: r1, ids: [ga, na, da] }],
+        rooms: [{ roomId: r1, ids: [da, ga, na] }],
+      });
+      expect(res.rooms).toEqual([{ roomId: r1, ids: [da, ga, na] }]);
+      const after = await view(ex);
+      expect(board(after, r1)).toEqual([da, ga, na]);
+      expect([ga, na, da].map(id => art(after, id).order)).toEqual([1, 2, 0]);
+      expect(res.revs).toEqual({ [ga]: 2, [na]: 2, [da]: 2 });
+      expect([ga, na, da].map(id => art(after, id).rev)).toEqual([2, 2, 2]);
+      expect(res.revision).toBe(after.versions.contentVersion);
+      expect(after.versions.contentVersion).toBe(before.versions.contentVersion + 1);
+      // 배치 다시 계산(같은 요청 안, ADR-055)
+      expect(after.versions.layoutVersion).toBe(before.versions.layoutVersion + 1);
+      expect(after.layout).not.toBeNull();
+    });
+
+    it('다른 판 n번째: 전시실과 순서를 한 번에, 그대로인 작품은 rev가 그대로', async () => {
+      const { ex, r1, r2, ga, na, da, ra, ma } = await setup();
+      const res = await arranged(ex, {
+        base: [
+          { roomId: r1, ids: [ga, na, da] },
+          { roomId: r2, ids: [ra, ma] },
+        ],
+        rooms: [
+          { roomId: r1, ids: [ga, da] },
+          { roomId: r2, ids: [ra, na, ma] },
+        ],
+      });
+      const v = await view(ex);
+      expect([board(v, r1), board(v, r2)]).toEqual([
+        [ga, da],
+        [ra, na, ma],
+      ]);
+      expect(art(v, na).roomId).toBe(r2);
+      expect(res.revs).toEqual({ [ga]: 1, [da]: 2, [ra]: 1, [na]: 2, [ma]: 2 });
+      // 돌려받은 rev로 바로 고칠 수 있다(제목 자동 저장이 옛 rev로 스스로 충돌하지 않음)
+      const patched = await call('PATCH', `/api/teacher/artworks/${na}`, {
+        token: ex.token,
+        ifMatch: String(res.revs[na]),
+        body: { title: '나 고침' },
+      });
+      expect(patched.status).toBe(200);
+    });
+
+    it('여러 개를 다른 판 앞에, 빈 판도 보내고 받는다', async () => {
+      const { ex, r1, r2, ga, na, da, ra, ma } = await setup();
+      const r3 = (await newRoom(ex, 2, '3 전시실')).id;
+      await arranged(ex, {
+        base: [
+          { roomId: r1, ids: [ga, na, da] },
+          { roomId: r2, ids: [ra, ma] },
+        ],
+        rooms: [
+          { roomId: r1, ids: [na] },
+          { roomId: r2, ids: [ga, da, ra, ma] },
+        ],
+      });
+      expect(board(await view(ex), r2)).toEqual([ga, da, ra, ma]);
+      // 마지막 작품을 빼낸 판(빈 배열) → 빈 판으로
+      const res = await arranged(ex, {
+        base: [
+          { roomId: r1, ids: [na] },
+          { roomId: r3, ids: [] },
+        ],
+        rooms: [
+          { roomId: r1, ids: [] },
+          { roomId: r3, ids: [na] },
+        ],
+      });
+      expect(res.rooms).toEqual([
+        { roomId: r1, ids: [] },
+        { roomId: r3, ids: [na] },
+      ]);
+      const v = await view(ex);
+      expect([board(v, r1), board(v, r3)]).toEqual([[], [na]]);
+    });
+
+    it('base가 서버의 지금 배열과 다르면 409 E_CONFLICT이고 아무것도 바뀌지 않는다', async () => {
+      const { ex, r1, r2, ga, na, da, ra, ma } = await setup();
+      const base = [{ roomId: r1, ids: [ga, na, da] }];
+      // 다른 기기가 먼저 같은 판 순서를 바꿈
+      await arranged(ex, { base, rooms: [{ roomId: r1, ids: [na, ga, da] }] });
+      const before = await view(ex);
+      expect(
+        await failure(await arrange(ex, { base, rooms: [{ roomId: r1, ids: [da, na, ga] }] })),
+      ).toMatchObject({ status: 409, code: 'E_CONFLICT' });
+      // 작품이 다른 판으로 가 버림 · 지운 작품이 base에 있음
+      const twoRooms = (r1Ids: string[], r2Ids: string[]) => [
+        { roomId: r1, ids: r1Ids },
+        { roomId: r2, ids: r2Ids },
+      ];
+      expect(
+        await codeOf(
+          await arrange(ex, {
+            base: twoRooms([na, ga], [da, ra, ma]),
+            rooms: twoRooms([ga, na], [da, ra, ma]),
+          }),
+        ),
+      ).toBe('E_CONFLICT');
+      await call('DELETE', `/api/teacher/artworks/${da}`, {
+        token: ex.token,
+        ifMatch: String(art(before, da).rev),
+      });
+      expect(
+        await codeOf(
+          await arrange(ex, {
+            base: [{ roomId: r1, ids: [na, ga, da] }],
+            rooms: [{ roomId: r1, ids: [da, na, ga] }],
+          }),
+        ),
+      ).toBe('E_CONFLICT');
+      const after = await view(ex);
+      expect(board(after, r1)).toEqual([na, ga]);
+      expect(after.versions.contentVersion).toBe(before.versions.contentVersion + 1); // 지우기 한 번만
+    });
+
+    it('그사이 올라온 작품(base에 없음)은 충돌이 아니고 그 판 끝에 붙는다', async () => {
+      const { ex, r1, r2, ga, na, da, ra, ma } = await setup();
+      const base = [
+        { roomId: r1, ids: [ga, na, da] },
+        { roomId: r2, ids: [ra, ma] },
+      ];
+      // 올리는 중(처리 중 PDF)·방금 만든 글 — base에 없으니 충돌이 아니고, 놓은 판의 끝에 붙는다
+      const pdf = await data(
+        await call('POST', `/api/teacher/exhibitions/${ex.id}/artworks`, {
+          token: ex.token,
+          body: { id: randomUUID(), roomId: r2, order: 0, title: '보고서', kind: 'PDF', pageCount: 2 },
+        }),
+        ArtworkTeacherSchema,
+      );
+      const text = await newText(ex, r1, 0, '새 글');
+      const res = await arranged(ex, {
+        base,
+        rooms: [
+          { roomId: r1, ids: [na, da] },
+          { roomId: r2, ids: [ga, ra, ma] },
+        ],
+      });
+      expect(res.rooms).toEqual([
+        { roomId: r1, ids: [na, da, text.id] },
+        { roomId: r2, ids: [ga, ra, ma, pdf.id] },
+      ]);
+      const v = await view(ex);
+      expect([board(v, r1), board(v, r2)]).toEqual([
+        [na, da, text.id],
+        [ga, ra, ma, pdf.id],
+      ]);
+      expect(res.revs[pdf.id]).toBe(art(v, pdf.id).rev);
+    });
+
+    it('남의 전시실·없는 전시실·남의 전시는 E_NOT_FOUND, 모양이 틀리면 E_VALIDATION', async () => {
+      const { ex, r1, ga, na, da } = await setup();
+      const other = await newExhibition('다른 전시');
+      const theirs = (await newRoom(other, 0, '남의 전시실')).id;
+      for (const roomId of [theirs, randomUUID()])
+        expect(
+          await failure(
+            await arrange(ex, {
+              base: [
+                { roomId: r1, ids: [ga, na, da] },
+                { roomId, ids: [] },
+              ],
+              rooms: [
+                { roomId: r1, ids: [ga, na] },
+                { roomId, ids: [da] },
+              ],
+            }),
+          ),
+        ).toMatchObject({ status: 404, code: 'E_NOT_FOUND' });
+      const same = { base: [{ roomId: r1, ids: [ga, na, da] }], rooms: [{ roomId: r1, ids: [na, ga, da] }] };
+      expect(await codeOf(await arrange(other, same, ex.token))).toBe('E_NOT_FOUND');
+      // base와 rooms의 작품 집합이 다름
+      expect(
+        await codeOf(await arrange(ex, { base: same.base, rooms: [{ roomId: r1, ids: [na, ga] }] })),
+      ).toBe('E_VALIDATION');
+      expect(board(await view(ex), r1)).toEqual([ga, na, da]);
+    });
+
+    it('전시실이 바뀐 대표작은 풀리고, 되돌리기(맞바꿈 + restoreFeatured)로 되살아난다', async () => {
+      const { ex, r1, r2, ga, na, da, ra, ma } = await setup();
+      const v0 = await view(ex);
+      const featured = await call('PATCH', `/api/teacher/artworks/${na}`, {
+        token: ex.token,
+        ifMatch: String(art(v0, na).rev),
+        body: { featured: true },
+      });
+      expect(featured.status).toBe(200);
+      const before = [
+        { roomId: r1, ids: [ga, na, da] },
+        { roomId: r2, ids: [ra, ma] },
+      ];
+      const moved = [
+        { roomId: r1, ids: [ga, da] },
+        { roomId: r2, ids: [na, ra, ma] },
+      ];
+      await arranged(ex, { base: before, rooms: moved });
+      expect(art(await view(ex), na).featured).toBe(false);
+      // restoreFeatured는 rooms 안의 작품만
+      expect(
+        await codeOf(await arrange(ex, { base: moved, rooms: before, restoreFeatured: [randomUUID()] })),
+      ).toBe('E_VALIDATION');
+      const undo = await arranged(ex, { base: moved, rooms: before, restoreFeatured: [na] });
+      const v = await view(ex);
+      expect([board(v, r1), board(v, r2)]).toEqual([
+        [ga, na, da],
+        [ra, ma],
+      ]);
+      expect(art(v, na).featured).toBe(true);
+      expect(undo.revs[na]).toBe(art(v, na).rev);
+    });
+
+    it('되살릴 판에 이미 대표작이 있으면 표시 없이 옮긴다', async () => {
+      const { ex, r1, r2, ga, na, da, ra, ma } = await setup();
+      const before = [
+        { roomId: r1, ids: [ga, na, da] },
+        { roomId: r2, ids: [ra, ma] },
+      ];
+      const moved = [
+        { roomId: r1, ids: [ga, da] },
+        { roomId: r2, ids: [ra, ma, na] },
+      ];
+      await arranged(ex, { base: before, rooms: moved });
+      const v1 = await view(ex);
+      await call('PATCH', `/api/teacher/artworks/${ga}`, {
+        token: ex.token,
+        ifMatch: String(art(v1, ga).rev),
+        body: { featured: true },
+      });
+      await arranged(ex, { base: moved, rooms: before, restoreFeatured: [na] });
+      const v = await view(ex);
+      expect([art(v, ga).featured, art(v, na).featured]).toEqual([true, false]);
+    });
+
+    it('바뀐 것이 없으면 내용 판을 올리지 않는다', async () => {
+      const { ex, r1, ga, na, da } = await setup();
+      const before = await view(ex);
+      const same = [{ roomId: r1, ids: [ga, na, da] }];
+      const res = await arranged(ex, { base: same, rooms: same });
+      expect(res.revision).toBe(before.versions.contentVersion);
+      expect(res.revs).toEqual({ [ga]: 1, [na]: 1, [da]: 1 });
+    });
+
+    it('되살리기는 그 전시실 끝으로 간다', async () => {
+      const { ex, r1, ga, na, da } = await setup();
+      const v0 = await view(ex);
+      await call('DELETE', `/api/teacher/artworks/${ga}`, {
+        token: ex.token,
+        ifMatch: String(art(v0, ga).rev),
+      });
+      // 지운 사이 순서를 바꿔도(지운 작품의 옛 order 0이 다시 쓰여도) 되살린 작품은 끝
+      await arranged(ex, { base: [{ roomId: r1, ids: [na, da] }], rooms: [{ roomId: r1, ids: [da, na] }] });
+      const restored = await data(
+        await call('POST', `/api/teacher/artworks/${ga}/restore`, { token: ex.token }),
+        ArtworkTeacherSchema,
+      );
+      expect(board(await view(ex), r1)).toEqual([da, na, ga]);
+      expect(restored.order).toBeGreaterThan(1);
+    });
+
+    it('올리기(글·PDF)는 기기가 계획한 차례를 쓴다 — 늦게 끝난 것이 먼저 계획됐으면 앞(폴더 차례 유지, 검토 H4)', async () => {
+      const { ex, r1, ga, na, da } = await setup();
+      // 계획: 보고서(3번째 뒤) → 글(4번째 뒤). 글이 먼저 끝나 먼저 만들어져도 차례는 계획대로
+      const text = await newText(ex, r1, 4, '나중에 계획한 글');
+      const pdf = await data(
+        await call('POST', `/api/teacher/exhibitions/${ex.id}/artworks`, {
+          token: ex.token,
+          body: { id: randomUUID(), roomId: r1, order: 3, title: '보고서', kind: 'PDF', pageCount: 2 },
+        }),
+        ArtworkTeacherSchema,
+      );
+      expect([pdf.order, text.order]).toEqual([3, 4]);
+      expect(board(await view(ex), r1)).toEqual([ga, na, da, pdf.id, text.id]);
+    });
+
+    it('다른 기기가 이 판에 옮겨 넣은 작품(이 기기가 아는 known)은 새 작품이 아니라 충돌(검토 M4)', async () => {
+      const { ex, r1, r2, ga, na, da, ra, ma } = await setup();
+      // 다른 기기: r2의 ra를 r1 맨 앞으로
+      await arranged(ex, {
+        base: [
+          { roomId: r1, ids: [ga, na, da] },
+          { roomId: r2, ids: [ra, ma] },
+        ],
+        rooms: [
+          { roomId: r1, ids: [ra, ga, na, da] },
+          { roomId: r2, ids: [ma] },
+        ],
+      });
+      // 옛 보기의 이 기기: r1 순서만 바꿈. ra를 r2에 있다고 알고 있다
+      const res = await call('PUT', `/api/teacher/exhibitions/${ex.id}/arrangement`, {
+        token: ex.token,
+        body: {
+          base: [{ roomId: r1, ids: [ga, na, da] }],
+          rooms: [{ roomId: r1, ids: [da, ga, na] }],
+          known: [ra, ma],
+        },
+      });
+      expect(await codeOf(res)).toBe('E_CONFLICT');
+      expect(board(await view(ex), r1)).toEqual([ra, ga, na, da]);
+    });
+
+    it('전시실 판 순서 rooms/order: base가 지금 순서와 다르면 E_CONFLICT, 맞으면 바뀐다', async () => {
+      const { ex, r1, r2 } = await setup();
+      const order = `/api/teacher/exhibitions/${ex.id}/rooms/order`;
+      expect(
+        await failure(await call('PUT', order, { token: ex.token, body: { ids: [r2, r1], base: [r2, r1] } })),
+      ).toMatchObject({ status: 409, code: 'E_CONFLICT' });
+      expect(
+        (await call('PUT', order, { token: ex.token, body: { ids: [r2, r1], base: [r1, r2] } })).status,
+      ).toBe(204);
+      expect((await view(ex)).rooms.map(r => r.id)).toEqual([r2, r1]);
+      // 같은 요청을 다시(다른 기기가 본 옛 순서) → 충돌
+      expect(
+        await codeOf(await call('PUT', order, { token: ex.token, body: { ids: [r2, r1], base: [r1, r2] } })),
+      ).toBe('E_CONFLICT');
+      // 되돌리기 = 맞바꿈
+      expect(
+        (await call('PUT', order, { token: ex.token, body: { ids: [r1, r2], base: [r2, r1] } })).status,
+      ).toBe(204);
+      expect((await view(ex)).rooms.map(r => r.id)).toEqual([r1, r2]);
     });
   });
 

@@ -1,8 +1,9 @@
 import react from '@vitejs/plugin-react';
 import { createHash } from 'node:crypto';
-import { createReadStream, readdirSync, readFileSync, statSync } from 'node:fs';
+import { appendFileSync, createReadStream, readdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, extname, join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { defaultClientConditions, defineConfig, type Plugin } from 'vite';
 
 /**
@@ -116,8 +117,51 @@ const serviceWorkerManifest = (): Plugin => ({
   },
 });
 
+/**
+ * 첫 받기 JS 크기(FIELD_PLAN HT-17 기준선): 학생 첫 화면(`app` 진입과 그 정적 의존)과 교사 첫 화면(여기에 `TeacherApp`
+ * 동적 묶음과 그 정적 의존을 더함)의 JS를 gzip으로 재어 빌드 출력에 한 줄 남긴다. CI(`verify`)에서는 단계 요약에도 적는다.
+ * 교사 화면 안에서 나중에 받는 묶음(3D 미리 보기·투어·PDF 엔진)은 세지 않는다. G-32 끝 조건: 교사 증가 ≤ 15KB.
+ */
+const firstLoadReport = (): Plugin => ({
+  name: 'gallery-first-load-report',
+  apply: 'build',
+  generateBundle: {
+    order: 'post',
+    handler(_options, bundle) {
+      const chunks = Object.values(bundle).flatMap(item => (item.type === 'chunk' ? [item] : []));
+      const app = chunks.find(chunk => chunk.isEntry && chunk.name === 'app');
+      const teacher = chunks.find(chunk => chunk.facadeModuleId?.endsWith('/app/teacher/TeacherApp.tsx'));
+      if (!app || !teacher) throw new Error('first-load report: app or TeacherApp chunk missing');
+      const closure = (starts: readonly string[]): string[] => {
+        const seen = new Set<string>();
+        const visit = (name: string): void => {
+          const item = bundle[name];
+          if (!item || item.type !== 'chunk' || seen.has(name)) return;
+          seen.add(name);
+          for (const dependency of item.imports) visit(dependency);
+        };
+        for (const name of starts) visit(name);
+        return [...seen];
+      };
+      const gzipBytes = (names: readonly string[]): number =>
+        names.reduce((sum, name) => {
+          const item = bundle[name];
+          return item?.type === 'chunk' ? sum + gzipSync(item.code).byteLength : sum;
+        }, 0);
+      const student = closure([app.fileName]);
+      const teacherFirst = closure([app.fileName, teacher.fileName]);
+      const line =
+        `first-load JS gzip: student ${gzipBytes(student)} B (${student.length} files), ` +
+        `teacher ${gzipBytes(teacherFirst)} B (${teacherFirst.length} files)`;
+      console.log(`[gallery] ${line}`);
+      const summary = process.env['GITHUB_STEP_SUMMARY'];
+      if (summary) appendFileSync(summary, `- ${line}\n`);
+    },
+  },
+});
+
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), devPages(), pdfjsAssets(), serviceWorkerManifest()],
+  plugins: [react(), devPages(), pdfjsAssets(), serviceWorkerManifest(), firstLoadReport()],
   resolve: { conditions: ['@gallery/source', ...defaultClientConditions] },
   server: {
     host: '127.0.0.1',

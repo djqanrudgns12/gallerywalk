@@ -470,6 +470,10 @@ export const copy = {
       cancelled: '옮기기를 그만뒀어요',
       roleCard: '옮길 수 있는 작품',
       roleRoom: '옮길 수 있는 전시실',
+      /** v3 판 사이 끌기(G-32): 놓일 판 머리 안내 · 화면 낭독기 자리 안내 · 여러 개 겹침 */
+      dropHint: '놓으면 {n}번째로 걸려요',
+      overSlot: '{room} {n}번째 자리',
+      group: '{n}점',
     },
     warnBlurry: '조금 흐려요',
     warnUntitled: '제목이 없어요',
@@ -674,6 +678,38 @@ export const copy = {
       /** 자동 투어 시작 덮개의 한 줄(PLAN §6.13) */
       tourHint: '수업 전 미리 불러오기를 먼저 하면 끊김이 없어요',
     },
+    /**
+     * 수업 탭(HT-07, G-26·G-32): 큰 숫자·쌓은 막대·지도 위 학생 점·그림 타일. 수만 보이고 개인 위치·별명은 없다.
+     * `{n}` = 수, `{sec}` = `LIVE_TEACHER_POLL_SEC`
+     */
+    classTab: {
+      /** 큰 숫자 옆 이름표 */
+      watching: '명이 관람 중',
+      /** 쌓은 막대 묶음 이름(화면 낭독기) · 세 칸 · 막대 밖 선생님 수 */
+      split: '관람 중인 학생 나눔',
+      inRooms: '전시실 안',
+      elsewhere: '홀·광장·복도',
+      noPose: '위치 없음',
+      teachers: '선생님',
+      light: '오늘 가벼운 화면으로 들어온 학생 {n}명',
+      mapTitle: '지금 어디에 있나',
+      mapHint: '{sec}초마다 새로 봐요',
+      /** 열기 전·닫힌 뒤: 큰 숫자 대신 */
+      draftNotice: '전시를 열면 학생이 들어올 수 있어요',
+      closedNotice: '닫힌 전시예요. 학생은 새로 들어올 수 없어요',
+      entryLabel: '입장',
+      toolsLabel: '수업 도구',
+      tour: '자동 투어',
+      tourHint: '전시실 순서대로 함께',
+      tourStart: '시작',
+      tourStartLabel: '자동 투어 시작',
+      bubbles: '말풍선',
+      bubblesHint: '스티커와 정해진 말만',
+      reactions: '반응',
+      reactionsHint: '지금까지 들어온 반응',
+      network: '학교망 점검',
+      networkHint: '수업 전에 한 번 재 봐요',
+    },
     /** 반응 탭(P5-8, G-15) */
     reactionsTab: {
       title: '반응',
@@ -702,6 +738,7 @@ export const copy = {
       open: '전시 열기',
       tabsLabel: '전시 관리',
       tabArtworks: '작품',
+      tabClass: '수업',
       tabReactions: '반응',
       roomsLabel: '전시실',
       roomDefault: '전시실 {n}',
@@ -714,6 +751,7 @@ export const copy = {
       emptyRoom: '이 전시실에는 아직 작품이 없어요',
       sideLabel: '작품 고치기',
       sideHint: '작품을 누르면 오른쪽에서 고칠 수 있어요',
+      sideClose: '닫기',
       batchLabel: '고른 작품',
       batchHide: '숨기기',
       batchPublish: '게시',
@@ -729,6 +767,58 @@ export const copy = {
       previewLoading: '미리 보기를 준비하고 있어요',
       previewNo3d: '이 기기에서는 3D 미리 보기를 볼 수 없어요',
       previewEmpty: '게시한 작품이 있어야 미리 볼 수 있어요',
+      /** v3 요약 줄(G-32) */
+      statArtworks: '작품',
+      statRooms: '전시실',
+      checkCount: '확인할 것',
+      sizeLabel: '액자 크기',
+      sizeBig: '크게',
+      sizeSmall: '작게',
+      selectMany: '여러 개 고르기',
+      /** 축측 지도(G-32, HT-04) */
+      mapLabel: '전시 지도',
+      mapEntry: '입구',
+      mapPeople: '{n}명',
+      mapEmpty: '게시한 작품이 있으면 지도가 그려져요',
+    },
+    /** 액자 키 도움말(G-32, HT-09). `keys`는 누를 키, 나머지는 하는 일 */
+    keys: {
+      title: '키보드로 하기',
+      close: '닫기',
+      open: '살펴보기',
+      select: '여러 개 고르기',
+      prevNext: '이웃 작품으로',
+      nudge: '한 칸 옮기기',
+      pick: '집어서 옮기기 — 화살표로 자리, Space로 놓기, Esc로 그만두기',
+      hide: '숨기기 · 게시',
+      delete: '삭제(되살릴 수 있어요)',
+      undo: '되돌리기',
+      help: '이 도움말',
+      keys: {
+        open: 'Enter',
+        select: 'Space',
+        prevNext: '← →',
+        nudge: 'Alt + ← →',
+        pick: 'M',
+        hide: 'H',
+        delete: 'Delete',
+        undo: 'Ctrl + Z',
+        help: '?',
+      },
+    },
+    /** 전시실 줄 보드(G-26·G-32) */
+    board: {
+      featured: '대표',
+      cellLabel: '{n}번째 · {title}',
+      boardLabel: '{n} {name}',
+      bgm: '배경음악',
+      handle: '‘{name}’ 전시실 순서 바꾸기',
+      edit: '고치기',
+      expand: '‘{name}’ 펼치기',
+      collapse: '‘{name}’ 접기',
+      /** 태블릿 지도 띠: 끄는 동안 놓일 자리 */
+      dropAt: '놓을 자리',
+      dropAtValue: '{no} {name} · {n}번째',
     },
     /** 올리기(P5-3, PLAN §5.2·§5.3). 막힘 문구는 `errorCopy`, 해결법은 `fix` */
     upload: {
@@ -801,6 +891,27 @@ export const copy = {
       delete: '삭제',
       deleted: '삭제했어요',
       restore: '되살리기',
+      /** 살펴보기 칸(G-32, HT-05). `{no}` = 전시실 번호 01~, `{n}` = 그 전시실 안 차례(1부터) */
+      inspectLabel: '작품 살펴보기',
+      prev: '이전 작품',
+      next: '다음 작품',
+      position: '{no} · {n}번째',
+      /** 전시실 번호 타일의 낭독 이름 */
+      roomTile: '{no} {name}, {n}점',
+      /** 순서 숫자의 낭독 글 */
+      orderValue: '{total}점 중 {n}번째',
+      formShort: '형태',
+      formOther: '다른 형태',
+      autoReset: '자동으로 되돌리기',
+      visible: '게시',
+      /** 걸린 자리: `{no} 전시실 {wall}`(배치의 논리 벽, 이젤이면 `easel`) */
+      hungAt: '걸린 자리',
+      hungPlace: '{no} 전시실 {wall}',
+      walls: { N: '입구 쪽 벽', F: '안쪽 벽', L: '옆벽', R: '옆벽', easel: '가운데 이젤' },
+      notHung: '지금은 걸려 있지 않아요',
+      previewHere: '3D에서 이 자리 보기',
+      /** 휴대폰 시트 아래 줄(시안 04) */
+      previewHereShort: '3D에서 보기',
     },
     /** 편집 되돌리기(HT-08). `{eul}` = 제목 뒤 '을/를'(`eulReul`), `{ro}` = 전시실 이름 뒤 '으로/로'(`roAfter`) */
     undo: {
@@ -808,6 +919,8 @@ export const copy = {
       moved: '‘{title}’{eul} {n}번째로 옮겼어요',
       movedRoom: '‘{title}’{eul} ‘{room}’{ro} 옮겼어요',
       movedMany: '작품 {n}점을 ‘{room}’{ro} 옮겼어요',
+      /** 다른 전시실 n번째로(G-32 끌어 놓기) */
+      movedTo: '‘{title}’{eul} ‘{room}’ {n}번째로 옮겼어요',
       hidden: '‘{title}’{eul} 숨겼어요',
       published: '‘{title}’{eul} 게시했어요',
       hiddenMany: '작품 {n}점을 숨겼어요',

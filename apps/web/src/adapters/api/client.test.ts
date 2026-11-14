@@ -532,6 +532,34 @@ describe('교사 경로 표(메서드·경로·If-Match·본문·응답 스키�
     textBody: '본문',
   };
   const pdfArtwork = { id: ART, roomId: ROOM, order: 1, title: '보고서', kind: 'PDF' as const, pageCount: 3 };
+  const ROOM2 = id(5);
+  const arrangement = {
+    base: [
+      { roomId: ROOM, ids: [ART] },
+      { roomId: ROOM2, ids: [] },
+    ],
+    rooms: [
+      { roomId: ROOM, ids: [] },
+      { roomId: ROOM2, ids: [ART] },
+    ],
+  };
+  const arranged = {
+    rooms: [
+      { roomId: ROOM, ids: [] },
+      { roomId: ROOM2, ids: [ART] },
+    ],
+    revs: { [ART]: 2 },
+    revision: 7,
+  };
+  const liveStats = {
+    visitors: 3,
+    teachers: 1,
+    light: 1,
+    reasons: { ready_timeout: 1 },
+    rooms: [{ roomId: ROOM, count: 2 }],
+    elsewhere: 1,
+    noPose: 0,
+  };
 
   const cases: readonly Case[] = [
     {
@@ -618,6 +646,13 @@ describe('교사 경로 표(메서드·경로·If-Match·본문·응답 스키�
       body: { ids: [ROOM] },
     },
     {
+      name: '전시실 순서(바꾸기 전 순서와 함께)',
+      run: () => t().reorderRooms(EX, [ROOM, ROOM2], [ROOM2, ROOM]),
+      route: `PUT /api/teacher/exhibitions/${EX}/rooms/order`,
+      reply: noContent(),
+      body: { ids: [ROOM, ROOM2], base: [ROOM2, ROOM] },
+    },
+    {
       name: '배경음악 빼기',
       run: () => t().removeBgm(EX, ROOM),
       route: `DELETE /api/teacher/rooms/${ROOM}/bgm`,
@@ -660,6 +695,14 @@ describe('교사 경로 표(메서드·경로·If-Match·본문·응답 스키�
       body: { ids: [ART] },
     },
     {
+      name: '한 번에 놓기',
+      run: () => t().putArrangement(EX, arrangement),
+      route: `PUT /api/teacher/exhibitions/${EX}/arrangement`,
+      reply: okJson(arranged),
+      body: arrangement,
+      result: arranged,
+    },
+    {
       name: '여러 개 바꾸기',
       run: () => t().batchArtworks(EX, batch),
       route: 'POST /api/teacher/artworks/batch',
@@ -678,6 +721,13 @@ describe('교사 경로 표(메서드·경로·If-Match·본문·응답 스키�
       run: () => t().restoreArtwork(EX, ART),
       route: `POST /api/teacher/artworks/${ART}/restore`,
       reply: okJson(artworkTeacher),
+    },
+    {
+      name: '지금 관람 수',
+      run: () => t().getLive(EX),
+      route: `GET /api/teacher/exhibitions/${EX}/live`,
+      reply: okJson(liveStats),
+      result: liveStats,
     },
     {
       name: '반응 모아 보기',

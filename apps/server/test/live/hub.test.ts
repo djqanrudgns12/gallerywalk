@@ -437,4 +437,26 @@ describe('함께 관람 허브', () => {
     await until(() => rig.hub.exhibitionCounts(ex.id).teachers === 0);
     expect(rig.hub.exhibitionCounts(ex.id)).toEqual({ visitors: 0, teachers: 0 });
   });
+
+  it('exhibitionFloor: 위치를 보낸 학생의 바닥 위치만, 아직 안 보낸 학생은 noPose, 교사·다른 전시는 빠짐', async () => {
+    const ex = seedExhibition(rig.t);
+    const other = seedExhibition(rig.t);
+    expect(rig.hub.exhibitionFloor(ex.id)).toEqual({ positions: [], noPose: 0 });
+    const a = await enter(rig, ex.entryCode, hello(newToken(), { pose: pose(1) }));
+    const b = await enter(rig, ex.entryCode, hello(newToken(), { pose: pose(2) }));
+    const teacher = await enter(rig, ex.entryCode, hello(seedTeacher(rig.t, ex.id), { as: 'teacher' }));
+    await enter(rig, other.entryCode, hello(newToken()));
+    // hello의 위치는 출발점일 뿐 — 위치를 보내기 전에는 위치 없음
+    expect(rig.hub.exhibitionFloor(ex.id)).toEqual({ positions: [], noPose: 2 });
+    a.client.send({ t: 'pose', seq: 1, pose: pose(6, { y: 1.5 }) });
+    teacher.client.send({ t: 'pose', seq: 1, pose: pose(8) });
+    await until(() => rig.hub.exhibitionFloor(ex.id).noPose === 1);
+    // 누구인지·높이·방향은 싣지 않는다
+    expect(rig.hub.exhibitionFloor(ex.id)).toEqual({ positions: [{ x: 6, z: -3 }], noPose: 1 });
+    a.client.close();
+    await until(() => rig.hub.exhibitionFloor(ex.id).positions.length === 0);
+    expect(rig.hub.exhibitionFloor(ex.id)).toEqual({ positions: [], noPose: 1 });
+    b.client.close();
+    teacher.client.close();
+  });
 });

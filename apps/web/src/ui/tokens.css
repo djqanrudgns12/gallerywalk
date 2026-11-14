@@ -1,6 +1,7 @@
 /**
  * 공통 디자인 토큰 (PLAN §12.2, PRD 8.2·9.5·9.6, ADR-012·ADR-057)
- * - 색 변수는 테마 파일(themes/*.css)의 [data-theme]에서만 정의한다.
+ * - 색 변수는 테마 파일(themes/*.css)의 [data-theme]에서 정의한다. 예외는 아래 교사 관리 화면 묶음
+ *   [data-surface='manage'](G-32)으로, 테마와 상관없이 같은 돌·종이 색을 쓴다.
  * - 간격은 4px 단위, 글자 크기는 7단계, 줄 간격은 2개, 모서리·그림자·조작 크기를 정의한다.
  * - 움직임 시간은 PRD 8.2 장면별 기준 표와 같게 맞춘다.
  */
@@ -93,6 +94,128 @@
   /* 움직임 곡선 2개 (PLAN §4.8, §12.2) */
   --ease-move: cubic-bezier(0.45, 0, 0.15, 1); /* 출발 가속 짧게·도착 감속 길게 */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1); /* 시트·캡션 등장 감속 */
+}
+
+/**
+ * 교사 관리 화면 v3 묶음 (PRD G-32, FIELD_PLAN §5.4, HT-13)
+ * - 교사 관리 화면 바깥 틀에 `data-surface="manage"`를 달면 켜진다. 학생 관람 테마(themes/*.css)는 바꾸지 않는다.
+ * - 돌 바탕(--manage-ground) 위에 종이 칸(--manage-surface), 그 위에 돋움 칸(--manage-raised) 두 층.
+ * - 남색·황동·자주·빨강·초록은 테마 변수(--accent·--brass·--accent-plum·--danger·--status-ok)를 그대로 쓴다.
+ * - 깊이는 그라데이션 없이 면의 밝기 차이와 그림자 3단(--elev-1·--elev-2·--hang)으로만 낸다.
+ * - 액자 높이의 출처는 이 묶음의 --frame-h-* 하나다(크게 92px·작게 56px·태블릿 72px, 대표작 1.2배).
+ *
+ * [WCAG 2.1 글자 대비 — 바탕(ground) / 칸(surface) / 돋움 칸(raised)]
+ * - --manage-ink   (#1F1C19) : 12.44 / 14.91 / 16.13
+ * - --manage-ink-2 (#4B443E) :  7.01 /  8.41 /  9.10
+ * - --manage-ink-3 (#5E564D) :  5.29 /  6.34 /  6.85
+ * - --manage-warn  (#A24F17) :  4.20 미달 / 5.03 / 5.45  → 돌 바탕 위 글자로 쓰지 않는다(칸·돋움 칸 위에서만)
+ * - --manage-ink-quiet (#8C8378): 2.73 / 3.28 / 3.55 → 24px 이상 큰 숫자 전용(큰 글자 3:1), 본문 글자 금지
+ * - --manage-on-accent (#FBF9F5) on --accent: 11.75, --manage-on-accent-2 (#C9D3E2) on --accent: 8.18
+ * - --manage-viewing-ink (#ECE6DB) / --manage-viewing-ink-2 (#B9AFA1) on --manage-viewing: 10.39 / 5.97
+ * - --status-ok (#1B5736) on --manage-ok-soft (#EEF4EF): 7.64
+ */
+[data-surface='manage'] {
+  /* 면: 돌 바탕 → 종이 칸 → 돋움 칸, 감상 상자 하나 */
+  --manage-ground: #e2dcd2;
+  --manage-surface: #f3f0ea;
+  --manage-raised: #fbf9f5;
+  --manage-viewing: #35312c;
+  --manage-viewing-ink: #ece6db;
+  --manage-viewing-ink-2: #b9afa1;
+
+  /* 선: 바탕 위 선 / 칸 안 선 */
+  --manage-rule: #d0c8bb;
+  --manage-rule-soft: #e6e0d6;
+
+  /* 글 */
+  --manage-ink: #1f1c19;
+  --manage-ink-2: #4b443e;
+  --manage-ink-3: #5e564d;
+  --manage-ink-quiet: #8c8378; /* 큰 숫자 전용(전시실 번호 등) */
+  --manage-on-accent: #fbf9f5;
+  --manage-on-accent-2: #c9d3e2;
+
+  /* 액자: 어두운 나무 테 · 바랜 황동 테(대표작) · 흰 매트 · 그림 자리 */
+  --manage-frame: #463d35;
+  --manage-gilt: #8c6d3c;
+  --manage-mat: #fbfaf6;
+  --manage-art-empty: #d8d0c2;
+  --manage-slot: rgba(29, 53, 87, 0.06); /* 끄는 중 놓일 빈자리 바탕 */
+
+  /* 상태 */
+  --manage-warn: #a24f17; /* 확인할 것 */
+  --manage-warn-edge: #e3cdb9;
+  --manage-ok-soft: #eef4ef;
+  --manage-ok-edge: #b9cdbf;
+  --manage-ok-halo: rgba(27, 87, 54, 0.14);
+  --manage-idle: #9a9186; /* 준비 중·닫힘 점 */
+  --manage-accent-soft: #dfe5ee;
+
+  /* 조작 부품 바탕 */
+  --manage-track: #d8d1c5; /* 고르기(Seg) 홈 */
+  --manage-switch-off: #cbc3b6;
+  --manage-knob: #fdfcf9;
+  --manage-tick: #d6cfc3; /* 순서 눈금 */
+  --manage-bar-soft: #8fa1bb; /* 쌓은 막대 옅은 남색 칸 */
+
+  /* 축측 지도(HT-04, FIELD_PLAN §5.4 ③): 바닥 두 밝기 · 고른/놓일 전시실 · 벽 윗면·두 옆면 · 작품 자리 · 핀 고리 */
+  --axo-corridor: #e2dacd;
+  --axo-floor: #ece5d9;
+  --axo-floor-selected: #d3dae4;
+  --axo-wall-top: #fbf8f2;
+  --axo-wall-edge: #c4baab;
+  --axo-wall-a: #d8cec0;
+  --axo-wall-b: #c4b8a6;
+  --axo-art: #6a6157;
+  --axo-easel: #a39a8d;
+  --axo-ring: rgba(29, 53, 87, 0.16);
+  --axo-model-shadow: 0 7px 7px rgba(31, 28, 25, 0.16);
+
+  /* 그림자 3단 + 작은 그림자 */
+  --elev-1:
+    0 0 0 1px rgba(31, 28, 25, 0.055), 0 1px 2px rgba(31, 28, 25, 0.06),
+    0 6px 18px -10px rgba(31, 28, 25, 0.2);
+  --elev-2: 0 0 0 1px rgba(31, 28, 25, 0.08), 0 22px 40px -14px rgba(31, 28, 25, 0.42);
+  --hang: 0 1px 2px rgba(45, 40, 35, 0.22), 0 8px 14px -7px rgba(45, 40, 35, 0.34);
+  --manage-shadow-tile: 0 1px 1px rgba(31, 28, 25, 0.05);
+  --manage-shadow-seg: 0 1px 2px rgba(31, 28, 25, 0.14);
+  --manage-shadow-knob: 0 1px 2px rgba(31, 28, 25, 0.3);
+  --manage-shadow-accent: 0 4px 10px -6px rgba(29, 53, 87, 0.7);
+
+  /* 액자 크기(출처는 여기 하나) */
+  --frame-h-big: 92px;
+  --frame-h-small: 56px;
+  --frame-h-tablet: 72px;
+  --frame-featured-scale: 1.2;
+  --frame-edge: 2.5px;
+  --frame-edge-small: 2px;
+  --frame-edge-featured: 3px;
+  --frame-mat: 5px;
+  --frame-mat-small: 4px;
+  --frame-mat-featured: 6px;
+
+  /* 글자 크기(교사 관리 화면) */
+  --manage-fs-title: 22px; /* 전시 이름 */
+  --manage-fs-room-no: 32px; /* 전시실 번호(명조) */
+  --manage-fs-room-name: 19px; /* 전시실 이름 */
+  --manage-fs-num-md: 38px; /* 요약 줄 큰 숫자 */
+  --manage-fs-num-xl: 92px; /* 수업 탭 큰 숫자 */
+  --manage-fs-num-step: 26px; /* 순서 숫자 */
+  --manage-fs-num-tile: 18px; /* 전시실 번호 타일 */
+
+  /* 모서리 */
+  --manage-r-tile: 9px;
+  --manage-r-control: 8px;
+  --manage-r-panel: 12px;
+
+  /* 누름 영역: 데스크톱 44px, 터치 기기 48px (FIELD_PLAN §5.4 ⑤) */
+  --manage-touch: var(--touch-min);
+}
+
+@media (pointer: coarse) {
+  [data-surface='manage'] {
+    --manage-touch: 48px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

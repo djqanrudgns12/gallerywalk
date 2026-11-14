@@ -62,6 +62,8 @@ export const movedItem = (
 
 interface KeyLike {
   readonly key: string;
+  /** 자판 위치 — 한글 입력 중 ⌘Z가 'ㅋ'로 와도 되돌리기(검토 L1) */
+  readonly code?: string;
   readonly ctrlKey: boolean;
   readonly metaKey: boolean;
   readonly shiftKey: boolean;
@@ -82,5 +84,5 @@ export const isUndoKey = (e: KeyLike): boolean =>
   (e.ctrlKey || e.metaKey) &&
   !e.shiftKey &&
   !e.altKey &&
-  e.key.toLowerCase() === 'z' &&
+  (e.key.toLowerCase() === 'z' || e.code === 'KeyZ') &&
   !isEditable(e.target);

@@ -34,6 +34,7 @@ export const createTextArtwork = (
       id: body.id,
       exhibitionId: ex.id,
       roomId: body.roomId,
+      // 순서는 기기가 계획한 차례(올리기와 같음, 독립 검토 H4)
       order: body.order,
       title: body.title,
       author: null,

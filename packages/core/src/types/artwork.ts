@@ -154,4 +154,72 @@ export const ArtworkBatchSchema = z.discriminatedUnion('action', [
 ]);
 export type ArtworkBatch = z.infer<typeof ArtworkBatchSchema>;
 
+// ── 한 번에 놓기(ADR-074, FIELD_PLAN §5.5) ─────────────────────
+
+/** 판 하나: 전시실과 그 안의 작품 차례. 마지막 작품을 빼낸 판도 보낼 수 있게 빈 배열을 허용한다(`uniqueIds`와 따로) */
+export const ArrangementRoomSchema = z.strictObject({ roomId: UuidSchema, ids: z.array(UuidSchema) });
+export type ArrangementRoom = z.infer<typeof ArrangementRoomSchema>;
+
+const idsOf = (rooms: readonly ArrangementRoom[]): string[] => rooms.flatMap(r => r.ids);
+const sameSet = (a: readonly string[], b: readonly string[]): boolean => {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return set.size === b.length && b.every(x => set.has(x));
+};
+
+/** 한쪽 배열: 판 1개 이상, 같은 전시실은 한 번만, 작품 ID는 판을 통틀어 한 번만, 상한은 설정에서 그때그때 */
+const arrangementSide = z
+  .array(ArrangementRoomSchema)
+  .min(1)
+  .refine(rooms => rooms.length <= config().ARRANGEMENT_MAX_ROOMS, { message: 'too_many_rooms' })
+  .refine(rooms => idsOf(rooms).length <= config().ARRANGEMENT_MAX_IDS, { message: 'too_many_ids' })
+  .refine(rooms => new Set(rooms.map(r => r.roomId)).size === rooms.length, { message: 'duplicate_rooms' })
+  .refine(rooms => new Set(idsOf(rooms)).size === idsOf(rooms).length, { message: 'duplicate_ids' });
+
+/**
+ * `PUT /api/teacher/exhibitions/{id}/arrangement`: 바꾸기 전 배열 `base`(클라이언트가 본 것)와 바꾼 뒤 배열 `rooms`.
+ * 바뀐 전시실들만 보내고, 두 쪽은 같은 전시실 목록·같은 작품 집합이어야 한다(옮기기는 판 사이에서만 일어난다).
+ * `restoreFeatured`: 되돌리기가 되살릴 대표작(옮기면 풀린 것) — `rooms` 안의 작품만.
+ */
+export const ArrangementSchema = z
+  .strictObject({
+    base: arrangementSide,
+    rooms: arrangementSide,
+    restoreFeatured: z
+      .array(UuidSchema)
+      .refine(ids => ids.length <= config().ARRANGEMENT_MAX_ROOMS, { message: 'too_many_featured' })
+      .refine(ids => new Set(ids).size === ids.length, { message: 'duplicate_ids' })
+      .optional(),
+    /**
+     * 기기가 아는 그 밖의 작품(`base`에 없는 것). 판에 그사이 생긴 작품 중 여기 있는 것은 "새로 올라온 것"이 아니라 다른 기기가
+     * 옮겨 넣은 것이므로 충돌로 본다(독립 검토 M4). 없으면 예전처럼 모두 새 작품으로 끝에 붙인다.
+     */
+    known: z
+      .array(UuidSchema)
+      .refine(ids => ids.length <= config().ARRANGEMENT_MAX_IDS, { message: 'too_many_ids' })
+      .optional(),
+  })
+  .refine(
+    b =>
+      sameSet(
+        b.base.map(r => r.roomId),
+        b.rooms.map(r => r.roomId),
+      ),
+    { message: 'rooms_mismatch', path: ['rooms'] },
+  )
+  .refine(b => sameSet(idsOf(b.base), idsOf(b.rooms)), { message: 'ids_mismatch', path: ['rooms'] })
+  .refine(b => (b.restoreFeatured ?? []).every(id => idsOf(b.rooms).includes(id)), {
+    message: 'not_in_rooms',
+    path: ['restoreFeatured'],
+  });
+export type Arrangement = z.infer<typeof ArrangementSchema>;
+
+/** 응답: 놓은 뒤 서버 배열(그사이 올라온 작품은 끝에 붙어 있음), 그 판들 작품의 새 rev, 전시 내용 판(`versions.contentVersion`) */
+export const ArrangementResultSchema = z.object({
+  rooms: z.array(ArrangementRoomSchema),
+  revs: z.record(UuidSchema, z.number().int().positive()),
+  revision: z.number().int().positive(),
+});
+export type ArrangementResult = z.infer<typeof ArrangementResultSchema>;
+
 export { uniqueIds as UniqueIdsSchema, atLeastOne };

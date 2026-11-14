@@ -2,15 +2,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { overrideConfig, resetConfig } from '../config.ts';
 import {
   ApiErrorSchema,
+  ArrangementSchema,
   ArtworkBatchSchema,
   CreateExhibitionSchema,
   CreateJsonArtworkSchema,
   EntryCodeSchema,
   ExhibitionSettingsSchema,
   LayoutSchema,
+  LiveStatsSchema,
   PatchArtworkSchema,
   PinSchema,
   ReactionBodySchema,
+  RoomOrderSchema,
   VisitorRegisterSchema,
   anythingPublic,
   decodeBase64,
@@ -139,6 +142,90 @@ describe('작품 요청 본문', () => {
     expect(ArtworkBatchSchema.safeParse({ action: 'MOVE', ids: [ID] }).success).toBe(false);
     expect(ArtworkBatchSchema.safeParse({ action: 'MOVE', ids: [ID], roomId: ID2 }).success).toBe(true);
     expect(ArtworkBatchSchema.safeParse({ action: 'HIDE', ids: [ID, ID] }).success).toBe(false);
+  });
+});
+
+describe('한 번에 놓기 본문(ADR-074)', () => {
+  const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const [R1, R2, A, B, C] = [1, 2, 3, 4, 5].map(uuid) as [string, string, string, string, string];
+  const ok = (body: unknown) => ArrangementSchema.safeParse(body).success;
+  const base = [
+    { roomId: R1, ids: [A, B] },
+    { roomId: R2, ids: [C] },
+  ];
+
+  it('빈 판을 받고, 판 목록 차례는 달라도 같은 전시실·같은 작품 집합이면 통과', () => {
+    expect(
+      ok({
+        base,
+        rooms: [
+          { roomId: R2, ids: [C, A, B] },
+          { roomId: R1, ids: [] },
+        ],
+      }),
+    ).toBe(true);
+    expect(ok({ base, rooms: base, restoreFeatured: [A] })).toBe(true);
+  });
+
+  it('전시실 목록·작품 집합이 다르면 거절', () => {
+    expect(ok({ base, rooms: [{ roomId: R1, ids: [A, B, C] }] })).toBe(false);
+    expect(
+      ok({
+        base,
+        rooms: [
+          { roomId: R1, ids: [A] },
+          { roomId: R2, ids: [C] },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it('같은 전시실 두 번·같은 작품 두 번(판을 넘어서도)·빈 목록·모르는 칸은 거절', () => {
+    const twice = [
+      { roomId: R1, ids: [A] },
+      { roomId: R1, ids: [B] },
+    ];
+    expect(ok({ base: twice, rooms: twice })).toBe(false);
+    const dupe = [
+      { roomId: R1, ids: [A, B] },
+      { roomId: R2, ids: [A] },
+    ];
+    expect(ok({ base: dupe, rooms: dupe })).toBe(false);
+    expect(ok({ base: [], rooms: [] })).toBe(false);
+    expect(ok({ base, rooms: base, rogue: 1 })).toBe(false);
+    expect(ok({ base: [{ roomId: R1, ids: ['x'] }], rooms: [{ roomId: R1, ids: ['x'] }] })).toBe(false);
+  });
+
+  it('restoreFeatured는 rooms 안의 작품만, 겹치면 거절', () => {
+    expect(ok({ base, rooms: base, restoreFeatured: [uuid(9)] })).toBe(false);
+    expect(ok({ base, rooms: base, restoreFeatured: [A, A] })).toBe(false);
+  });
+
+  it('상한은 설정에서 그때그때 읽는다(ARRANGEMENT_MAX_ROOMS·ARRANGEMENT_MAX_IDS)', () => {
+    overrideConfig({ ARRANGEMENT_MAX_IDS: 2 });
+    expect(ok({ base, rooms: base })).toBe(false);
+    overrideConfig({ ARRANGEMENT_MAX_IDS: 3, ARRANGEMENT_MAX_ROOMS: 1 });
+    expect(ok({ base, rooms: base })).toBe(false);
+    overrideConfig({ ARRANGEMENT_MAX_ROOMS: 2 });
+    expect(ok({ base, rooms: base })).toBe(true);
+  });
+
+  it('전시실 순서의 base는 선택이고, 겹치면 거절', () => {
+    expect(RoomOrderSchema.safeParse({ ids: [R1, R2] }).success).toBe(true);
+    expect(RoomOrderSchema.safeParse({ ids: [R1, R2], base: [R2, R1] }).success).toBe(true);
+    expect(RoomOrderSchema.safeParse({ ids: [R1, R2], base: [R2, R2] }).success).toBe(false);
+  });
+
+  it('지금 관람 수의 수업 지도 칸은 선택(옛 응답도 통과), 좌표 같은 모르는 칸은 거절', () => {
+    const stats = { visitors: 2, teachers: 1, light: 0, reasons: {} };
+    expect(LiveStatsSchema.safeParse(stats).success).toBe(true);
+    expect(
+      LiveStatsSchema.safeParse({ ...stats, rooms: [{ roomId: R1, count: 2 }], elsewhere: 0, noPose: 1 })
+        .success,
+    ).toBe(true);
+    expect(LiveStatsSchema.safeParse({ ...stats, rooms: [{ roomId: R1, count: 1, x: 3 }] }).success).toBe(
+      false,
+    );
   });
 });
 

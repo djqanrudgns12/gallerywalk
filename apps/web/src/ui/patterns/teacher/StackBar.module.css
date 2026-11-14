@@ -1,0 +1,72 @@
+/* 쌓은 막대(12px 알약) + 점 범례. 칸 사이 2px 틈으로 바탕이 비친다. */
+.root {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-family: var(--font-ui);
+}
+
+.bar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background-color: var(--manage-ground);
+}
+
+.part {
+  display: block;
+  flex-basis: 0;
+  min-width: 4px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-2);
+  color: var(--manage-ink-2);
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.count {
+  font-weight: 700;
+  color: var(--manage-ink);
+}
+
+.dot {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.accent {
+  background-color: var(--accent);
+}
+
+.soft {
+  background-color: var(--manage-bar-soft);
+}
+
+.plum {
+  background-color: var(--accent-plum);
+}
+
+.brass {
+  background-color: var(--brass);
+}
+
+.quiet {
+  background-color: var(--manage-idle);
+}

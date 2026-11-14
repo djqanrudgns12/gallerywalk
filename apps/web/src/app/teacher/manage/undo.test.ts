@@ -187,11 +187,14 @@ describe('편집 되돌리기(HT-08) — 반대 요청', () => {
 
   it('반대 요청이 실패하면(화면 먼저 바꾼 순서) 알리고 서버 상태로 새로 불러온다', async () => {
     let fails = false;
+    let impl: Partial<TeacherApi> = {};
     const { srv, actions } = await setup({
-      reorderArtworks: async () => {
+      putArrangement: async (...args) => {
         if (fails) throw new AppError('E_SERVER');
+        return impl.putArrangement!(...args);
       },
     });
+    impl = srv.impl;
     await actions.nudgeArtwork(A(0, 0), 1);
     fails = true;
     await actions.undo();

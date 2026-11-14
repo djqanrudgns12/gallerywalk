@@ -36,7 +36,7 @@ jobs:
       - run: npx playwright install chromium webkit
       # 배치 해시 시험은 빌드된 @gallery/core(dist)를 가져온다
       - run: npx tsc -b
-      - run: npx playwright test tests/e2e/student.spec.ts tests/e2e/teacher.spec.ts tests/e2e/walk-dev.spec.ts tests/e2e/layout-hash.spec.ts --workers=1
+      - run: npx playwright test tests/e2e/student.spec.ts tests/e2e/teacher.spec.ts tests/e2e/teacher-drag.spec.ts tests/e2e/walk-dev.spec.ts tests/e2e/layout-hash.spec.ts --workers=1
       - if: always()
         uses: actions/upload-artifact@v4
         with:

@@ -158,6 +158,46 @@ export const fakeTeacherServer = (
         if (a.order !== order) bump(a, { order });
       });
     },
+    // 한 번에 놓기(ADR-074): 서버처럼 `base` 뒤에 새로 생긴 작품을 뺀 지금 배열이 `base`와 다르면 충돌, 새 작품은 판 끝,
+    // 판을 옮긴 대표작은 풀고 `restoreFeatured`면 되살림, 바뀐 작품만 rev+1
+    putArrangement: async (_e, body) => {
+      const seen = new Set(body.base.flatMap(r => r.ids));
+      const now = (roomId: string) =>
+        state.artworks
+          .filter(a => a.roomId === roomId && a.deletedAt === null)
+          .sort((a, b) => a.order - b.order || (a.id < b.id ? -1 : 1));
+      const known = new Set(body.known ?? []);
+      for (const r of body.base) {
+        if (now(r.roomId).some(a => !seen.has(a.id) && known.has(a.id))) throw new AppError('E_CONFLICT');
+        const ids = now(r.roomId)
+          .filter(a => seen.has(a.id))
+          .map(a => a.id);
+        if (ids.length !== r.ids.length || ids.some((id, i) => id !== r.ids[i]))
+          throw new AppError('E_CONFLICT');
+      }
+      const restore = new Set(body.restoreFeatured ?? []);
+      const rooms = body.rooms.map(r => ({
+        roomId: r.roomId,
+        ids: [
+          ...r.ids,
+          ...now(r.roomId)
+            .filter(a => !seen.has(a.id))
+            .map(a => a.id),
+        ],
+      }));
+      const revs: Record<string, number> = {};
+      for (const r of rooms) {
+        r.ids.forEach((id, order) => {
+          const a = art(id);
+          const featured = a.roomId === r.roomId ? a.featured : restore.has(id);
+          if (a.roomId !== r.roomId || a.order !== order || a.featured !== featured)
+            bump(a, { roomId: r.roomId, order, featured });
+          revs[id] = a.rev;
+        });
+      }
+      state.versions = { ...state.versions, contentVersion: state.versions.contentVersion + 1 };
+      return { rooms, revs, revision: state.versions.contentVersion };
+    },
     batchArtworks: async (_e, batch) => {
       for (const id of batch.ids) {
         const a = art(id);
@@ -170,7 +210,13 @@ export const fakeTeacherServer = (
       if (rev !== a.rev) throw new AppError('E_CONFLICT');
       bump(a, { deletedAt: 1 });
     },
-    restoreArtwork: async (_e, id) => clone(bump(art(id), { deletedAt: null })),
+    // 서버처럼 되살린 작품은 그 전시실 끝으로(지운 작품의 옛 순서까지 넘어서, ADR-074)
+    restoreArtwork: async (_e, id) => {
+      const a = art(id);
+      const end =
+        state.artworks.filter(x => x.roomId === a.roomId).reduce((m, x) => Math.max(m, x.order), -1) + 1;
+      return clone(bump(a, { deletedAt: null, order: end }));
+    },
     createRoom: async (_e, body) => {
       const r: RoomTeacher = {
         id: body.id,
@@ -203,7 +249,10 @@ export const fakeTeacherServer = (
       }
       state.rooms = state.rooms.filter(x => x.id !== id);
     },
-    reorderRooms: async (_e, ids) => {
+    reorderRooms: async (_e, ids, before) => {
+      const now = [...state.rooms].sort((a, b) => a.order - b.order).map(r => r.id);
+      if (before && (before.length !== now.length || before.some((id, i) => id !== now[i])))
+        throw new AppError('E_CONFLICT');
       ids.forEach((id, order) => bump(room(id), { order }));
     },
     removeBgm: async (_e, id) => {
@@ -259,6 +308,11 @@ export const fakeTeacherServer = (
     state,
     calls,
     named: (name: string) => calls.filter(c => c.name === name),
+    /** 한 번에 놓기(ADR-074)로 보낸 바꾼 뒤 배열(`rooms`)들 */
+    arranged: () =>
+      calls.filter(c => c.name === 'putArrangement').map(c => (c.args[1] as { rooms: unknown }).rooms),
+    /** 바꿔 끼운 메서드가 기본 동작으로 넘길 때(예: 한 번만 실패시키기) */
+    impl: base,
   };
 };
 
